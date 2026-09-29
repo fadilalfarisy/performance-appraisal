@@ -1,0 +1,53 @@
+@baseUrl = http://localhost:3000
+
+# ---------------------------------------------------------
+# Login to get authToken
+# ---------------------------------------------------------
+
+# @name signIn
+POST {{baseUrl}}/auth/signin
+Content-Type: application/json
+
+{
+  "email": "supervisor@example.com",
+  "password": "password123"
+}
+
+### Save Token Variable
+@authToken = {{signIn.response.body.access_token}}
+
+# ---------------------------------------------------------
+
+### 1. Bulk Create Daily Records (Supervisor/Admin)
+POST {{baseUrl}}/daily-records/bulk
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "records": [
+    {
+      "employeeId": 1,
+      "recordDate": "2023-10-27T00:00:00.000Z",
+      "category": "QUALITY",
+      "description": "Exceeded quality standards for Task A"
+    },
+    {
+      "employeeId": 1,
+      "recordDate": "2023-10-27T00:00:00.000Z",
+      "category": "ATTENDANCE",
+      "description": "On time"
+    }
+  ]
+}
+
+###
+
+### 2. Get My Created Records (Supervisor)
+GET {{baseUrl}}/daily-records/my-records
+Authorization: Bearer {{authToken}}
+
+###
+
+### 3. Get Records for Specific Employee
+GET {{baseUrl}}/daily-records/employee/1
+Authorization: Bearer {{authToken}}
