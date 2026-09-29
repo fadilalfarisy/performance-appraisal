@@ -18,6 +18,7 @@
       "onFail": "download"
     }
   },
+  "devDependencies": { "@types/node": "^24.0.0" },
   "packageManager": "pnpm@12.6.0",
   "type": "module"
 }

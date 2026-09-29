@@ -1,1 +1,0 @@
-ALTER TABLE "parent_criteria" ADD COLUMN "description" text;

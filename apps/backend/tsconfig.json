@@ -7,7 +7,6 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "outDir": "dist",
-    "rootDir": "src",
     "sourceMap": true,
     "declaration": true,
     "esModuleInterop": true,
@@ -22,10 +21,15 @@
     "noUnusedParameters": true,
     "skipLibCheck": true,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    "types": [
+      "node",
+      "jest"
+    ]
   },
   "include": [
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "*.ts"
   ],
   "exclude": [
     "node_modules",
