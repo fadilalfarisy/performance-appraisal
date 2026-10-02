@@ -9,13 +9,9 @@ import {
   useGetContractEmployeeQuery,
 } from "../contractApi";
 import { dateFormat } from "@/utils/dateUtils";
+import type { ContractResponse } from "@appraisal/types";
 
-interface DataType {
-  id: number;
-  status: string;
-  startDate: string;
-  endDate?: string | null;
-}
+type DataType = ContractResponse;
 
 export const Contract = () => {
   const navigate = useNavigate();
@@ -30,9 +26,9 @@ export const Contract = () => {
 
   const contracts = Array.isArray(initialValueContract)
     ? initialValueContract
-    : (initialValueContract?.data ?? []);
+    : [];
 
-  const handleDelete = async (contractId: number) => {
+  const handleDelete = async (contractId: string) => {
     if (!employeeId) {
       return;
     }

@@ -21,7 +21,12 @@ export const CriteriaForm = ({
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [queryCriteria, { isLoading }] = formFunction();
+  const [queryCriteria, { isLoading }] = (
+    formFunction as unknown as () => [
+      (arg: unknown) => { unwrap: () => Promise<unknown> },
+      { isLoading: boolean },
+    ]
+  )();
 
   useEffect(() => {
     if (!createForm && initialValues) {

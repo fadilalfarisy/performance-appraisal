@@ -8,12 +8,9 @@ import {
   useDeletePositionMutation,
   useGetPositionsQuery,
 } from "../positionsApi";
+import type { PositionResponse } from "@appraisal/types";
 
-interface DataType {
-  id: number;
-  username: string;
-  role: string;
-}
+type DataType = PositionResponse;
 
 type SearchType = {
   username: string;
@@ -31,7 +28,7 @@ export const Position = () => {
   const [searchCategory, setSearchCategory] = useState("username");
   const [, setQuerySearch] = useState<SearchType>(InitialSearch);
 
-  const { data, isSuccess, isError } = useGetPositionsQuery({});
+  const { data, isSuccess, isError } = useGetPositionsQuery();
   const [deletePosition] = useDeletePositionMutation();
 
   const handleChangeSearch = (value: string) => {

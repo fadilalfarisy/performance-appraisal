@@ -73,8 +73,8 @@ export class DepartmentsService {
     return {
       id: department.id,
       name: department.name,
-      createdAt: department.createdAt,
-      updatedAt: department.updatedAt,
+      createdAt: new Date(department.createdAt).toISOString(),
+      updatedAt: new Date(department.updatedAt).toISOString(),
     };
   }
 }

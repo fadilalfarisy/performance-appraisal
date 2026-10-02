@@ -1,4 +1,1 @@
-export enum CriteriaType {
-    BENEFIT = 'BENEFIT',
-    COST = 'COST',
-}
+export { CriteriaType } from '@appraisal/types';

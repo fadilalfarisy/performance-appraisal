@@ -1,7 +1,8 @@
 import { IsNotEmpty, IsString, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import type { SignInRequest } from '@appraisal/types';
 
-export class SignInDto {
+export class SignInDto implements SignInRequest {
     @ApiProperty({ example: 'user-new' })
     @IsString()
     @IsNotEmpty()

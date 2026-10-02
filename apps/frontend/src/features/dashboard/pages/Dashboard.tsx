@@ -10,13 +10,13 @@ const { Title, Paragraph } = Typography;
 
 export const Dashboard = () => {
   const { data: totalEmployee, isSuccess: isCountEmployeeSuccess } =
-    useCountEmployeeQuery({});
+    useCountEmployeeQuery();
   const {
     data: countEmployeeByDepartment,
     isSuccess: isCountByDepartmentSuccess,
-  } = useCountEmployeeByDepartmentQuery({});
+  } = useCountEmployeeByDepartmentQuery();
   const { data: initialValueCriteria, isSuccess: isGetCriteriaSuccess } =
-    useGetCriteriaQuery({});
+    useGetCriteriaQuery();
 
   return (
     <>

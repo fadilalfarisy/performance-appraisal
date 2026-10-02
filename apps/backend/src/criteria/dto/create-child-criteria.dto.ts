@@ -1,8 +1,9 @@
 import { IsString, IsNotEmpty, IsNumber, Min, Max, IsEnum } from 'class-validator';
 import { CriteriaType } from '../criteria.enum';
 import { ApiProperty } from '@nestjs/swagger';
+import type { CreateChildCriteriaRequest } from '@appraisal/types';
 
-export class CreateChildCriteriaDto {
+export class CreateChildCriteriaDto implements CreateChildCriteriaRequest {
   @ApiProperty({ example: "Criteria Test" })
   @IsString()
   @IsNotEmpty()

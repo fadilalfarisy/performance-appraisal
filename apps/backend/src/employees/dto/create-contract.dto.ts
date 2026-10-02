@@ -6,8 +6,9 @@ import {
 } from 'class-validator';
 import { ContractStatus } from '../enums/contract.enum';
 import { ApiProperty } from '@nestjs/swagger';
+import type { CreateContractRequest } from '@appraisal/types';
 
-export class CreateContractDto {
+export class CreateContractDto implements CreateContractRequest {
   @ApiProperty({ example: ContractStatus.CONTRACT })
   @IsEnum(ContractStatus)
   @IsNotEmpty()

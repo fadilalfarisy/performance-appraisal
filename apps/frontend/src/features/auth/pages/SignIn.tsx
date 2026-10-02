@@ -26,7 +26,7 @@ export const SignIn = () => {
       const authValue: AuthState = {
         logged: true,
         username: result.data?.username,
-        role: result.data?.role,
+        role: result.data?.role ?? "",
         accessToken: result?.data?.accessToken,
       };
       dispatch(setAuth(authValue));

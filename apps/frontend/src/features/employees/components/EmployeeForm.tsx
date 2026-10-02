@@ -28,30 +28,9 @@ import { genderOption } from "@/constants/option/gender";
 import { employeeStatusOption } from "@/constants/option/employee-status";
 import { contractStatusOption } from "@/constants/option/contract-status";
 import { ContractStatus } from "@/constants/enum/contract.enum";
-import { EmployeeStatus } from "@/constants/enum/employee.enum";
-import { GenderEnum } from "@/constants/enum/gender.enum";
+import type { EmployeeResponse } from "@appraisal/types";
 
-type IEmployee = {
-  NIP: string;
-  id?: string;
-  fullName?: string;
-  gender?: GenderEnum;
-  birthDate?: string;
-  department?: {
-    id: string;
-    name: string;
-  };
-  position?: {
-    id: string;
-    name: string;
-  };
-  manager?: {
-    id: string;
-    name: string;
-  } | null;
-  status?: EmployeeStatus;
-  address?: string;
-};
+type IEmployee = Partial<EmployeeResponse>;
 
 type Props = {
   createForm: boolean;
@@ -70,11 +49,16 @@ export const EmployeeForm = ({
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [queryUser, { isLoading }] = formFunction();
+  const [queryUser, { isLoading }] = (
+    formFunction as unknown as () => [
+      (arg: unknown) => { unwrap: () => Promise<unknown> },
+      { isLoading: boolean },
+    ]
+  )();
 
-  const { data: positionsResponse } = useGetPositionsQuery({});
+  const { data: positionsResponse } = useGetPositionsQuery();
 
-  const { data: departmentsResponse } = useGetDepartmentsQuery({});
+  const { data: departmentsResponse } = useGetDepartmentsQuery();
 
   const { data: managerResponse } = useGetEmployeeQuery({});
 
@@ -157,7 +141,7 @@ export const EmployeeForm = ({
     }
 
     return {
-      NIP: initialValues?.NIP,
+      nip: initialValues?.nip,
       fullName: initialValues?.fullName,
       gender: initialValues?.gender,
       birthDate: initialValues?.birthDate
@@ -186,7 +170,7 @@ export const EmployeeForm = ({
           <Col sm={24} md={12}>
             <Form.Item
               label="NIP"
-              name="NIP"
+              name="nip"
               hasFeedback
               rules={[
                 {

@@ -1,16 +1,28 @@
 import { apiSlice } from "@/api/apiSlice";
+import type {
+  ApiResponse,
+  CreateDepartmentRequest,
+  DepartmentResponse,
+  UpdateDepartmentRequest,
+} from "@appraisal/types";
 
 export const departmentsApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
-    getDepartments: builder.query({
+    getDepartments: builder.query<ApiResponse<DepartmentResponse[]>, void>({
       query: () => `/departments`,
       providesTags: ["Departments"],
     }),
-    getDepartmentById: builder.query({
+    getDepartmentById: builder.query<
+      ApiResponse<DepartmentResponse>,
+      string | undefined
+    >({
       query: (id) => `/departments/${id}`,
       providesTags: ["Departments"],
     }),
-    createDepartment: builder.mutation({
+    createDepartment: builder.mutation<
+      ApiResponse<DepartmentResponse>,
+      CreateDepartmentRequest
+    >({
       query: (body) => ({
         url: `/departments`,
         method: "POST",
@@ -18,7 +30,10 @@ export const departmentsApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["Departments"],
     }),
-    updateDepartment: builder.mutation({
+    updateDepartment: builder.mutation<
+      ApiResponse<DepartmentResponse>,
+      { id: string; body: UpdateDepartmentRequest }
+    >({
       query: ({ id, body }) => ({
         url: `/departments/${id}`,
         method: "PATCH",
@@ -26,7 +41,7 @@ export const departmentsApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["Departments"],
     }),
-    deleteDepartment: builder.mutation({
+    deleteDepartment: builder.mutation<ApiResponse<void>, string>({
       query: (id) => ({
         url: `/departments/${id}`,
         method: "DELETE",

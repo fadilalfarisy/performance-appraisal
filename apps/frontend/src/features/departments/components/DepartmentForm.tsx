@@ -19,7 +19,12 @@ export const DepartmentForm = ({
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [queryUser, { isLoading }] = formFunction();
+  const [queryUser, { isLoading }] = (
+    formFunction as unknown as () => [
+      (arg: unknown) => { unwrap: () => Promise<unknown> },
+      { isLoading: boolean },
+    ]
+  )();
 
   const onFinish = async (values: any) => {
     console.log(values)

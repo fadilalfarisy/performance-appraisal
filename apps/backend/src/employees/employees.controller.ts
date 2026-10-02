@@ -14,6 +14,7 @@ import {
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ApiResponse } from '../common/utils/response.util';
+import { UserRole } from '@appraisal/types';
 import { EmployeesService } from './employees.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
@@ -50,7 +51,7 @@ export class EmployeesController {
   }
 
   @Post()
-  @Roles('HR', 'ADMINISTRATOR')
+  @Roles(UserRole.HR, UserRole.ADMIN)
   @ApiOperation({ summary: 'Create a new employee' })
   @ApiSuccess('Create a new employee successfully', HttpStatus.CREATED)
   create(
@@ -60,7 +61,7 @@ export class EmployeesController {
   }
 
   @Patch(':id')
-  @Roles('HR', 'ADMINISTRATOR')
+  @Roles(UserRole.HR, UserRole.ADMIN)
   @ApiOperation({ summary: 'Update employee details' })
   @ApiSuccess('Update employee successfully', HttpStatus.OK)
   updateEmployee(
@@ -71,7 +72,7 @@ export class EmployeesController {
   }
 
   @Delete(':id')
-  @Roles('HR', 'ADMINISTRATOR')
+  @Roles(UserRole.HR, UserRole.ADMIN)
   @ApiSuccess('Delete employee successfully', HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete employee' })
   removeEmployee(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
@@ -98,7 +99,7 @@ export class EmployeesController {
   }
 
   @Post(':id/contracts')
-  @Roles('HR', 'ADMINISTRATOR')
+  @Roles(UserRole.HR, UserRole.ADMIN)
   @ApiOperation({ summary: 'Create a new contract' })
   @ApiSuccess('Create a new contract successfully', HttpStatus.CREATED)
   createContract(
@@ -109,7 +110,7 @@ export class EmployeesController {
   }
 
   @Patch(':id/contracts/:contractId')
-  @Roles('HR', 'ADMINISTRATOR')
+  @Roles(UserRole.HR, UserRole.ADMIN)
   @ApiOperation({ summary: 'Update contract details' })
   @ApiSuccess('Update contract successfully', HttpStatus.OK)
   updateContract(
@@ -121,7 +122,7 @@ export class EmployeesController {
   }
 
   @Delete(':id/contracts/:contractId')
-  @Roles('HR', 'ADMINISTRATOR')
+  @Roles(UserRole.HR, UserRole.ADMIN)
   @ApiOperation({ summary: 'Delete contract' })
   @ApiSuccess('Delete contract successfully', HttpStatus.NO_CONTENT)
   removeContract(@Param('id', ParseUUIDPipe) id: string): Promise<void> {

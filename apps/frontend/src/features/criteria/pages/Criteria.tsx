@@ -7,12 +7,9 @@ import { useGetCriteriaQuery } from "@/features/criteria/criteriaApi";
 import { role } from "@/constants/roleAccess";
 import { useAppSelector } from "@/app/hooks";
 import { useState } from "react";
+import type { CriteriaVersionResponse } from "@appraisal/types";
 
-interface DataType {
-  criteria_id: number;
-  criteria: string;
-  weight: number;
-}
+type DataType = CriteriaVersionResponse;
 
 export const Criteria = () => {
   const auth = useAppSelector((state) => state.auth);
@@ -21,7 +18,7 @@ export const Criteria = () => {
 
   const navigate = useNavigate();
 
-  const { data: initialValueCriteria } = useGetCriteriaQuery({});
+  const { data: initialValueCriteria } = useGetCriteriaQuery();
 
   const criteria = Array.isArray(initialValueCriteria?.data)
     ? initialValueCriteria.data
@@ -39,22 +36,14 @@ export const Criteria = () => {
       hidden: true,
     },
     {
-      title: "Criteria",
-      dataIndex: "name",
+      title: "Version",
       width: "3%",
+      render: (_, record) => `v${record.major}.${record.minor}.${record.patch}`,
     },
     {
-      title: "Type",
-      dataIndex: "type",
-      width: "3%",
-      onFilter: (value, record) =>
-        record.criteria.toLowerCase().includes(String(value).toLowerCase()),
-    },
-    {
-      title: "Weight",
-      dataIndex: "weight",
-      width: "1%",
-      render: (record) => `${record}%`,
+      title: "Description",
+      dataIndex: "description",
+      width: "5%",
     },
     {
       title: "Action",
@@ -91,8 +80,6 @@ export const Criteria = () => {
           </Button>
         )}
       </TitlePage>
-
-      {/* <CriteriaSearch onSearch={}/> */}
 
       <Table<DataType>
         columns={columns}

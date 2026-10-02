@@ -2,8 +2,9 @@ import { IsString, MinLength, IsUUID, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { randomUUID } from 'crypto';
 import { UserRole } from '../enums/user-role.enum';
+import type { CreateUserRequest } from '@appraisal/types';
 
-export class CreateUserDto {
+export class CreateUserDto implements CreateUserRequest {
   @ApiPropertyOptional({ example: 'user-new' })
   @IsString()
   username!: string;

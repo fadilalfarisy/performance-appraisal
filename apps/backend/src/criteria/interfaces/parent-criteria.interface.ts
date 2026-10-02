@@ -1,7 +1,1 @@
-export interface ParentCriteriaPayload {
-  id: string;
-  major: number;
-  minor: number;
-  patch: number;
-  description: string;
-}
+export type { CriteriaVersionResponse as ParentCriteriaPayload } from '@appraisal/types';

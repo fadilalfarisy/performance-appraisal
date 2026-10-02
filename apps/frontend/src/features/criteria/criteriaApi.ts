@@ -1,24 +1,28 @@
 import { apiSlice } from "@/api/apiSlice";
+import type {
+  ApiResponse,
+  CreateCriteriaRequest,
+  CriteriaVersionResponse,
+  CriterionResponse,
+} from "@appraisal/types";
 
 export const criteriaApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
-    getCriteria: builder.query({
+    getCriteria: builder.query<ApiResponse<CriteriaVersionResponse[]>, void>({
       query: () => `/criteria`,
       providesTags: ["Criteria"],
     }),
-    // getCriteriaById: builder.query({
-    //   query: (id) => `/criteria/${id}`,
-    //   transformResponse: (response: any) =>
-    //     Array.isArray(response?.data) && response.data.length > 0
-    //       ? response.data[0]
-    //       : response?.data ?? response,
-    //   providesTags: ["Criteria"],
-    // }),
-    getCriteriaDetails: builder.query({
+    getCriteriaDetails: builder.query<
+      ApiResponse<CriterionResponse[]>,
+      string | undefined
+    >({
       query: (id) => `/criteria/${id}`,
       providesTags: ["Criteria"],
     }),
-    createCriteria: builder.mutation({
+    createCriteria: builder.mutation<
+      ApiResponse<CriterionResponse>,
+      CreateCriteriaRequest
+    >({
       query: (body) => ({
         url: `/criteria`,
         method: "POST",
@@ -26,7 +30,10 @@ export const criteriaApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["Criteria"],
     }),
-    createCriteriaVersion: builder.mutation({
+    createCriteriaVersion: builder.mutation<
+      ApiResponse<CriterionResponse>,
+      { id: string; body: CreateCriteriaRequest }
+    >({
       query: ({ id, body }) => ({
         url: `/criteria/${id}`,
         method: "POST",
@@ -40,9 +47,7 @@ export const criteriaApi = apiSlice.injectEndpoints({
 
 export const {
   useGetCriteriaQuery,
-  // useGetCriteriaByIdQuery,
   useGetCriteriaDetailsQuery,
   useCreateCriteriaMutation,
   useCreateCriteriaVersionMutation,
 } = criteriaApi;
-

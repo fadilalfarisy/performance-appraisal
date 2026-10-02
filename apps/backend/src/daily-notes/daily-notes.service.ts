@@ -67,8 +67,8 @@ export class DailyNotesService {
       supervisorId: record.supervisorId,
       recordDate: record.recordDate,
       description: record.description,
-      createdAt: record.createdAt,
-      updatedAt: record.updatedAt,
+      createdAt: new Date(record.createdAt).toISOString(),
+      updatedAt: new Date(record.updatedAt).toISOString(),
     };
   }
 }

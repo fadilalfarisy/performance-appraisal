@@ -16,25 +16,11 @@ import {
 } from "../components/EmployeeSearch";
 import { role } from "@/constants/roleAccess";
 import { useAppSelector } from "@/app/hooks";
+import type { EmployeeResponse } from "@appraisal/types";
 
 dayjs.extend(isBetween);
 
-interface DataType {
-  id: string;
-  nip: string;
-  fullName: string;
-  birthDate: string;
-  address: string;
-  gender: string;
-  status: string;
-  position: { id: string; name: string };
-  department: { id: string; name: string };
-  contract: {
-    status: string;
-    startDate: string[];
-    endDate: string[];
-  };
-}
+type DataType = EmployeeResponse;
 
 const buildSearchParams = (values: EmployeeSearchValues | null) => {
   if (!values) {
@@ -146,12 +132,12 @@ export const Employee = () => {
       title: "Department",
       dataIndex: "department",
       width: "1%",
-      render: (value) => value.name,
+      render: (value) => value?.name ?? "-",
     },
     {
       title: "Position",
       dataIndex: "position",
-      render: (value) => value.name,
+      render: (value) => value?.name ?? "-",
     },
     {
       title: "Status",
@@ -160,12 +146,12 @@ export const Employee = () => {
     {
       title: "End Contract",
       dataIndex: "contract",
-      render: (value) => (value.endDate ? value.endDate : "-"),
+      render: (value) => (value?.endDate ? value.endDate : "-"),
     },
     {
       title: "Status Contract",
       dataIndex: "contract",
-      render: (value) => value.status,
+      render: (value) => value?.status ?? "-",
     },
     {
       title: "Action",

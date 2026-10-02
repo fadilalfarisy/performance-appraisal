@@ -6,3 +6,4 @@
 - Strongly dislikes guessing: when requirements are ambiguous, expects the agent to investigate existing code/docs for grounding and ask explicit clarifying questions before making changes, rather than assuming. Confidence: 0.7
 - Treats the documented conventions doc as the authoritative standard for structure and naming, and expects the code to be refactored to conform to it (e.g. "fix canonical backend structure based on conventions.md"). Confidence: 0.6
 - Prefers unused/out-of-scope scaffold code be removed rather than left in place, and authorizes deleting modules that aren't needed for the project being built. Confidence: 0.5
+- Wants request/response types shared between backend and frontend via a common package under `packages/`, synced through the monorepo workspace as a single source of truth, rather than duplicated per app. Confidence: 0.5

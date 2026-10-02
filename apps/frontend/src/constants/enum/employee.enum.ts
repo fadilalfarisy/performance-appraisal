@@ -1,4 +1,1 @@
-export enum EmployeeStatus {
-  ACTIVE = "ACTIVE",
-  INACTIVE = "INACTIVE",
-}
+export { EmployeeStatus } from '@appraisal/types';

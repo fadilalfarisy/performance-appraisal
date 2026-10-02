@@ -8,8 +8,9 @@ import {
 import { ApiProperty } from '@nestjs/swagger';
 import { CreateChildCriteriaDto } from './create-child-criteria.dto';
 import { Type } from 'class-transformer';
+import type { CreateCriteriaRequest } from '@appraisal/types';
 
-export class CreateCriteriaDto {
+export class CreateCriteriaDto implements CreateCriteriaRequest {
 
   @ApiProperty({ example: 10 })
   @IsString()

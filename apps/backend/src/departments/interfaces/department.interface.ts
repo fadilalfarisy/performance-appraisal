@@ -1,6 +1,1 @@
-export interface DepartmentPayload {
-  id: string;
-  name: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+export type { DepartmentResponse as DepartmentPayload } from '@appraisal/types';

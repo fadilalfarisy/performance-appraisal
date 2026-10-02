@@ -1,17 +1,30 @@
 import { apiSlice } from "@/api/apiSlice";
+import type {
+  ApiResponse,
+  ContractResponse,
+  CreateContractRequest,
+  UpdateContractRequest,
+} from "@appraisal/types";
 
 export const contractApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
-    getContractEmployee: builder.query({
+    getContractEmployee: builder.query<ContractResponse[], string | undefined>({
       query: (id) => `/employees/${id}/contracts`,
-      transformResponse: (response: any) => response?.data ?? [],
+      transformResponse: (response: ApiResponse<ContractResponse[]>) =>
+        response?.data ?? [],
       providesTags: ["Contracts"],
     }),
-    getContractById: builder.query({
+    getContractById: builder.query<
+      ApiResponse<ContractResponse>,
+      { id: string | undefined; contractId: string | undefined }
+    >({
       query: ({ id, contractId }) => `/employees/${id}/contracts/${contractId}`,
       providesTags: ["Contracts"],
     }),
-    createContract: builder.mutation({
+    createContract: builder.mutation<
+      ApiResponse<ContractResponse>,
+      { id: string; body: CreateContractRequest }
+    >({
       query: ({ id, body }) => ({
         url: `/employees/${id}/contracts`,
         method: "POST",
@@ -19,7 +32,10 @@ export const contractApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["Contracts", "Employees"],
     }),
-    updateContract: builder.mutation({
+    updateContract: builder.mutation<
+      ApiResponse<ContractResponse>,
+      { id: string; contractId: string; body: UpdateContractRequest }
+    >({
       query: ({ id, contractId, body }) => ({
         url: `/employees/${id}/contracts/${contractId}`,
         method: "PATCH",
@@ -27,7 +43,10 @@ export const contractApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["Contracts", "Employees"],
     }),
-    deleteContract: builder.mutation({
+    deleteContract: builder.mutation<
+      ApiResponse<void>,
+      { id: string | undefined; contractId: string | undefined }
+    >({
       query: ({ id, contractId }) => ({
         url: `/employees/${id}/contracts/${contractId}`,
         method: "DELETE",
@@ -35,7 +54,6 @@ export const contractApi = apiSlice.injectEndpoints({
       invalidatesTags: ["Contracts", "Employees"],
     }),
   }),
-  // overrideExisting: false,
 });
 
 export const {

@@ -16,6 +16,7 @@ The repo currently contains scaffold modules that are not part of the PRD and a 
 
 - [x] **BLOCKER** Resolved: deleted the out-of-scope scaffold modules — backend `tasks`, `reports`, `assessments`, `roles`, `permissions`; frontend `performance`, `report`, `assessment`, `roles`, `permissions`. Kept `daily-records` and renamed it to `daily-notes` for the Daily Activity Notes feature (PRD 5.9). `users` now uses a `UserRole` enum instead of RBAC tables.
 - [x] **BLOCKER** Resolved: the canonical backend structure is flat `src/<feature>` + `src/db`, aligned to `CONVENTIONS.md` section 4 (plural feature folders, `dto/`, `interfaces/`, `enums/`, guards and decorators under `common/`, `test/` folder).
+- [x] Create the shared `@appraisal/types` package (enums, `ApiResponse` envelope, all request/response types) and migrate both apps to it — see `CONVENTIONS.md` section 2.
 - [ ] Configure monorepo scripts and `.env` / `.env.example` for both apps; add docker-compose PostgreSQL for dev and e2e.
 - [ ] Add CI to run `pnpm -r lint`, `pnpm -r build`, and both test suites.
 - [ ] Apply the shared Prettier/ESLint config to `apps/frontend` so both apps match `CONVENTIONS.md` section 6.

@@ -38,7 +38,12 @@ export const ContractForm = ({
   const [form] = Form.useForm();
   const navigate = useNavigate();
 
-  const [queryContract, { isLoading }] = formFunction();
+  const [queryContract, { isLoading }] = (
+    formFunction as unknown as () => [
+      (arg: unknown) => { unwrap: () => Promise<unknown> },
+      { isLoading: boolean },
+    ]
+  )();
 
   useEffect(() => {
     if (!createForm && initialValues) {

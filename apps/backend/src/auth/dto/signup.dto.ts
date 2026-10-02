@@ -1,8 +1,9 @@
 import { IsString, MinLength, IsUUID, IsNotEmpty, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '../../users/enums/user-role.enum';
+import type { SignUpRequest } from '@appraisal/types';
 
-export class SignUpDto {
+export class SignUpDto implements SignUpRequest {
     @ApiPropertyOptional({ example: 'user-new' })
     @IsString()
     @IsNotEmpty()

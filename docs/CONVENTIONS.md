@@ -26,7 +26,8 @@ performance-appraisal/
   apps/
     backend/          # NestJS REST API (/api)
     frontend/         # React SPA
-  packages/           # shared libraries (empty for now)
+  packages/
+    types/            # @appraisal/types: shared API enums, envelope, request/response types
   docs/               # PRD, design docs, this file
   AGENTS.md
   pnpm-workspace.yaml
@@ -35,6 +36,15 @@ performance-appraisal/
 - `apps/*` are independent deployables. A package never imports from another app; shared code moves to `packages/*`.
 - Root scripts run across the workspace (`pnpm -r build`, `pnpm -r lint`). Install only from the repo root.
 - `apps/backend` currently uses a flat feature layout with `src/db`; `apps/frontend` uses `src/features`. Keep each app internally consistent.
+
+**Shared API types (`@appraisal/types`)**
+
+- `packages/types` is the single source of truth for the API contract: the shared enums (`UserRole`, `GenderEnum`, `ContractStatus`, `EmployeeStatus`, `CriteriaType`, `ColumnEmployee`), the `ApiResponse` envelope and `PaginationMeta`, and every request/response type.
+- Both apps depend on it via `"@appraisal/types": "workspace:*"`. It is a built package (dual CJS + ESM output with `.d.ts`), so it works for the CJS backend and the ESM frontend.
+- Backend DTO classes `implements` the matching shared request interface (validation decorators stay on the class); response payloads and enums are re-exported from the package rather than re-declared.
+- Frontend RTK Query endpoints are typed with `ApiResponse<XResponse>` and the shared `CreateXRequest`/`UpdateXRequest` types; enum shims under `src/constants/enum` re-export from the package.
+- Naming: `<Verb><Entity>Request`, `<Entity>Response`, `<Entity>Query`. Timestamps on response types are ISO `string` (the wire format).
+- Build order matters: `pnpm -r build` builds `@appraisal/types` first (topological order). After changing a shared type, rebuild it — or run `pnpm --filter @appraisal/types dev` while developing.
 
 ---
 

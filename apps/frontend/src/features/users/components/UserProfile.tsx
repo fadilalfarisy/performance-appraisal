@@ -49,7 +49,7 @@ export const UserProfile = () => {
         navigate("/");
 
         try {
-          await logout({}).unwrap();
+          await logout().unwrap();
           message.success("Logout was success");
         } catch (error) {
           errorHandling(error);

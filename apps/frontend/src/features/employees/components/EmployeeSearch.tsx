@@ -27,8 +27,8 @@ export const EmployeeSearch = ({ onSearch, onReset }: Props) => {
   const [drawerForm] = Form.useForm();
   const [open, setOpen] = useState(false);
 
-  const { data: departmentsResponse } = useGetDepartmentsQuery({});
-  const { data: positionsResponse } = useGetPositionsQuery({});
+  const { data: departmentsResponse } = useGetDepartmentsQuery();
+  const { data: positionsResponse } = useGetPositionsQuery();
 
   const departmentOption = useMemo(() => {
     const departments = departmentsResponse?.data;

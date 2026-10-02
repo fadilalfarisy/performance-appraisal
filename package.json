@@ -3,10 +3,15 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "format": "pnpm -r format",
+    "test": "pnpm -r test",
     "dev": "pnpm --parallel --filter frontend --filter backend dev",
     "dev:fe": "pnpm --filter frontend dev",
-    "dev:be": "pnpm --filter backend dev"
+    "dev:be": "pnpm --filter backend dev",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down"
   },
   "keywords": [],
   "author": "",

@@ -16,6 +16,7 @@ import {
 } from '@nestjs/swagger';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ApiResponse } from '../common/utils/response.util';
+import { UserRole } from '@appraisal/types';
 import { CriteriaService } from './criteria.service';
 import { ChildCriteriaPayload } from './interfaces/child-criteria.interface';
 import { CreateCriteriaDto } from './dto/create-criteria.dto';
@@ -48,7 +49,7 @@ export class CriteriaController {
   }
 
   @Post()
-  @Roles('HR', 'ADMINISTRATOR')
+  @Roles(UserRole.HR, UserRole.ADMIN)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new criteria' })
   @SwaggerResponse({ status: 201, description: 'Criteria created' })

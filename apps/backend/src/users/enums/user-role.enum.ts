@@ -1,8 +1,1 @@
-export enum UserRole {
-  ADMIN = 'ADMIN',
-  HR = 'HR',
-  HEAD_DEPARTMENT = 'HEAD_DEPARTMENT',
-  SUPERVISOR = 'SUPERVISOR',
-  MANAGER = 'MANAGER',
-  GENERAL_MANAGER = 'GENERAL_MANAGER',
-}
+export { UserRole } from '@appraisal/types';

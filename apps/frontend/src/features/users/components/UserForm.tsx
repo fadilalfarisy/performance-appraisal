@@ -18,13 +18,13 @@ const ROLE_OPTIONS = [
 type UserInitialValues = {
   username?: string;
   password?: string;
-  role?: string;
+  role?: string | null;
   employeeId?: string;
   employee?: {
     id?: string;
     fullName?: string;
     full_name?: string;
-  };
+  } | null;
 };
 
 type Props = {
@@ -42,7 +42,12 @@ export const UserForm = ({
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [queryUser, { isLoading }] = formFunction();
+  const [queryUser, { isLoading }] = (
+    formFunction as unknown as () => [
+      (arg: unknown) => { unwrap: () => Promise<unknown> },
+      { isLoading: boolean },
+    ]
+  )();
   const {
     data: employeesResponse,
     isError: isEmployeeError,

@@ -16,8 +16,9 @@ import { EmployeeStatus } from '../interfaces/employee.interface';
 import { randomUUID } from 'crypto';
 import { GenderEnum } from '../enums/gender.enum';
 import { CreateContractDto } from './create-contract.dto';
+import type { CreateEmployeeRequest } from '@appraisal/types';
 
-export class CreateEmployeeDto {
+export class CreateEmployeeDto implements CreateEmployeeRequest {
   @ApiProperty({ example: 'GM0001', maxLength: 6 })
   @IsString()
   @IsNotEmpty()

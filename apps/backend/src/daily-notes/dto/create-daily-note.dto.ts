@@ -1,7 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsDateString, IsNotEmpty, IsString, IsUUID } from 'class-validator';
+import type { CreateDailyNoteRequest } from '@appraisal/types';
 
-export class CreateDailyNoteDto {
+export class CreateDailyNoteDto implements CreateDailyNoteRequest {
   @ApiProperty({ example: 'uuid-employee' })
   @IsUUID()
   @IsNotEmpty()

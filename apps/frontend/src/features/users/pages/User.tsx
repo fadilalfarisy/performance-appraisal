@@ -5,15 +5,9 @@ import { Button, Input, Flex, Table, Select, Result } from "antd";
 import { useNavigate } from "react-router-dom";
 import { TitlePage, ActionTable } from "@/components";
 import { useDeleteUserMutation, useGetUserQuery } from "../usersApi";
+import type { UserResponse } from "@appraisal/types";
 
-interface DataType {
-  id: string;
-  username: string;
-  employee?: {
-    fullName?: string;
-  };
-  role?: string;
-}
+type DataType = UserResponse;
 
 type SearchType = {
   username: string;
@@ -31,9 +25,9 @@ export const User = () => {
   const [searchCategory, setSearchCategory] = useState("username");
   const [querySearch, setQuerySearch] = useState<SearchType>(InitialSearch);
 
-  const { data, isSuccess, isError } = useGetUserQuery({});
+  const { data, isSuccess, isError } = useGetUserQuery();
   const [deleteUser] = useDeleteUserMutation();
-  const users = data?.data ?? data ?? [];
+  const users = data?.data ?? [];
 
   const handleChangeSearch = (value: string) => {
     switch (value) {

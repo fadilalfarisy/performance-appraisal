@@ -1,8 +1,1 @@
-export interface ChildCriteriaPayload {
-  id: string;
-  name: string;
-  weight: number;
-  type: string;
-  description: string;
-  version: number;
-}
+export type { CriterionResponse as ChildCriteriaPayload } from '@appraisal/types';

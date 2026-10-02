@@ -1,18 +1,28 @@
 import { apiSlice } from "@/api/apiSlice";
+import type {
+  ApiResponse,
+  CreatePositionRequest,
+  PositionResponse,
+  UpdatePositionRequest,
+} from "@appraisal/types";
 
 export const positionsApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
-    getPositions: builder.query({
+    getPositions: builder.query<ApiResponse<PositionResponse[]>, void>({
       query: () => `/positions`,
       providesTags: ["Positions"],
     }),
-    getPositionById: builder.query({
+    getPositionById: builder.query<
+      ApiResponse<PositionResponse>,
+      string | undefined
+    >({
       query: (id) => `/positions/${id}`,
-      transformResponse: (response: any) =>
-        response.length > 0 ? response[0] : response,
       providesTags: ["Positions"],
     }),
-    createPosition: builder.mutation({
+    createPosition: builder.mutation<
+      ApiResponse<PositionResponse>,
+      CreatePositionRequest
+    >({
       query: (body) => ({
         url: `/positions`,
         method: "POST",
@@ -20,7 +30,10 @@ export const positionsApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["Positions"],
     }),
-    updatePosition: builder.mutation({
+    updatePosition: builder.mutation<
+      ApiResponse<PositionResponse>,
+      { id: string; body: UpdatePositionRequest }
+    >({
       query: ({ id, body }) => ({
         url: `/positions/${id}`,
         method: "PATCH",
@@ -28,7 +41,7 @@ export const positionsApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["Positions"],
     }),
-    deletePosition: builder.mutation({
+    deletePosition: builder.mutation<ApiResponse<void>, string>({
       query: (id) => ({
         url: `/positions/${id}`,
         method: "DELETE",

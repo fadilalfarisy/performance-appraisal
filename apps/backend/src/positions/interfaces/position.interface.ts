@@ -1,4 +1,1 @@
-export interface PositionPayload {
-  id: string;
-  name: string;
-}
+export type { PositionResponse as PositionPayload } from '@appraisal/types';

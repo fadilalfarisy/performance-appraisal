@@ -1,16 +1,22 @@
 import { apiSlice } from "@/api/apiSlice";
+import type {
+  ApiResponse,
+  CreateUserRequest,
+  UpdateUserRequest,
+  UserResponse,
+} from "@appraisal/types";
 
 export const usersApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
-    getUser: builder.query({
+    getUser: builder.query<ApiResponse<UserResponse[]>, void>({
       query: () => `/users`,
       providesTags: ["Users"],
     }),
-    getUserById: builder.query({
+    getUserById: builder.query<ApiResponse<UserResponse>, string | undefined>({
       query: (id) => `/users/${id}`,
       providesTags: ["Users"],
     }),
-    createUser: builder.mutation({
+    createUser: builder.mutation<ApiResponse<UserResponse>, CreateUserRequest>({
       query: (body) => ({
         url: `/users`,
         method: "POST",
@@ -18,7 +24,10 @@ export const usersApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["Users"],
     }),
-    updateUser: builder.mutation({
+    updateUser: builder.mutation<
+      ApiResponse<UserResponse>,
+      { id: string; body: UpdateUserRequest }
+    >({
       query: ({ id, body }) => ({
         url: `/users/${id}`,
         method: "PATCH",
@@ -26,7 +35,7 @@ export const usersApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["Users"],
     }),
-    deleteUser: builder.mutation({
+    deleteUser: builder.mutation<ApiResponse<void>, string>({
       query: (id) => ({
         url: `/users/${id}`,
         method: "DELETE",

@@ -8,12 +8,9 @@ import {
   useDeleteDepartmentMutation,
   useGetDepartmentsQuery,
 } from "../departmentsApi";
+import type { DepartmentResponse } from "@appraisal/types";
 
-interface DataType {
-  id: number;
-  username: string;
-  role: string;
-}
+type DataType = DepartmentResponse;
 
 type SearchType = {
   username: string;
@@ -31,7 +28,7 @@ export const Department = () => {
   const [searchCategory, setSearchCategory] = useState("username");
   const [, setQuerySearch] = useState<SearchType>(InitialSearch);
 
-  const { data, isSuccess, isError } = useGetDepartmentsQuery({});
+  const { data, isSuccess, isError } = useGetDepartmentsQuery();
   const [deleteDepartment] = useDeleteDepartmentMutation();
 
   const handleChangeSearch = (value: string) => {

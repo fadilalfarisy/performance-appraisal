@@ -19,6 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ApiResponse } from '../common/utils/response.util';
+import { UserRole } from '@appraisal/types';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { DailyNotesService } from './daily-notes.service';
@@ -34,7 +35,7 @@ export class DailyNotesController {
   constructor(private readonly dailyNotesService: DailyNotesService) {}
 
   @Post()
-  @Roles('SUPERVISOR', 'ADMINISTRATOR')
+  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new daily note (Supervisor only)' })
   @SwaggerResponse({ status: 201, description: 'Daily note created' })
@@ -63,7 +64,7 @@ export class DailyNotesController {
   }
 
   @Patch(':id')
-  @Roles('SUPERVISOR', 'ADMINISTRATOR')
+  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
   @ApiOperation({ summary: 'Update daily note (Owner only)' })
   @SwaggerResponse({ status: 200, description: 'Daily note updated' })
   @SwaggerResponse({ status: 400, description: 'Bad request' })
@@ -82,7 +83,7 @@ export class DailyNotesController {
   }
 
   @Delete(':id')
-  @Roles('SUPERVISOR', 'ADMINISTRATOR')
+  @Roles(UserRole.SUPERVISOR, UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete daily note (Owner only)' })
   @SwaggerResponse({ status: 204, description: 'Daily note deleted' })

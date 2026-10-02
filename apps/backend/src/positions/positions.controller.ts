@@ -17,6 +17,7 @@ import {
 } from '@nestjs/swagger';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ApiResponse } from '../common/utils/response.util';
+import { UserRole } from '@appraisal/types';
 import { PositionsService } from './positions.service';
 import { CreatePositionDto } from './dto/create-position.dto';
 import { UpdatePositionDto } from './dto/update-position.dto';
@@ -29,7 +30,7 @@ export class PositionsController {
   constructor(private readonly positionsService: PositionsService) { }
 
   @Post()
-  @Roles('ADMINISTRATOR')
+  @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new position (Admin only)' })
   create(
@@ -53,7 +54,7 @@ export class PositionsController {
   }
 
   @Patch(':id')
-  @Roles('ADMINISTRATOR')
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Update position details (Admin only)' })
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -63,7 +64,7 @@ export class PositionsController {
   }
 
   @Delete(':id')
-  @Roles('ADMINISTRATOR')
+  @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete position (Admin only)' })
   remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {

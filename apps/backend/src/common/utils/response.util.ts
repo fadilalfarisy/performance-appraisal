@@ -1,19 +1,11 @@
+import type { ApiResponse, PaginationMeta } from '@appraisal/types';
+
+export type { ApiResponse, PaginationMeta };
+
 export interface CustomResponse<T> extends ApiResponse<T> {
   status: number;
   message: string;
-  errors?: any;
-}
-
-export interface ApiResponse<T> {
-  data: T;
-  meta?: PaginationMeta;
-}
-
-export interface PaginationMeta {
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
+  errors?: unknown;
 }
 
 export function ok<T>(data: T): ApiResponse<T> {

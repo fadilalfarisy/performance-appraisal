@@ -1,19 +1,35 @@
 import { apiSlice } from "@/api/apiSlice";
+import type {
+  ApiResponse,
+  CreateEmployeeRequest,
+  EmployeeQuery,
+  EmployeeResponse,
+  UpdateEmployeeRequest,
+} from "@appraisal/types";
 
 export const employeesApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
-    getEmployee: builder.query({
+    getEmployee: builder.query<
+      ApiResponse<EmployeeResponse[]>,
+      EmployeeQuery | undefined
+    >({
       query: (params) => ({
         url: `/employees`,
         params,
       }),
       providesTags: ["Employees"],
     }),
-    getEmployeeById: builder.query({
+    getEmployeeById: builder.query<
+      ApiResponse<EmployeeResponse>,
+      string | undefined
+    >({
       query: (id) => `/employees/${id}`,
       providesTags: ["Employees"],
     }),
-    createEmployee: builder.mutation({
+    createEmployee: builder.mutation<
+      ApiResponse<EmployeeResponse>,
+      CreateEmployeeRequest
+    >({
       query: (body) => ({
         url: `/employees`,
         method: "POST",
@@ -21,7 +37,10 @@ export const employeesApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["Employees"],
     }),
-    updateEmployee: builder.mutation({
+    updateEmployee: builder.mutation<
+      ApiResponse<EmployeeResponse>,
+      { id: string; body: UpdateEmployeeRequest }
+    >({
       query: ({ id, body }) => ({
         url: `/employees/${id}`,
         method: "PATCH",
@@ -29,7 +48,7 @@ export const employeesApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["Employees"],
     }),
-    deleteEmployee: builder.mutation({
+    deleteEmployee: builder.mutation<ApiResponse<void>, string>({
       query: (id) => ({
         url: `/employees/${id}`,
         method: "DELETE",

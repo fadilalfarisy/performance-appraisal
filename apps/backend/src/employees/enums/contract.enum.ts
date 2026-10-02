@@ -1,4 +1,1 @@
-export enum ContractStatus {
-  CONTRACT = 'CONTRACT',
-  PERMANENT = 'PERMANENT',
-}
+export { ContractStatus } from '@appraisal/types';
