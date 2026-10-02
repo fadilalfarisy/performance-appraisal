@@ -269,8 +269,8 @@ Rules:
   { "semi": true, "singleQuote": true, "trailingComma": "all", "printWidth": 100, "tabWidth": 2, "arrowParens": "always" }
   ```
 
-  Add the same config to `apps/frontend` so both apps match.
-- **ESLint 9** (flat config) in both apps. Never disable a rule to silence an error; fix the code or record the exception in this document.
+  Both apps ship the same `.prettierrc`, and `pnpm -r format` formats the workspace.
+- **ESLint 9** (flat config) in both apps. Never disable a rule to silence an error; fix the code or record the exception in this document. `@typescript-eslint/no-explicit-any` is a `warn` in both apps; `eslint-config-prettier` is loaded last so formatting rules do not conflict with Prettier.
 - **TypeScript `strict`** in both apps; no `any`, no `@ts-ignore` without a linked issue.
 - Run `pnpm -r lint && pnpm -r build` before declaring any task done.
 

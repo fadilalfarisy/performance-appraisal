@@ -9,6 +9,7 @@ import {
   pgEnum,
   decimal,
   jsonb,
+  primaryKey,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { uuid } from 'drizzle-orm/pg-core';
@@ -53,6 +54,41 @@ export const users = pgTable(
     index('idx_users_employee').on(table.employeeId),
     index('idx_users_role').on(table.role),
     index('idx_users_created_at_desc').on(table.createdAt.desc()),
+  ],
+);
+
+export const refreshTokens = pgTable(
+  'refresh_tokens',
+  {
+    id: uuid('id').primaryKey(), // equals the JWT jti
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    tokenHash: varchar('token_hash', { length: 64 }).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    replacedBy: uuid('replaced_by'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    ip: varchar('ip', { length: 64 }),
+    userAgent: varchar('user_agent', { length: 255 }),
+  },
+  (table) => [index('idx_refresh_tokens_user').on(table.userId)],
+);
+
+// Department scope for HEAD_DEPARTMENT and MANAGER users.
+export const userDepartments = pgTable(
+  'user_departments',
+  {
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    departmentId: uuid('department_id')
+      .references(() => departments.id, { onDelete: 'cascade' })
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.departmentId] }),
+    index('idx_user_departments_department').on(table.departmentId),
   ],
 );
 
@@ -225,11 +261,12 @@ export const dailyNotes = pgTable('daily_notes', {
 
 // --- RELATIONSHIPS ---
 
-export const usersRelations = relations(users, ({ one }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
   employee: one(employees, {
     fields: [users.employeeId],
     references: [employees.id],
   }),
+  refreshTokens: many(refreshTokens),
 }));
 
 export const departmentsRelations = relations(departments, ({ many }) => ({

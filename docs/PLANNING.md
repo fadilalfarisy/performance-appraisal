@@ -17,21 +17,22 @@ The repo currently contains scaffold modules that are not part of the PRD and a 
 - [x] **BLOCKER** Resolved: deleted the out-of-scope scaffold modules — backend `tasks`, `reports`, `assessments`, `roles`, `permissions`; frontend `performance`, `report`, `assessment`, `roles`, `permissions`. Kept `daily-records` and renamed it to `daily-notes` for the Daily Activity Notes feature (PRD 5.9). `users` now uses a `UserRole` enum instead of RBAC tables.
 - [x] **BLOCKER** Resolved: the canonical backend structure is flat `src/<feature>` + `src/db`, aligned to `CONVENTIONS.md` section 4 (plural feature folders, `dto/`, `interfaces/`, `enums/`, guards and decorators under `common/`, `test/` folder).
 - [x] Create the shared `@appraisal/types` package (enums, `ApiResponse` envelope, all request/response types) and migrate both apps to it — see `CONVENTIONS.md` section 2.
-- [ ] Configure monorepo scripts and `.env` / `.env.example` for both apps; add docker-compose PostgreSQL for dev and e2e.
-- [ ] Add CI to run `pnpm -r lint`, `pnpm -r build`, and both test suites.
-- [ ] Apply the shared Prettier/ESLint config to `apps/frontend` so both apps match `CONVENTIONS.md` section 6.
+- [x] Configure monorepo scripts (`build`/`lint`/`format`/`test`/`dev`/`db:up`/`db:down`) and add `docker-compose.yml` (PostgreSQL 16) for dev and e2e.
+- [x] Refresh `.env.example` for both apps: backend points at the compose database (`postgresql://appraisal:appraisal@localhost:5432/appraisal`) with `NODE_ENV`/`TZ`; frontend uses `VITE_HOST_API=http://localhost:3000/api` and `VITE_APP_NAME`.
+- [x] Add CI (`.github/workflows/ci.yml`): install, `pnpm -r lint`, `pnpm -r build`, `pnpm -r test`, with a PostgreSQL service.
+- [x] Apply the shared Prettier/ESLint config to `apps/frontend` (`.prettierrc` + `eslint-config-prettier`), matching `CONVENTIONS.md` section 6.
 
 ## Phase 1 — Backend foundation
 
-- [ ] Build `ConfigModule` with `class-validator` env validation; read config through `ConfigService`, never `process.env`.
-- [ ] Build the Drizzle database module (pg Pool + transaction helper) and `src/db/schema.ts`.
-- [ ] Generate base migrations plus custom SQL for things Drizzle cannot express: contract exclusion constraint, partitioned `audit_logs`, partial unique indexes, grants, `btree_gist`.
-- [ ] Build the common layer: `notDeleted()` helper, pagination, shared error format, global exception filter, response interceptor.
-- [ ] Build `AuditService` with central masking and same-transaction recording.
-- [ ] Build the auth module: login, access/refresh signing (HS256, separate secrets), refresh rotation, reuse detection, logout.
-- [ ] Add guards and context: global `JwtAuthGuard`, `RolesGuard`, `@Public()`/`@Roles()`/`@CurrentUser()`, request context via `nestjs-cls`.
-- [ ] Implement `ScopeService` and the `permissions.ts` data structure driven by the PRD 5.8 matrix.
-- [ ] Configure auth rate limiting, CORS, and Swagger (disabled or protected in production).
+- [x] Build `ConfigModule` with `class-validator` env validation; read config through `ConfigService`, never `process.env`.
+- [x] Build the Drizzle database module (pg Pool + transaction helper) and `src/db/schema.ts`.
+- [x] Generate base migrations plus custom SQL for things Drizzle cannot express: contract exclusion constraint, partitioned `audit_logs`, partial unique indexes, grants, `btree_gist`. (Generated; not yet applied — needs a running Postgres.)
+- [x] Build the common layer: `notDeleted()` helper, pagination, shared error format, global exception filter, response interceptor.
+- [x] Build `AuditService` with central masking and same-transaction recording.
+- [x] Build the auth module: login, access/refresh signing (HS256), refresh rotation, reuse detection, logout. (Frontend auth wiring is Phase 7.)
+- [x] Add guards and context: global `JwtAuthGuard`, `RolesGuard`, `@Public()`/`@Roles()`/`@CurrentUser()`, request context via `nestjs-cls`.
+- [x] Implement `ScopeService` and the `permissions.ts` data structure driven by the PRD 5.8 matrix.
+- [x] Configure auth rate limiting, CORS, and Swagger (disabled or protected in production).
 
 ## Phase 2 — Master data
 

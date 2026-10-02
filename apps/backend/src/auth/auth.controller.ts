@@ -1,46 +1,80 @@
 import {
-  Controller,
-  Post,
   Body,
+  Controller,
   Get,
-  Request,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
-import { AuthService } from './auth.service';
+import type { Request } from 'express';
 import {
-  ApiTags,
+  ApiBearerAuth,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
+  ApiTags,
 } from '@nestjs/swagger';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { AuthService, type RequestMeta } from './auth.service';
 import { SignUpDto } from './dto/signup.dto';
 import { SignInDto } from './dto/signin.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { Public } from '../common/decorators/public.decorator';
+import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 
 @ApiTags('auth')
+@UseGuards(ThrottlerGuard)
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
 
-  @Post('/signup')
+  @Post('signup')
+  @Public()
   @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({ status: 201, description: 'User successfully created.' })
   signUp(@Body() signUpDto: SignUpDto) {
     return this.authService.register(signUpDto);
   }
 
-  @Post('/signin')
+  @Post('signin')
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login a user' })
   @ApiResponse({ status: 200, description: 'User successfully logged in.' })
-  signIn(@Body() signInDto: SignInDto) {
-    return this.authService.login(signInDto);
+  signIn(@Body() signInDto: SignInDto, @Req() req: Request) {
+    return this.authService.login(signInDto, this.meta(req));
   }
 
-  @Get('/profile')
+  @Post('refresh')
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Rotate a refresh token' })
+  refresh(@Body() dto: RefreshTokenDto, @Req() req: Request) {
+    return this.authService.refresh(dto.refreshToken, this.meta(req));
+  }
+
+  @Post('logout')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Revoke a refresh token' })
+  logout(@Body() dto: RefreshTokenDto) {
+    return this.authService.logout(dto.refreshToken);
+  }
+
+  @Get('me')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get current user profile (Requires JWT)' })
-  getProfile(@Request() req: any) {
+  @ApiOperation({ summary: 'Get the current user (requires a valid access token)' })
+  me(@Req() req: Request & { user?: AuthenticatedUser }) {
+    return { message: 'Profile retrieved successfully', data: req.user };
+  }
+
+  private meta(req: Request): RequestMeta {
     return {
-      message: 'Profile retrieved successfully',
-      data: req.user,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
     };
   }
 }

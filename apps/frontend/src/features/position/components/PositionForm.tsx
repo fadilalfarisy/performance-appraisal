@@ -7,7 +7,7 @@ import { FormButton } from "@/components";
 type Props = {
   createForm: boolean;
   formFunction: typeof useCreatePositionMutation | typeof useUpdatePositionMutation;
-  initialValues?: Object;
+  initialValues?: object;
 };
 
 export const PositionForm = ({

@@ -1,25 +1,37 @@
-import { Global, Module } from '@nestjs/common';
-import { ConfigService, ConfigModule } from '@nestjs/config';
-import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { Global, Inject, Module, OnModuleDestroy } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from './schema';
+import { DB_CONNECTION, PG_POOL } from './db.constants';
+import { Database } from './db.type';
+import { DbService } from './db.service';
 
-export const DB_CONNECTION = 'DB_CONNECTION';
+export { DB_CONNECTION } from './db.constants';
 
 @Global()
 @Module({
   imports: [ConfigModule],
   providers: [
     {
-      provide: DB_CONNECTION,
-      useFactory: (configService: ConfigService) => {
-        const connectionString = configService.get<string>('DATABASE_URL');
-        const pool = new Pool({ connectionString });
-        return drizzle(pool, { schema }) as NodePgDatabase<typeof schema>;
-      },
+      provide: PG_POOL,
+      useFactory: (configService: ConfigService) =>
+        new Pool({ connectionString: configService.get<string>('DATABASE_URL') }),
       inject: [ConfigService],
     },
+    {
+      provide: DB_CONNECTION,
+      useFactory: (pool: Pool) => drizzle(pool, { schema }) as Database,
+      inject: [PG_POOL],
+    },
+    DbService,
   ],
-  exports: [DB_CONNECTION],
+  exports: [DB_CONNECTION, PG_POOL, DbService],
 })
-export class DbModule {}
+export class DbModule implements OnModuleDestroy {
+  constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
+
+  async onModuleDestroy() {
+    await this.pool.end();
+  }
+}

@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: appraisal
+          POSTGRES_PASSWORD: appraisal
+          POSTGRES_DB: appraisal
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U appraisal"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://appraisal:appraisal@localhost:5432/appraisal
+      JWT_SECRET: ci-secret-change-me-32-characters-minimum
+      JWT_EXPIRES_IN: 3600s
+      CORS_ORIGIN: http://localhost:5173
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm -r lint
+
+      - name: Build
+        run: pnpm -r build
+
+      - name: Test
+        run: pnpm -r test

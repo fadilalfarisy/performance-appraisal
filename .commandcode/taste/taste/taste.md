@@ -7,3 +7,9 @@
 - Treats the documented conventions doc as the authoritative standard for structure and naming, and expects the code to be refactored to conform to it (e.g. "fix canonical backend structure based on conventions.md"). Confidence: 0.6
 - Prefers unused/out-of-scope scaffold code be removed rather than left in place, and authorizes deleting modules that aren't needed for the project being built. Confidence: 0.5
 - Wants request/response types shared between backend and frontend via a common package under `packages/`, synced through the monorepo workspace as a single source of truth, rather than duplicated per app. Confidence: 0.5
+- Expects the agent to run and pass the full workspace verification suite (top-level lint, build, and tests) before reporting work as complete, rather than just building the touched app. Confidence: 0.55
+- Wants to approve new dependencies before they are added rather than having them introduced silently (per the repo's AGENTS.md rule). Confidence: 0.5
+- Gates `.env` / `.env.example` changes through explicit instruction: the agent should not touch them on its own, but the user will explicitly authorize/request the edits when wanted (has both denied and then explicitly requested such writes). Confidence: 0.6
+- Prefers consistent tooling configuration shared across apps (identical Prettier config, matching ESLint rule severities) so the whole monorepo behaves uniformly. Confidence: 0.45
+- Prefers monorepo-wide root scripts (`lint`/`build`/`format`/`test`/`dev`, plus `db:up`/`db:down`) driven through the package manager's recursive/workspace flags. Confidence: 0.4
+- Prefers large-scope implementation work executed incrementally step by step (one phase/unit at a time, verifying the build after each step) rather than as a single big-bang change. Confidence: 0.55

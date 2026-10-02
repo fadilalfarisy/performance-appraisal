@@ -7,7 +7,7 @@ import { FormButton } from "@/components";
 type Props = {
   createForm: boolean;
   formFunction: typeof useCreateDepartmentMutation | typeof useUpdateDepartmentMutation;
-  initialValues?: Object;
+  initialValues?: object;
 };
 
 export const DepartmentForm = ({

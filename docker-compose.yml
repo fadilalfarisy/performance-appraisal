@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: appraisal-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: appraisal
+      POSTGRES_PASSWORD: appraisal
+      POSTGRES_DB: appraisal
+    ports:
+      - "5432:5432"
+    volumes:
+      - appraisal_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appraisal -d appraisal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  appraisal_pgdata:

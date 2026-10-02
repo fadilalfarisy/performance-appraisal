@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "powershell",
-      "Shell(pnpm:*)"
+      "Shell(pnpm:*)",
+      "Shell(docker:*)"
     ],
     "deny": [],
     "defaultMode": "default"
