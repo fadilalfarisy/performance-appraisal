@@ -6,10 +6,6 @@ import { TitlePage } from "@/components";
 import { useGetCriteriaQuery } from "@/features/criteria/criteriaApi";
 import { role } from "@/constants/roleAccess";
 import { useAppSelector } from "@/app/hooks";
-import {
-  CriteriaSearch,
-  CriteriaSearchValues,
-} from "../components/CriteriaSearch";
 import { useState } from "react";
 
 interface DataType {
@@ -21,10 +17,7 @@ interface DataType {
 export const Criteria = () => {
   const auth = useAppSelector((state) => state.auth);
 
-  const [searchValues, setSearchValues] = useState<CriteriaSearchValues | null>(
-    null,
-  );
-  const [pagination, setPagination] = useState({ current: 1, pageSize: 10 });
+  const [pagination] = useState({ current: 1, pageSize: 10 });
 
   const navigate = useNavigate();
 
@@ -68,7 +61,7 @@ export const Criteria = () => {
       dataIndex: "id",
       width: "1%",
       fixed: "right",
-      hidden: !role.accessHumanResourceManager.includes(auth.role),
+      hidden: !role.accessHumanResource.includes(auth.role),
       render: (record) => (
         <Space>
           <Tooltip title="History">
@@ -88,7 +81,7 @@ export const Criteria = () => {
   return (
     <>
       <TitlePage title="List Criteria" description="Criteria assessment">
-        {role.accessHumanResourceManager.includes(auth.role) && (
+        {role.accessHumanResource.includes(auth.role) && (
           <Button
             type="primary"
             onClick={() => navigate("/dashboard/criteria/create")}

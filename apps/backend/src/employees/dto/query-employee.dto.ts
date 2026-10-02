@@ -7,8 +7,8 @@ import {
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { EmployeeStatus } from '../interfaces/employee.interface';
-import { ContractStatus } from '../enum/contract.enum';
-import { ColumnEmployee } from '../enum/column-employee.enum';
+import { ContractStatus } from '../enums/contract.enum';
+import { ColumnEmployee } from '../enums/column-employee.enum';
 import { QueryDto } from '../../common/query/query.dto';
 
 export class QueryEmployeeDto extends QueryDto {

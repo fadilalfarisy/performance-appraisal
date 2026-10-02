@@ -10,10 +10,6 @@ export const dashboardApi = apiSlice.injectEndpoints({
       query: () => `/employee/count/department`,
       providesTags: ["Employees"],
     }),
-    countReportByStatus: builder.query({
-      query: () => `/report/count/status`,
-      providesTags: ["Reports"],
-    }),
   }),
   overrideExisting: false,
 });
@@ -21,5 +17,4 @@ export const dashboardApi = apiSlice.injectEndpoints({
 export const {
   useCountEmployeeQuery,
   useCountEmployeeByDepartmentQuery,
-  useCountReportByStatusQuery,
 } = dashboardApi;

@@ -12,9 +12,7 @@ interface DataType {
   employee?: {
     fullName?: string;
   };
-  role?: {
-    name?: string;
-  };
+  role?: string;
 }
 
 type SearchType = {
@@ -89,7 +87,7 @@ export const User = () => {
     {
       title: "Role",
       dataIndex: "role",
-      render: (record) => record?.name || "-",
+      render: (record) => record || "-",
       // filteredValue: [querySearch.role],
       // onFilter: (value, record) =>
       //   record.role.toLowerCase().includes(String(value).toLowerCase()),

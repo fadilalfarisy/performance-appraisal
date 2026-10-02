@@ -1,8 +1,0 @@
-export enum ReportStatus {
-  DRAFT = 'DRAFT',
-  PENDING = 'PENDING',
-  SUBMITTED = 'SUBMITTED',
-  APPROVED = 'APPROVED',
-  DONE = 'DONE',
-  REJECTED = 'REJECTED',
-}

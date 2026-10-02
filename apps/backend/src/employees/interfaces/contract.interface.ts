@@ -1,4 +1,4 @@
-import { ContractStatus } from '../enum/contract.enum';
+import { ContractStatus } from '../enums/contract.enum';
 
 export interface ContractPayload {
   id: string;

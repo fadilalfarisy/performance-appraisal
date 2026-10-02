@@ -12,7 +12,7 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Roles } from '../auth/roles.decorator';
+import { Roles } from '../common/decorators/roles.decorator';
 import { ApiResponse } from '../common/utils/response.util';
 import { EmployeesService } from './employees.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';

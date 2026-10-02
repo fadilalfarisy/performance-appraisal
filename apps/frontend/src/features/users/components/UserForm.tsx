@@ -4,18 +4,22 @@ import { Form, Input, Select, message, Result } from "antd";
 import { useCreateUserMutation, useUpdateUserMutation } from "../usersApi";
 import { errorHandling } from "@/utils/errorUtils";
 import { FormButton } from "@/components";
-import { useGetRolesQuery } from "@/features/roles";
 import { useGetEmployeeQuery } from "@/features/employees";
+
+const ROLE_OPTIONS = [
+  { value: "ADMIN", label: "Admin" },
+  { value: "HR", label: "Human Resource" },
+  { value: "HEAD_DEPARTMENT", label: "Head Department" },
+  { value: "SUPERVISOR", label: "Supervisor" },
+  { value: "MANAGER", label: "Manager" },
+  { value: "GENERAL_MANAGER", label: "General Manager" },
+];
 
 type UserInitialValues = {
   username?: string;
   password?: string;
-  roleId?: string;
+  role?: string;
   employeeId?: string;
-  role?: {
-    id?: string;
-    name?: string;
-  };
   employee?: {
     id?: string;
     fullName?: string;
@@ -40,24 +44,10 @@ export const UserForm = ({
 
   const [queryUser, { isLoading }] = formFunction();
   const {
-    data: rolesResponse,
-    isError: isRoleError,
-    isSuccess: isRoleSuccess,
-  } = useGetRolesQuery({});
-  const {
     data: employeesResponse,
     isError: isEmployeeError,
     isSuccess: isEmployeeSuccess,
   } = useGetEmployeeQuery({});
-
-  const roleOptions = useMemo(() => {
-    const roles = rolesResponse?.data;
-
-    return (Array.isArray(roles) ? roles : []).map((role: any) => ({
-      value: role.id,
-      label: role.name,
-    }));
-  }, [rolesResponse]);
 
   const employeeOptions = useMemo(() => {
     const employees = employeesResponse?.data;
@@ -72,12 +62,7 @@ export const UserForm = ({
     ? {}
     : {
         username: initialValues?.username,
-        roleId: initialValues?.role
-          ? {
-              value: initialValues.role.id,
-              label: initialValues.role.name,
-            }
-          : {},
+        role: initialValues?.role ?? undefined,
         employeeId: initialValues?.employee
           ? {
               value: initialValues.employee?.id,
@@ -90,12 +75,10 @@ export const UserForm = ({
   const onFinish = async (values: any) => {
     const body = {
       username: values.username,
-      roleId: values.roleId?.value ?? values.roleId,
+      role: values.role?.value ?? values.role,
       employeeId: values.employeeId?.value ?? values.employeeId,
       ...(values.password ? { password: values.password } : {}),
     };
-
-    console.log(body);
 
     try {
       if (createForm) {
@@ -117,12 +100,12 @@ export const UserForm = ({
     console.log("Received values of form: ", error);
   };
 
-  if (isRoleError || isEmployeeError) {
+  if (isEmployeeError) {
     return (
       <Result
         status="error"
         title="Something Error"
-        subTitle="Role or employee data could not be loaded."
+        subTitle="Employee data could not be loaded."
       />
     );
   }
@@ -148,16 +131,14 @@ export const UserForm = ({
         </Form.Item>
         <Form.Item
           label="Role"
-          name="roleId"
+          name="role"
           hasFeedback
           rules={[{ required: true }]}
         >
           <Select
             showSearch
-            // labelInValue
             optionFilterProp="label"
-            options={roleOptions}
-            loading={!isRoleSuccess}
+            options={ROLE_OPTIONS}
             placeholder="Select role"
           />
         </Form.Item>
@@ -169,7 +150,6 @@ export const UserForm = ({
         >
           <Select
             showSearch
-            // labelInValue
             optionFilterProp="label"
             options={employeeOptions}
             loading={!isEmployeeSuccess}

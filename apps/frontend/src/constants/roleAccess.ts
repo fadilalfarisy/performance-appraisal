@@ -1,27 +1,9 @@
-const accessAdministrator = ["ADMINISTRATOR"];
-const accessGeneralManager = ["ADMINISTRATOR", "GENERAL MANAGER"];
-const accessManager = ["ADMINISTRATOR", "PRODUCTION MANAGER"];
-const accessHumanResource = ["ADMINISTRATOR", "HUMAN RESOURCE"];
-const accessHeadDepartment = [
-  "ADMINISTRATOR",
-  "HEAD DEPARTMENT SEWING",
-  "HEAD DEPARTMENT CUTTING",
-  "HEAD DEPARTMENT MARKER",
-  "HEAD DEPARTMENT QC",
-  "HEAD DEPARTMENT FINISHING",
-  "HEAD DEPARTMENT SAMPLE",
-];
-const accessSupervisor = [
-  "ADMINISTRATOR",
-  "SUPERVISOR SEWING",
-  "SUPERVISOR CUTTING",
-  "SUPERVISOR MARKER",
-  "SUPERVISOR QC",
-  "SUPERVISOR FINISHING",
-  "SUPERVISOR SAMPLE",
-];
-
-const accessHumanResourceManager = ["ADMINISTRATOR", "HUMAN RESOURCE MANAGER"];
+const accessAdministrator = ["ADMIN"];
+const accessGeneralManager = ["ADMIN", "GENERAL_MANAGER"];
+const accessManager = ["ADMIN", "MANAGER"];
+const accessHumanResource = ["ADMIN", "HR"];
+const accessHeadDepartment = ["ADMIN", "HEAD_DEPARTMENT"];
+const accessSupervisor = ["ADMIN", "SUPERVISOR"];
 
 export const role = {
   accessAdministrator,
@@ -30,7 +12,6 @@ export const role = {
   accessHumanResource,
   accessHeadDepartment,
   accessSupervisor,
-  accessHumanResourceManager,
 };
 
 export const colorByDepartment = (value: string) => {

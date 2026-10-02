@@ -32,7 +32,7 @@ export class AuthService {
     const user = await this.userRepository.createAndSave({
       username: signUp.username,
       password: hashedPassword,
-      roleId: signUp.roleId,
+      role: signUp.role,
       employeeId: signUp.employeeId,
     });
 
@@ -60,7 +60,7 @@ export class AuthService {
         message: 'Login successful',
         data: {
           username: user.username,
-          role: user.role?.name || null,
+          role: user.role || null,
           accessToken: this.jwtService.sign(payload),
         },
       };

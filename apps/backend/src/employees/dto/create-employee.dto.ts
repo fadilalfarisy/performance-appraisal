@@ -14,7 +14,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { EmployeeStatus } from '../interfaces/employee.interface';
 import { randomUUID } from 'crypto';
-import { GenderEnum } from '../enum/gender.enum';
+import { GenderEnum } from '../enums/gender.enum';
 import { CreateContractDto } from './create-contract.dto';
 
 export class CreateEmployeeDto {

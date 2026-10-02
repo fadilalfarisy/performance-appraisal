@@ -14,7 +14,7 @@ import {
   ApiResponse as SwaggerResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Roles } from '../auth/roles.decorator';
+import { Roles } from '../common/decorators/roles.decorator';
 import { ApiResponse } from '../common/utils/response.util';
 import { CriteriaService } from './criteria.service';
 import { ChildCriteriaPayload } from './interfaces/child-criteria.interface';

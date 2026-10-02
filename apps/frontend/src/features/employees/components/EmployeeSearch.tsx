@@ -72,7 +72,6 @@ export const EmployeeSearch = ({ onSearch, onReset }: Props) => {
 
   const handleInlineSearch = () => {
     const values = form.getFieldsValue();
-    const search = values.search == "" ? { search: undefined } : values;
     const current = form.getFieldValue("currentInlineDateRange");
     onSearch(collectValues({ ...values }, current, current));
   };

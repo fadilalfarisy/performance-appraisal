@@ -1,6 +1,7 @@
-import { IsString, MinLength, IsUUID } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, MinLength, IsUUID, IsEnum } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { randomUUID } from 'crypto';
+import { UserRole } from '../enums/user-role.enum';
 
 export class CreateUserDto {
   @ApiPropertyOptional({ example: 'user-new' })
@@ -12,9 +13,9 @@ export class CreateUserDto {
   @MinLength(6)
   password!: string;
 
-  @ApiPropertyOptional({ example: randomUUID() })
-  @IsUUID()
-  roleId!: string;
+  @ApiProperty({ enum: UserRole, example: UserRole.SUPERVISOR })
+  @IsEnum(UserRole)
+  role!: UserRole;
 
   @ApiPropertyOptional({ example: randomUUID() })
   @IsUUID()

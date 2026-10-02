@@ -9,7 +9,6 @@ import {
   pgEnum,
   decimal,
   jsonb,
-  primaryKey,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { uuid } from 'drizzle-orm/pg-core';
@@ -26,7 +25,16 @@ const baseFields = {
   deletedAt: timestamp('deleted_at'),
 };
 
-// --- 1. User Management & RBAC ---
+// --- 1. User Management ---
+
+export const userRoleEnum = pgEnum('user_role', [
+  'ADMIN',
+  'HR',
+  'HEAD_DEPARTMENT',
+  'SUPERVISOR',
+  'MANAGER',
+  'GENERAL_MANAGER',
+]);
 
 export const users = pgTable(
   'users',
@@ -37,61 +45,14 @@ export const users = pgTable(
     employeeId: uuid('employee_id')
       .references(() => employees.id)
       .notNull(),
-    roleId: uuid('role_id')
-      .references(() => roles.id)
-      .notNull(),
+    role: userRoleEnum('role').notNull(),
     ...baseFields,
   },
   (table) => [
     index('idx_users_username').on(table.username),
     index('idx_users_employee').on(table.employeeId),
-    index('idx_users_role').on(table.roleId),
+    index('idx_users_role').on(table.role),
     index('idx_users_created_at_desc').on(table.createdAt.desc()),
-  ],
-);
-
-export const roles = pgTable(
-  'roles',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    name: varchar('name', { length: 100 }).notNull().unique(),
-    description: text('description'),
-    ...baseFields,
-  },
-  (table) => [
-    index('idx_roles_name').on(table.name),
-    index('idx_roles_created_at_desc').on(table.createdAt.desc()),
-  ],
-);
-
-export const permissions = pgTable(
-  'permissions',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    name: varchar('name', { length: 100 }).notNull().unique(), // e.g. "report:approve"
-    description: text('description'),
-    ...baseFields,
-  },
-  (table) => [
-    index('idx_permissions_name').on(table.name),
-    index('idx_permissions_created_at_desc').on(table.createdAt.desc()),
-  ],
-);
-
-export const rolePermissions = pgTable(
-  'role_permissions',
-  {
-    roleId: uuid('role_id')
-      .references(() => roles.id, { onDelete: 'cascade' })
-      .notNull(),
-    permissionId: uuid('permission_id')
-      .references(() => permissions.id, { onDelete: 'cascade' })
-      .notNull(),
-  },
-  (table) => [
-    primaryKey({ columns: [table.roleId, table.permissionId] }),
-    index('idx_role_permission_role_id').on(table.roleId),
-    index('idx_role_permission_permission_id').on(table.permissionId),
   ],
 );
 
@@ -245,9 +206,9 @@ export const dynamicInputs = pgTable(
   ],
 );
 
-// --- 5. Input Sources (Daily Records & External Metrics) ---
+// --- 5. Input Sources (Daily Notes) ---
 
-export const dailyRecords = pgTable('daily_records', {
+export const dailyNotes = pgTable('daily_notes', {
   id: uuid('id').primaryKey().defaultRandom(),
   employeeId: uuid('employee_id')
     .references(() => employees.id, { onDelete: 'cascade' })
@@ -262,58 +223,6 @@ export const dailyRecords = pgTable('daily_records', {
   ...baseFields,
 });
 
-// --- 6. Appraisal Reports & Assessments ---
-
-export const reportStatusEnum = pgEnum('report_status', [
-  'DRAFT',
-  'PENDING',
-  'SUBMITTED',
-  'APPROVED',
-  'GM_REVIEW',
-  'DONE',
-  'REJECTED',
-]);
-
-export const reports = pgTable('reports', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  criteriaId: uuid('criteria_id')
-    .references(() => parentCriteria.id)
-    .notNull(),
-  departmentId: uuid('department_id')
-    .references(() => departments.id)
-    .notNull(),
-  reportDate: date('report_date').notNull(),
-  status: reportStatusEnum('status').default('DRAFT').notNull(),
-  reportFile: text('report_file'),
-  ...baseFields,
-});
-
-export const reportApprovals = pgTable('report_approvals', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  reportId: uuid('report_id')
-    .references(() => reports.id, { onDelete: 'cascade' })
-    .notNull(),
-  approverId: uuid('approver_id')
-    .references(() => users.id)
-    .notNull(),
-  status: reportStatusEnum('status').notNull(),
-  note: text('note'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-});
-
-export const assessments = pgTable('assessments', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  reportId: uuid('report_id')
-    .references(() => reports.id, { onDelete: 'cascade' })
-    .notNull(),
-  employeeId: uuid('employee_id')
-    .references(() => employees.id)
-    .notNull(),
-  score: jsonb('score').notNull(),
-  note: text('note'),
-  ...baseFields,
-});
-
 // --- RELATIONSHIPS ---
 
 export const usersRelations = relations(users, ({ one }) => ({
@@ -321,38 +230,11 @@ export const usersRelations = relations(users, ({ one }) => ({
     fields: [users.employeeId],
     references: [employees.id],
   }),
-  role: one(roles, {
-    fields: [users.roleId],
-    references: [roles.id],
-  }),
 }));
-
-export const rolesRelations = relations(roles, ({ many }) => ({
-  rolePermissions: many(rolePermissions),
-}));
-
-export const permissionsRelations = relations(permissions, ({ many }) => ({
-  rolePermissions: many(rolePermissions),
-}));
-
-export const rolePermissionsRelations = relations(
-  rolePermissions,
-  ({ one }) => ({
-    role: one(roles, {
-      fields: [rolePermissions.roleId],
-      references: [roles.id],
-    }),
-    permission: one(permissions, {
-      fields: [rolePermissions.permissionId],
-      references: [permissions.id],
-    }),
-  }),
-);
 
 export const departmentsRelations = relations(departments, ({ many }) => ({
   employees: many(employees),
   positions: many(positions),
-  report: many(reports),
 }));
 
 export const positionsRelations = relations(positions, ({ one, many }) => ({
@@ -379,9 +261,7 @@ export const employeesRelations = relations(employees, ({ one, many }) => ({
     references: [positions.id],
   }),
   contracts: many(contracts),
-  reports: many(reports),
-  dailyRecords: many(dailyRecords),
-  assessments: many(assessments),
+  dailyNotes: many(dailyNotes),
 }));
 
 export const contractsRelations = relations(contracts, ({ one }) => ({
@@ -394,7 +274,6 @@ export const contractsRelations = relations(contracts, ({ one }) => ({
 export const parentCriteriaRelations = relations(
   parentCriteria,
   ({ many }) => ({
-    report: many(reports),
     childrenCriteria: many(childCriteria),
   }),
 );
@@ -406,51 +285,13 @@ export const childCriteriRelations = relations(childCriteria, ({ one }) => ({
   }),
 }));
 
-export const dailyRecordsRelations = relations(dailyRecords, ({ one }) => ({
+export const dailyNotesRelations = relations(dailyNotes, ({ one }) => ({
   employee: one(employees, {
-    fields: [dailyRecords.employeeId],
+    fields: [dailyNotes.employeeId],
     references: [employees.id],
   }),
   supervisor: one(employees, {
-    fields: [dailyRecords.supervisorId],
-    references: [employees.id],
-  }),
-}));
-
-export const reportsRelations = relations(reports, ({ one, many }) => ({
-  criteria: one(parentCriteria, {
-    fields: [reports.criteriaId],
-    references: [parentCriteria.id],
-  }),
-  department: one(departments, {
-    fields: [reports.departmentId],
-    references: [departments.id],
-  }),
-  assessments: many(assessments),
-  approvals: many(reportApprovals),
-}));
-
-export const reportApprovalsRelations = relations(
-  reportApprovals,
-  ({ one }) => ({
-    report: one(reports, {
-      fields: [reportApprovals.reportId],
-      references: [reports.id],
-    }),
-    approver: one(users, {
-      fields: [reportApprovals.approverId],
-      references: [users.id],
-    }),
-  }),
-);
-
-export const assessmentsRelations = relations(assessments, ({ one }) => ({
-  report: one(reports, {
-    fields: [assessments.reportId],
-    references: [reports.id],
-  }),
-  employee: one(employees, {
-    fields: [assessments.employeeId],
+    fields: [dailyNotes.supervisorId],
     references: [employees.id],
   }),
 }));

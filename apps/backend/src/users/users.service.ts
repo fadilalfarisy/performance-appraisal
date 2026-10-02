@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as bcrypt from 'bcrypt';
-import { UserPayload } from './interface/user.interface';
+import { UserPayload } from './interfaces/user.interface';
 import { UsersRepository } from './users.repository';
 
 @Injectable()
@@ -70,12 +70,7 @@ export class UsersService {
             fullName: user.employee.fullName,
           }
         : null,
-      role: user.role
-        ? {
-            id: user.role.id,
-            name: user.role.name,
-          }
-        : null,
+      role: user.role ?? null,
     };
   }
 }

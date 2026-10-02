@@ -15,7 +15,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { Roles } from '../auth/roles.decorator';
+import { Roles } from '../common/decorators/roles.decorator';
 import { ApiResponse } from '../common/utils/response.util';
 import { PositionsService } from './positions.service';
 import { CreatePositionDto } from './dto/create-position.dto';

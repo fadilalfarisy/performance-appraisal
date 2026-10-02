@@ -3,7 +3,7 @@
 import { DepartmentPayload } from '../../departments/interfaces/department.interface';
 import { PositionPayload } from '../../positions/interfaces/position.interface';
 import { ContractPayload } from '../../employees/interfaces/contract.interface';
-import { GenderEnum } from '../enum/gender.enum';
+import { GenderEnum } from '../enums/gender.enum';
 
 export enum EmployeeStatus {
   ACTIVE = 'ACTIVE',

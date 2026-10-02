@@ -67,41 +67,6 @@ const DetailsCriteria = lazy(() =>
     default: module.DetailsCriteria,
   })),
 );
-const HumanResource = lazy(() =>
-  import("@/features/assessment").then((module) => ({
-    default: module.HumanResource,
-  })),
-);
-const InitiateReport = lazy(() =>
-  import("@/features/assessment").then((module) => ({
-    default: module.InitiateReport,
-  })),
-);
-const ViewReport = lazy(() =>
-  import("@/features/assessment").then((module) => ({
-    default: module.ViewReport,
-  })),
-);
-const HeadDepartment = lazy(() =>
-  import("@/features/assessment").then((module) => ({
-    default: module.HeadDepartment,
-  })),
-);
-const Assessment = lazy(() =>
-  import("@/features/assessment").then((module) => ({
-    default: module.Assessment,
-  })),
-);
-const Manager = lazy(() =>
-  import("@/features/assessment").then((module) => ({
-    default: module.Manager,
-  })),
-);
-const GeneralManager = lazy(() =>
-  import("@/features/assessment").then((module) => ({
-    default: module.GeneralManager,
-  })),
-);
 const User = lazy(() =>
   import("@/features/users").then((module) => ({ default: module.User })),
 );
@@ -110,53 +75,6 @@ const CreateUser = lazy(() =>
 );
 const UpdateUser = lazy(() =>
   import("@/features/users").then((module) => ({ default: module.UpdateUser })),
-);
-const Role = lazy(() =>
-  import("@/features/roles").then((module) => ({ default: module.Role })),
-);
-const CreateRole = lazy(() =>
-  import("@/features/roles").then((module) => ({ default: module.CreateRole })),
-);
-const UpdateRole = lazy(() =>
-  import("@/features/roles").then((module) => ({ default: module.UpdateRole })),
-);
-const Permission = lazy(() =>
-  import("@/features/permissions").then((module) => ({
-    default: module.Permission,
-  })),
-);
-const CreatePermission = lazy(() =>
-  import("@/features/permissions").then((module) => ({
-    default: module.CreatePermission,
-  })),
-);
-const UpdatePermission = lazy(() =>
-  import("@/features/permissions").then((module) => ({
-    default: module.UpdatePermission,
-  })),
-);
-const Report = lazy(() =>
-  import("@/features/report").then((module) => ({ default: module.Report })),
-);
-const Performance = lazy(() =>
-  import("@/features/performance").then((module) => ({
-    default: module.Performance,
-  })),
-);
-const CreatePerformance = lazy(() =>
-  import("@/features/performance").then((module) => ({
-    default: module.CreatePerformance,
-  })),
-);
-const UpdatePerformance = lazy(() =>
-  import("@/features/performance").then((module) => ({
-    default: module.UpdatePerformance,
-  })),
-);
-const ViewPerformance = lazy(() =>
-  import("@/features/performance").then((module) => ({
-    default: module.ViewPerformance,
-  })),
 );
 
 const ErrorPage = lazy(() =>
@@ -241,34 +159,6 @@ export default createBrowserRouter(
               ],
             },
             {
-              path: "human-resource",
-              element: suspenseWrapper(<HumanResource />),
-            },
-            {
-              path: "human-resource/initiate",
-              element: suspenseWrapper(<InitiateReport />),
-            },
-            {
-              path: "human-resource/:id",
-              element: suspenseWrapper(<ViewReport />),
-            },
-            {
-              path: "head-department",
-              element: suspenseWrapper(<HeadDepartment />),
-            },
-            {
-              path: "head-department/:id",
-              element: suspenseWrapper(<Assessment />),
-            },
-            {
-              path: "manager",
-              element: suspenseWrapper(<Manager />),
-            },
-            {
-              path: "general-manager",
-              element: suspenseWrapper(<GeneralManager />),
-            },
-            {
               path: "users",
               element: <Outlet />,
               children: [
@@ -283,72 +173,6 @@ export default createBrowserRouter(
                 {
                   path: ":id",
                   element: suspenseWrapper(<UpdateUser />),
-                },
-              ],
-            },
-            {
-              path: "roles",
-              element: <Outlet />,
-              children: [
-                {
-                  index: true,
-                  element: suspenseWrapper(<Role />),
-                },
-                {
-                  path: "create",
-                  element: suspenseWrapper(<CreateRole />),
-                },
-                // {
-                //   path: ":id/update",
-                //   element: suspenseWrapper(<UpdateRole />),
-                // },
-                {
-                  path: ":id",
-                  element: suspenseWrapper(<UpdateRole />),
-                },
-              ],
-            },
-            {
-              path: "permissions",
-              element: <Outlet />,
-              children: [
-                {
-                  index: true,
-                  element: suspenseWrapper(<Permission />),
-                },
-                {
-                  path: "create",
-                  element: suspenseWrapper(<CreatePermission />),
-                },
-                {
-                  path: ":id",
-                  element: suspenseWrapper(<UpdatePermission />),
-                },
-              ],
-            },
-            {
-              path: "report",
-              element: suspenseWrapper(<Report />),
-            },
-            {
-              path: "performance",
-              element: <Outlet />,
-              children: [
-                {
-                  index: true,
-                  element: suspenseWrapper(<Performance />),
-                },
-                {
-                  path: "create/:id",
-                  element: suspenseWrapper(<CreatePerformance />),
-                },
-                {
-                  path: "update/:id",
-                  element: suspenseWrapper(<UpdatePerformance />),
-                },
-                {
-                  path: ":id",
-                  element: suspenseWrapper(<ViewPerformance />),
                 },
               ],
             },

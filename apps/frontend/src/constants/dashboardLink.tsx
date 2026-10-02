@@ -1,11 +1,8 @@
 import {
-  StarOutlined,
   PieChartOutlined,
   UserOutlined,
   IdcardOutlined,
   TagOutlined,
-  FolderOutlined,
-  FundOutlined,
   BuildFilled,
 } from "@ant-design/icons";
 import { role } from "@/constants/roleAccess";
@@ -30,10 +27,8 @@ export const menuItem: MenuItem[] = [
       ...role.accessHumanResource,
       ...role.accessHeadDepartment,
       ...role.accessSupervisor,
-      ...role.accessHumanResourceManager,
     ],
   },
-
   {
     key: "/dashboard/employee",
     icon: <IdcardOutlined />,
@@ -43,7 +38,8 @@ export const menuItem: MenuItem[] = [
       ...role.accessGeneralManager,
       ...role.accessManager,
       ...role.accessHumanResource,
-      ...role.accessHumanResourceManager,
+      ...role.accessHeadDepartment,
+      ...role.accessSupervisor,
     ],
   },
   {
@@ -57,58 +53,6 @@ export const menuItem: MenuItem[] = [
       ...role.accessHumanResource,
       ...role.accessHeadDepartment,
       ...role.accessSupervisor,
-      ...role.accessHumanResourceManager,
-    ],
-  },
-  {
-    key: "/dashboard/performance",
-    icon: <FundOutlined />,
-    label: "Daily Records",
-    roles: [...role.accessHeadDepartment, ...role.accessSupervisor],
-  },
-  {
-    key: "/dashboard/report",
-    icon: <FolderOutlined />,
-    label: "Report",
-    roles: [
-      ...role.accessGeneralManager,
-      ...role.accessManager,
-      ...role.accessHumanResource,
-      ...role.accessHeadDepartment,
-      ...role.accessHumanResourceManager,
-    ],
-  },
-  {
-    key: "/assestment",
-    icon: <StarOutlined />,
-    label: "Assestment",
-    children: [
-      {
-        key: "/dashboard/human-resource",
-        label: "Initiate Report",
-        roles: [...role.accessHumanResource],
-      },
-      {
-        key: "/dashboard/head-department",
-        label: "Assessment ",
-        roles: [...role.accessHeadDepartment],
-      },
-      {
-        key: "/dashboard/manager",
-        label: "Approve Report",
-        roles: [...role.accessManager],
-      },
-      {
-        key: "/dashboard/general-manager",
-        label: "Final Report",
-        roles: [...role.accessGeneralManager],
-      },
-    ],
-    roles: [
-      ...role.accessGeneralManager,
-      ...role.accessManager,
-      ...role.accessHumanResource,
-      ...role.accessHeadDepartment,
     ],
   },
   {
@@ -127,7 +71,7 @@ export const menuItem: MenuItem[] = [
         label: "Positions",
         roles: [...role.accessAdministrator],
       },
-    ]
+    ],
   },
   {
     key: "/dashboard/user",
@@ -140,18 +84,8 @@ export const menuItem: MenuItem[] = [
         label: "Users",
         roles: [...role.accessAdministrator],
       },
-      {
-        key: "/dashboard/roles",
-        label: "Roles",
-        roles: [...role.accessAdministrator],
-      },
-      {
-        key: "/dashboard/permissions",
-        label: "Permissions",
-        roles: [...role.accessAdministrator],
-      },
-    ]
-  }
+    ],
+  },
 ];
 
 export const filteredMenuByRole = (role: string) => {

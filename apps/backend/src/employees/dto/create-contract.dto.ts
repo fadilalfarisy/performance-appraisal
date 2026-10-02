@@ -4,7 +4,7 @@ import {
   IsDateString,
   IsEnum,
 } from 'class-validator';
-import { ContractStatus } from '../enum/contract.enum';
+import { ContractStatus } from '../enums/contract.enum';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateContractDto {

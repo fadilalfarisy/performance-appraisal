@@ -1,43 +1,14 @@
 import { Row, Col, Descriptions, Card, Flex, Typography } from "antd";
-import {
-  FileSyncOutlined,
-  FileDoneOutlined,
-  SafetyCertificateOutlined,
-  FormOutlined,
-  TeamOutlined,
-} from "@ant-design/icons";
-import { StatsCard } from "@/components";
+import { TeamOutlined } from "@ant-design/icons";
 import {
   useCountEmployeeByDepartmentQuery,
   useCountEmployeeQuery,
-  useCountReportByStatusQuery,
 } from "@/features/dashboard/dashboardApi";
 import { useGetCriteriaQuery } from "@/features/criteria/criteriaApi";
 
 const { Title, Paragraph } = Typography;
 
-const dashboardInfo = [
-  {
-    role: "Head Department",
-    icon: <FormOutlined style={{ fontSize: 30, color: "red" }} />,
-  },
-  {
-    role: "Manager",
-    icon: <FileDoneOutlined style={{ fontSize: 30, color: "orange" }} />,
-  },
-  {
-    role: "General Manager",
-    icon: <FileSyncOutlined style={{ fontSize: 30, color: "green" }} />,
-  },
-  {
-    role: "Human Resource",
-    icon: <SafetyCertificateOutlined style={{ fontSize: 30, color: "blue" }} />,
-  },
-];
-
 export const Dashboard = () => {
-  const { data: countReportByStatus, isSuccess: isCountReportSuccess } =
-    useCountReportByStatusQuery({});
   const { data: totalEmployee, isSuccess: isCountEmployeeSuccess } =
     useCountEmployeeQuery({});
   const {
@@ -49,22 +20,6 @@ export const Dashboard = () => {
 
   return (
     <>
-      <Row gutter={[16, 16]}>
-        {isCountReportSuccess &&
-          countReportByStatus?.map((item: any, index: number) => {
-            return (
-              <Col lg={6} key={index}>
-                <StatsCard
-                  status={item.status}
-                  role={dashboardInfo[index].role}
-                  value={item.total}
-                  icon={dashboardInfo[index].icon}
-                />
-              </Col>
-            );
-          })}
-      </Row>
-
       <Card style={{ margin: "16px 0" }}>
         <Row gutter={[16, 16]} align="middle">
           <Col sm={9}>

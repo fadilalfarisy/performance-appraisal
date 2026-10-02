@@ -1,11 +1,6 @@
-import { useState, useMemo } from "react";
-import { Button, DatePicker, Drawer, Flex, Form, Input, Select } from "antd";
+import { useState } from "react";
+import { Button, Drawer, Flex, Form, Input, Select } from "antd";
 import { CloseOutlined, FilterOutlined } from "@ant-design/icons";
-import { useGetDepartmentsQuery } from "@/features/departments";
-import { useGetPositionsQuery } from "@/features/position";
-import { employeeStatusOption } from "@/constants/option/employee-status";
-import { contractStatusOption } from "@/constants/option/contract-status";
-import { dateFormat } from "@/utils/dateUtils";
 import { criteriaTypeOption } from "@/constants/option/criteria-type";
 
 export type CriteriaSearchValues = {

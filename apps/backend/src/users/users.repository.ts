@@ -18,21 +18,17 @@ export class UsersRepository {
       .select({
         id: schema.users.id,
         username: schema.users.username,
+        role: schema.users.role,
         employee: {
           id: schema.employees.id,
           fullName: schema.employees.fullName,
-        },
-        role: {
-          id: schema.roles.id,
-          name: schema.roles.name,
         },
       })
       .from(schema.users)
       .leftJoin(
         schema.employees,
         eq(schema.users.employeeId, schema.employees.id),
-      )
-      .leftJoin(schema.roles, eq(schema.users.roleId, schema.roles.id));
+      );
   }
 
   async findOneWithRelations(id: string) {
@@ -40,13 +36,10 @@ export class UsersRepository {
       .select({
         id: schema.users.id,
         username: schema.users.username,
+        role: schema.users.role,
         employee: {
           id: schema.employees.id,
           fullName: schema.employees.fullName,
-        },
-        role: {
-          id: schema.roles.id,
-          name: schema.roles.name,
         },
       })
       .from(schema.users)
@@ -54,7 +47,6 @@ export class UsersRepository {
         schema.employees,
         eq(schema.users.employeeId, schema.employees.id),
       )
-      .leftJoin(schema.roles, eq(schema.users.roleId, schema.roles.id))
       .where(eq(schema.users.id, id))
       .limit(1);
 
@@ -67,13 +59,10 @@ export class UsersRepository {
         id: schema.users.id,
         username: schema.users.username,
         password: schema.users.password,
+        role: schema.users.role,
         employee: {
           id: schema.employees.id,
           fullName: schema.employees.fullName,
-        },
-        role: {
-          id: schema.roles.id,
-          name: schema.roles.name,
         },
       })
       .from(schema.users)
@@ -81,7 +70,6 @@ export class UsersRepository {
         schema.employees,
         eq(schema.users.employeeId, schema.employees.id),
       )
-      .leftJoin(schema.roles, eq(schema.users.roleId, schema.roles.id))
       .where(eq(schema.users.username, username))
       .limit(1);
 
