@@ -3,6 +3,7 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 export interface AuthState {
   logged: boolean;
   username: string;
+  fullName: string;
   role: string;
   accessToken: string;
 }
@@ -10,62 +11,57 @@ export interface AuthState {
 const initialValue: AuthState = {
   logged: false,
   username: "",
+  fullName: "",
   role: "",
   accessToken: "",
 };
 
-const getInitialState = (): AuthState => {
-  const authLocalStorage = localStorage.getItem("auth");
-  if (authLocalStorage) {
-    const authJSON = JSON.parse(authLocalStorage);
-    return {
-      logged: true,
-      ...authJSON,
-    };
-  }
-  return initialValue;
-};
-
 const authSlice = createSlice({
   name: "auth",
-  initialState: getInitialState(),
+  initialState: initialValue,
   reducers: {
     setAuth: (state, action: PayloadAction<AuthState>) => {
-      const authLocalStorage = {
-        username: action.payload.username,
-        role: action.payload.role,
-        accessToken: action.payload.accessToken,
-      };
       state.logged = action.payload.logged;
       state.username = action.payload.username;
+      state.fullName = action.payload.fullName;
       state.role = action.payload.role;
       state.accessToken = action.payload.accessToken;
-      localStorage.setItem("auth", JSON.stringify(authLocalStorage));
+    },
+    // Used by the bootstrap and re-auth flows: the access token is refreshed
+    // while the rest of the session is preserved.
+    setSession: (
+      state,
+      action: PayloadAction<{
+        accessToken: string;
+        username: string;
+        role: string;
+        fullName?: string;
+      }>,
+    ) => {
+      state.logged = true;
+      state.accessToken = action.payload.accessToken;
+      state.username = action.payload.username;
+      state.role = action.payload.role;
+      if (action.payload.fullName !== undefined) {
+        state.fullName = action.payload.fullName;
+      }
+    },
+    setAccessToken: (state, action: PayloadAction<string>) => {
+      state.accessToken = action.payload;
     },
     deleteAuth: (state) => {
       state.logged = false;
       state.username = "";
+      state.fullName = "";
       state.role = "";
       state.accessToken = "";
-      localStorage.removeItem("auth");
-    },
-    setAccessToken: (state, action: PayloadAction<string>) => {
-      const newToken = action.payload;
-      state.accessToken = newToken;
-      const authLocalStorage = localStorage.getItem("auth");
-      if (authLocalStorage) {
-        const authJSON = JSON.parse(authLocalStorage);
-        const newAuth = JSON.stringify({
-          ...authJSON,
-          accessToken: newToken,
-        });
-        localStorage.setItem("auth", newAuth);
-      }
     },
   },
 });
 
-export const { setAuth, deleteAuth, setAccessToken } = authSlice.actions;
+export const { setAuth, setSession, setAccessToken, deleteAuth } =
+  authSlice.actions;
 export const authReducer = authSlice.reducer;
-export const selectIsAuthenticated = (state: any) => state.auth.logged;
-export const selectAuthUser = (state: any) => state.auth;
+export const selectIsAuthenticated = (state: { auth: AuthState }) =>
+  state.auth.logged;
+export const selectAuthUser = (state: { auth: AuthState }) => state.auth;

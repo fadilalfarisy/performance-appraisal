@@ -1,6 +1,7 @@
 import type { PaginationQuery } from './common';
 import type { DepartmentResponse } from './departments';
 import type { PositionResponse } from './positions';
+import type { ContractResponse } from './contracts';
 import type {
   ColumnEmployee,
   ContractStatus,
@@ -8,61 +9,42 @@ import type {
   GenderEnum,
 } from './enums';
 
-export interface CreateContractRequest {
-  status: ContractStatus;
-  startDate: string;
-  endDate?: string;
-}
-
-export type UpdateContractRequest = Partial<CreateContractRequest>;
-
 export interface CreateEmployeeRequest {
-  nip: string;
+  employeeNumber: string;
   fullName: string;
   gender: GenderEnum;
   birthDate: string;
+  joinDate: string;
+  address: string;
   departmentId: string;
   positionId: string;
-  managerId: string;
+  superiorId?: string | null;
   status?: EmployeeStatus;
-  address: string;
-  contracts: CreateContractRequest[];
 }
 
-export type UpdateEmployeeRequest = Partial<
-  Omit<CreateEmployeeRequest, 'contracts'>
->;
+export type UpdateEmployeeRequest = Partial<CreateEmployeeRequest>;
 
 export interface EmployeeQuery extends PaginationQuery {
   sortBy?: ColumnEmployee;
   department?: string;
   position?: string;
   status?: EmployeeStatus;
-  startDate?: string[];
-  endDate?: string[];
   contractStatus?: ContractStatus;
 }
 
-export interface ManagerResponse {
+export interface SuperiorResponse {
   id: string;
   fullName: string;
-}
-
-export interface ContractResponse {
-  id: string;
-  employeeId: string;
-  startDate: string;
-  endDate: string | null;
-  status: ContractStatus;
 }
 
 export interface EmployeeResponse {
   id: string;
-  nip: string;
+  employeeNumber: string;
   fullName: string;
   birthDate: string;
+  joinDate: string;
   gender: GenderEnum;
-  manager: ManagerResponse | null;
+  superior: SuperiorResponse | null;
   position: Partial<PositionResponse> | null;
   department: Partial<DepartmentResponse> | null;
   status: EmployeeStatus;

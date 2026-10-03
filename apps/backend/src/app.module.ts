@@ -22,6 +22,7 @@ import { EmployeesModule } from './employees/employees.module';
 import { DepartmentsModule } from './departments/departments.module';
 import { PositionsModule } from './positions/positions.module';
 import { CriteriaModule } from './criteria/criteria.module';
+import { ContractsModule } from './contracts/contracts.module';
 import { AuditModule } from './audit/audit.module';
 
 @Module({
@@ -48,6 +49,7 @@ import { AuditModule } from './audit/audit.module';
     AuthModule,
     DailyNotesModule,
     EmployeesModule,
+    ContractsModule,
     DepartmentsModule,
     PositionsModule,
     CriteriaModule,

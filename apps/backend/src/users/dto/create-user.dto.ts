@@ -1,24 +1,50 @@
-import { IsString, MinLength, IsUUID, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { randomUUID } from 'crypto';
-import { UserRole } from '../enums/user-role.enum';
+import {
+  IsArray,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
+import { UserRole } from '@appraisal/types';
 import type { CreateUserRequest } from '@appraisal/types';
 
 export class CreateUserDto implements CreateUserRequest {
-  @ApiPropertyOptional({ example: 'user-new' })
+  @ApiProperty({ example: 'user-new' })
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(255)
   username!: string;
 
-  @ApiPropertyOptional({ example: 'newsecurepassword', minLength: 6 })
+  @ApiProperty({ example: 'newsecurepassword', minLength: 6 })
   @IsString()
   @MinLength(6)
   password!: string;
 
-  @ApiProperty({ enum: UserRole, example: UserRole.SUPERVISOR })
+  @ApiProperty({ example: 'Jane Doe' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(255)
+  fullName!: string;
+
+  @ApiProperty({ enum: UserRole, example: UserRole.HEAD_DEPARTMENT })
   @IsEnum(UserRole)
   role!: UserRole;
 
-  @ApiPropertyOptional({ example: randomUUID() })
+  @ApiPropertyOptional({ description: 'Optional linked employee id' })
+  @IsOptional()
   @IsUUID()
-  employeeId!: string;
+  employeeId?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Departments the user may access (Head Department, Supervisor, Manager)',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsUUID('all', { each: true })
+  departmentIds?: string[];
 }

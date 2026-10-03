@@ -1,6 +1,7 @@
 import { apiSlice } from "@/api/apiSlice";
 import type {
   ApiResponse,
+  ContractQuery,
   ContractResponse,
   CreateContractRequest,
   UpdateContractRequest,
@@ -8,56 +9,45 @@ import type {
 
 export const contractApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
-    getContractEmployee: builder.query<ContractResponse[], string | undefined>({
-      query: (id) => `/employees/${id}/contracts`,
-      transformResponse: (response: ApiResponse<ContractResponse[]>) =>
-        response?.data ?? [],
+    getContracts: builder.query<
+      ApiResponse<ContractResponse[]>,
+      ContractQuery | undefined
+    >({
+      query: (params) => ({ url: `/contracts`, params }),
       providesTags: ["Contracts"],
     }),
-    getContractById: builder.query<
-      ApiResponse<ContractResponse>,
-      { id: string | undefined; contractId: string | undefined }
-    >({
-      query: ({ id, contractId }) => `/employees/${id}/contracts/${contractId}`,
+    getContractById: builder.query<ApiResponse<ContractResponse>, string | undefined>({
+      query: (id) => `/contracts/${id}`,
       providesTags: ["Contracts"],
     }),
     createContract: builder.mutation<
       ApiResponse<ContractResponse>,
-      { id: string; body: CreateContractRequest }
+      CreateContractRequest
     >({
-      query: ({ id, body }) => ({
-        url: `/employees/${id}/contracts`,
-        method: "POST",
-        body: body,
-      }),
+      query: (body) => ({ url: `/contracts`, method: "POST", body }),
       invalidatesTags: ["Contracts", "Employees"],
     }),
     updateContract: builder.mutation<
       ApiResponse<ContractResponse>,
-      { id: string; contractId: string; body: UpdateContractRequest }
+      { id: string | undefined; body: UpdateContractRequest }
     >({
-      query: ({ id, contractId, body }) => ({
-        url: `/employees/${id}/contracts/${contractId}`,
+      query: ({ id, body }) => ({
+        url: `/contracts/${id}`,
         method: "PATCH",
-        body: body,
+        body,
       }),
       invalidatesTags: ["Contracts", "Employees"],
     }),
-    deleteContract: builder.mutation<
-      ApiResponse<void>,
-      { id: string | undefined; contractId: string | undefined }
-    >({
-      query: ({ id, contractId }) => ({
-        url: `/employees/${id}/contracts/${contractId}`,
-        method: "DELETE",
-      }),
+    deleteContract: builder.mutation<ApiResponse<void>, string | undefined>({
+      query: (id) => ({ url: `/contracts/${id}`, method: "DELETE" }),
       invalidatesTags: ["Contracts", "Employees"],
     }),
   }),
+  overrideExisting: false,
 });
 
 export const {
-  useGetContractEmployeeQuery,
+  useGetContractsQuery,
   useGetContractByIdQuery,
   useCreateContractMutation,
   useUpdateContractMutation,

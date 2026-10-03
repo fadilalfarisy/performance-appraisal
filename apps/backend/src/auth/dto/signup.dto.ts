@@ -1,4 +1,4 @@
-import { IsString, MinLength, IsUUID, IsNotEmpty, IsEnum } from 'class-validator';
+import { IsString, MinLength, IsUUID, IsNotEmpty, IsEnum, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '../../users/enums/user-role.enum';
 import type { SignUpRequest } from '@appraisal/types';
@@ -7,6 +7,7 @@ export class SignUpDto implements SignUpRequest {
     @ApiPropertyOptional({ example: 'user-new' })
     @IsString()
     @IsNotEmpty()
+    @MaxLength(255)
     username!: string;
 
     @ApiPropertyOptional({ example: 'newsecurepassword', minLength: 6 })
@@ -14,6 +15,12 @@ export class SignUpDto implements SignUpRequest {
     @MinLength(6)
     @IsNotEmpty()
     password!: string;
+
+    @ApiPropertyOptional({ example: 'Jane Doe' })
+    @IsString()
+    @IsNotEmpty()
+    @MaxLength(255)
+    fullName!: string;
 
     @ApiProperty({ enum: UserRole, example: UserRole.SUPERVISOR })
     @IsEnum(UserRole)

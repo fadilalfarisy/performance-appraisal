@@ -5,29 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1790928406378,
+      "when": 1790933368860,
       "tag": "0000_init",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1790928419434,
+      "when": 1790933370119,
       "tag": "0001_constraints",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1790928634443,
-      "tag": "0002_refresh_tokens",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1790928850030,
-      "tag": "0003_user_departments",
       "breakpoints": true
     }
   ]

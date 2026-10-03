@@ -1,122 +1,165 @@
-import { Injectable } from '@nestjs/common';
-import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import * as schema from '../db/schema';
-import { eq } from 'drizzle-orm';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
-import { DB_CONNECTION } from '../db/db.module';
-import { Inject } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { and, eq, inArray } from 'drizzle-orm';
+import type { UserDepartmentSummary, UserRole } from '@appraisal/types';
+import { DB_CONNECTION } from '../db/db.constants';
+import type { Database, DbExecutor } from '../db/db.type';
+import { departments, employees, userDepartments, users } from '../db/schema';
+import { notDeleted } from '../db/helpers/soft-delete';
+
+export type UserUpdate = Partial<{
+  password: string;
+  fullName: string;
+  role: UserRole;
+  employeeId: string | null;
+  isActive: boolean;
+}>;
 
 @Injectable()
 export class UsersRepository {
-  constructor(
-    @Inject(DB_CONNECTION) private readonly db: NodePgDatabase<typeof schema>,
-  ) { }
+  constructor(@Inject(DB_CONNECTION) private readonly db: Database) {}
 
-  async findAllWithRelations() {
-    return this.db
+  private readonly baseSelect = {
+    id: users.id,
+    username: users.username,
+    fullName: users.fullName,
+    role: users.role,
+    isActive: users.isActive,
+    employee: { id: employees.id, fullName: employees.fullName },
+  };
+
+  async findAll(executor: DbExecutor = this.db) {
+    return executor
+      .select(this.baseSelect)
+      .from(users)
+      .leftJoin(employees, eq(users.employeeId, employees.id))
+      .where(notDeleted(users));
+  }
+
+  async findById(id: string, executor: DbExecutor = this.db) {
+    const [row] = await executor
+      .select(this.baseSelect)
+      .from(users)
+      .leftJoin(employees, eq(users.employeeId, employees.id))
+      .where(and(eq(users.id, id), notDeleted(users)))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async findByUsernameForAuth(username: string) {
+    const [row] = await this.db
       .select({
-        id: schema.users.id,
-        username: schema.users.username,
-        role: schema.users.role,
-        employee: {
-          id: schema.employees.id,
-          fullName: schema.employees.fullName,
-        },
+        id: users.id,
+        username: users.username,
+        password: users.password,
+        role: users.role,
+        isActive: users.isActive,
       })
-      .from(schema.users)
-      .leftJoin(
-        schema.employees,
-        eq(schema.users.employeeId, schema.employees.id),
-      );
+      .from(users)
+      .where(and(eq(users.username, username), notDeleted(users)))
+      .limit(1);
+    return row ?? null;
   }
 
-  async findOneWithRelations(id: string) {
-    const [result] = await this.db
+  async existsByUsername(username: string): Promise<boolean> {
+    const [row] = await this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.username, username))
+      .limit(1);
+    return !!row;
+  }
+
+  async departmentsByUserIds(
+    userIds: string[],
+  ): Promise<Record<string, UserDepartmentSummary[]>> {
+    if (userIds.length === 0) return {};
+
+    const rows = await this.db
       .select({
-        id: schema.users.id,
-        username: schema.users.username,
-        role: schema.users.role,
-        employee: {
-          id: schema.employees.id,
-          fullName: schema.employees.fullName,
-        },
+        userId: userDepartments.userId,
+        id: departments.id,
+        name: departments.name,
       })
-      .from(schema.users)
-      .leftJoin(
-        schema.employees,
-        eq(schema.users.employeeId, schema.employees.id),
-      )
-      .where(eq(schema.users.id, id))
-      .limit(1);
+      .from(userDepartments)
+      .innerJoin(departments, eq(userDepartments.departmentId, departments.id))
+      .where(inArray(userDepartments.userId, userIds));
 
-    return result || null;
+    const map: Record<string, UserDepartmentSummary[]> = {};
+    for (const row of rows) {
+      (map[row.userId] ??= []).push({ id: row.id, name: row.name });
+    }
+    return map;
   }
 
-  async findOneWithRelationsByUsername(username: string) {
-    const [result] = await this.db
-      .select({
-        id: schema.users.id,
-        username: schema.users.username,
-        password: schema.users.password,
-        role: schema.users.role,
-        employee: {
-          id: schema.employees.id,
-          fullName: schema.employees.fullName,
-        },
+  async departmentsByUserId(userId: string) {
+    const map = await this.departmentsByUserIds([userId]);
+    return map[userId] ?? [];
+  }
+
+  async createAndSave(
+    values: {
+      username: string;
+      password: string;
+      fullName: string;
+      role: UserRole;
+      employeeId?: string | null;
+    },
+    executor: DbExecutor = this.db,
+  ) {
+    const [row] = await executor
+      .insert(users)
+      .values({
+        username: values.username,
+        password: values.password,
+        fullName: values.fullName,
+        role: values.role,
+        employeeId: values.employeeId ?? null,
       })
-      .from(schema.users)
-      .leftJoin(
-        schema.employees,
-        eq(schema.users.employeeId, schema.employees.id),
-      )
-      .where(eq(schema.users.username, username))
-      .limit(1);
-
-    return result;
+      .returning({ id: users.id });
+    return row ?? null;
   }
 
-  async findAll() {
-    return this.db.select().from(schema.users);
+  async updateAndSave(
+    id: string,
+    values: UserUpdate,
+    executor: DbExecutor = this.db,
+  ) {
+    const [row] = await executor
+      .update(users)
+      .set(values)
+      .where(and(eq(users.id, id), notDeleted(users)))
+      .returning({ id: users.id });
+    return row ?? null;
   }
 
-  async findOne(id: string) {
-    const [result] = await this.db
-      .select()
-      .from(schema.users)
-      .where(eq(schema.users.id, id))
-      .limit(1);
-    return result;
+  async updateLastLogin(id: string) {
+    await this.db
+      .update(users)
+      .set({ lastLoginAt: new Date() })
+      .where(eq(users.id, id));
   }
 
-  async findOneByUsername(username: string) {
-    const [result] = await this.db
-      .select()
-      .from(schema.users)
-      .where(eq(schema.users.username, username))
-      .limit(1);
-    return result;
+  async setDepartments(
+    userId: string,
+    departmentIds: string[],
+    executor: DbExecutor = this.db,
+  ) {
+    await executor
+      .delete(userDepartments)
+      .where(eq(userDepartments.userId, userId));
+    if (departmentIds.length > 0) {
+      await executor
+        .insert(userDepartments)
+        .values(departmentIds.map((departmentId) => ({ userId, departmentId })));
+    }
   }
 
-  async createAndSave(dto: CreateUserDto) {
-    const [result] = await this.db.insert(schema.users).values(dto).returning();
-    return result;
-  }
-
-  async updateAndSave(id: string, dto: UpdateUserDto) {
-    const [result] = await this.db
-      .update(schema.users)
-      .set(dto)
-      .where(eq(schema.users.id, id))
-      .returning();
-    return result;
-  }
-
-  async delete(id: string) {
-    const [result] = await this.db
-      .delete(schema.users)
-      .where(eq(schema.users.id, id))
-      .returning();
-    return result;
+  async softDelete(id: string, executor: DbExecutor = this.db) {
+    const [row] = await executor
+      .update(users)
+      .set({ isDeleted: true, deletedAt: new Date() })
+      .where(and(eq(users.id, id), notDeleted(users)))
+      .returning({ id: users.id });
+    return row ?? null;
   }
 }

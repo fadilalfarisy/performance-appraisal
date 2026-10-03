@@ -1,14 +1,17 @@
-import { message } from "antd";
+import { message as staticMessage } from "antd";
 import type { ApiError } from "@appraisal/types";
+import { getMessageApi } from "./message";
 
 export const errorHandling = (error: unknown) => {
   console.error(error);
-  const apiError = error as { data?: ApiError & { error?: string } };
-  if (apiError?.data?.error) {
-    message.error(apiError.data.error);
-  } else if (apiError?.data?.message) {
-    message.error(apiError.data.message);
+  const msg = getMessageApi() ?? staticMessage;
+  const data = (error as { data?: ApiError & { error?: string } })?.data;
+
+  if (data?.error) {
+    msg.error(data.error);
+  } else if (data?.message) {
+    msg.error(data.message);
   } else {
-    message.error("Something error");
+    msg.error("Something error");
   }
 };

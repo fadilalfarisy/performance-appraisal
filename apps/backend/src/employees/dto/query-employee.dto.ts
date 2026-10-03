@@ -15,7 +15,7 @@ export class QueryEmployeeDto extends QueryDto {
   @ApiPropertyOptional({ example: ColumnEmployee.CREATED_AT })
   @IsOptional()
   @IsEnum(ColumnEmployee)
-  sortBy: ColumnEmployee = ColumnEmployee.NIP;
+  sortBy: ColumnEmployee = ColumnEmployee.EMPLOYEE_NUMBER;
 
   @IsOptional()
   @IsString()
@@ -39,7 +39,7 @@ export class QueryEmployeeDto extends QueryDto {
   @IsDateString({}, { each: true })
   endDate?: string[];
 
-  @ApiPropertyOptional({ example: ContractStatus.CONTRACT })
+  @ApiPropertyOptional({ example: ContractStatus.ACTIVE })
   @IsOptional()
   @IsEnum(ContractStatus)
   contractStatus?: ContractStatus;

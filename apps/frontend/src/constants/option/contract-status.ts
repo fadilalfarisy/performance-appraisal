@@ -1,13 +1,12 @@
-import { capitalizeString } from "@/utils/stringUtils";
-import { ContractStatus } from "../enum/contract.enum";
+import { ContractStatus, ContractType } from "../enum/contract.enum";
+
+export const contractTypeOption = [
+  { label: "Permanent", value: ContractType.PERMANENT },
+  { label: "Fixed term", value: ContractType.FIXED_TERM },
+  { label: "Probation", value: ContractType.PROBATION },
+];
 
 export const contractStatusOption = [
-  {
-    label: capitalizeString(ContractStatus.CONTRACT),
-    value: ContractStatus.CONTRACT,
-  },
-  {
-    label: capitalizeString(ContractStatus.PERMANENT),
-    value: ContractStatus.PERMANENT,
-  },
+  { label: "Active", value: ContractStatus.ACTIVE },
+  { label: "Inactive", value: ContractStatus.INACTIVE },
 ];

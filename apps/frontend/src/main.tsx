@@ -5,15 +5,21 @@ import { ConfigProvider } from "antd";
 import { RouterProvider } from "react-router-dom";
 import router from "@/app/router";
 import { store } from "@/app/store";
+import { AppBootstrap } from "@/app/AppBootstrap";
 import { antdTheme } from "@/styles/theme";
 import "./index.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <Provider store={store}>
-      <ConfigProvider theme={antdTheme}>
-        <RouterProvider router={router} future={{ v7_startTransition: true }} />
-      </ConfigProvider>
+      <AppBootstrap>
+        <ConfigProvider theme={antdTheme}>
+          <RouterProvider
+            router={router}
+            future={{ v7_startTransition: true }}
+          />
+        </ConfigProvider>
+      </AppBootstrap>
     </Provider>
   </StrictMode>
 );

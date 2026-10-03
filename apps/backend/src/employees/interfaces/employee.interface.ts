@@ -1,5 +1,5 @@
 export {
   EmployeeStatus,
   type EmployeeResponse as EmployeePayload,
-  type ManagerResponse as ManagerPayload,
+  type SuperiorResponse as SuperiorPayload,
 } from '@appraisal/types';

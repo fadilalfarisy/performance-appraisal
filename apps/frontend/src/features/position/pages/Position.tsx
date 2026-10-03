@@ -74,8 +74,18 @@ export const Position = () => {
       render: (_, __, index) => index + 1,
     },
     {
+      title: "Code",
+      dataIndex: "code",
+      width: "1%",
+    },
+    {
       title: "Positions",
       dataIndex: "name",
+    },
+    {
+      title: "Level",
+      dataIndex: "level",
+      width: "1%",
     },
     {
       title: "Action",

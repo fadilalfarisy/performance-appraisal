@@ -2,9 +2,9 @@ import { useNavigate } from "react-router-dom";
 import { Button, Form, Input, Typography, Card } from "antd";
 import { useSignInMutation } from "@/features/auth/authApi";
 import { errorHandling } from "@/utils/errorUtils";
-import { useAppDispatch, useAppSelector } from "@/app/hooks";
-import { AuthState, setAuth } from "@/features/auth/authSlice";
-import { useEffect } from "react";
+import { useAppDispatch } from "@/app/hooks";
+import { setAuth } from "@/features/auth/authSlice";
+import { tokenStorage } from "@/features/auth/tokenStorage";
 
 const { Title, Paragraph } = Typography;
 
@@ -16,28 +16,26 @@ type SignInForm = {
 export const SignIn = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-
-  const auth = useAppSelector((state) => state.auth);
   const [login, { isLoading }] = useSignInMutation();
 
   const onFinish = async (values: SignInForm) => {
     try {
-      const result = await login(values).unwrap();
-      const authValue: AuthState = {
-        logged: true,
-        username: result.data?.username,
-        role: result.data?.role ?? "",
-        accessToken: result?.data?.accessToken,
-      };
-      dispatch(setAuth(authValue));
+      const { data } = await login(values).unwrap();
+      tokenStorage.setRefreshToken(data.refreshToken);
+      dispatch(
+        setAuth({
+          logged: true,
+          username: data.username,
+          fullName: "",
+          role: data.role ?? "",
+          accessToken: data.accessToken,
+        }),
+      );
+      navigate("/dashboard");
     } catch (error) {
       errorHandling(error);
     }
   };
-
-  useEffect(() => {
-    if (auth.logged) navigate("/dashboard");
-  }, [auth.logged, navigate]);
 
   return (
     <span

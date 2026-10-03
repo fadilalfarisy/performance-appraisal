@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { MenuProps } from "antd";
 import { deleteAuth } from "@/features/auth/authSlice";
-import { useLazyLogoutQuery } from "@/features/auth/authApi";
+import { useLogoutMutation } from "@/features/auth/authApi";
+import { tokenStorage } from "@/features/auth/tokenStorage";
 import { apiSlice } from "@/api/apiSlice";
 import { errorHandling } from "@/utils/errorUtils";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
@@ -14,7 +15,7 @@ export const UserProfile = () => {
   const auth = useAppSelector((state) => state.auth);
   const navigate = useNavigate();
 
-  const [logout] = useLazyLogoutQuery();
+  const [logout] = useLogoutMutation();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const showModal = () => {
@@ -43,16 +44,19 @@ export const UserProfile = () => {
       icon: <LogoutOutlined />,
       danger: true,
       onClick: async () => {
-        dispatch(deleteAuth());
-        localStorage.removeItem("auth");
-        dispatch(apiSlice.util.resetApiState());
-        navigate("/");
-
+        const refreshToken = tokenStorage.getRefreshToken();
         try {
-          await logout().unwrap();
+          if (refreshToken) {
+            await logout({ refreshToken }).unwrap();
+          }
           message.success("Logout was success");
         } catch (error) {
           errorHandling(error);
+        } finally {
+          dispatch(deleteAuth());
+          tokenStorage.clear();
+          dispatch(apiSlice.util.resetApiState());
+          navigate("/");
         }
       },
     },
@@ -75,7 +79,7 @@ export const UserProfile = () => {
       >
         <Descriptions layout="vertical" size={"small"} title="User Info">
           <Descriptions.Item label="Full Name">
-            {auth.username}
+            {auth.fullName || auth.username}
           </Descriptions.Item>
           <Descriptions.Item label="Role">{auth.role}</Descriptions.Item>
         </Descriptions>

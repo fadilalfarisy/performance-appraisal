@@ -4,7 +4,7 @@ import {
   useGetContractByIdQuery,
   useUpdateContractMutation,
 } from "../contractApi";
-import { ContractForm } from "../../employees/components/ContractForm";
+import { ContractForm } from "../components/ContractForm";
 
 export const UpdateContract = () => {
   const { employeeId, contractId } = useParams();
@@ -13,7 +13,7 @@ export const UpdateContract = () => {
     data: initialValueContract,
     isError,
     isSuccess,
-  } = useGetContractByIdQuery({ id: employeeId, contractId });
+  } = useGetContractByIdQuery(contractId);
 
   if (isError) {
     return <Navigate to={"/dashboard/employee"} />;

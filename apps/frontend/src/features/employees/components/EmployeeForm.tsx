@@ -1,16 +1,5 @@
 import { useNavigate, useParams } from "react-router-dom";
-import {
-  Button,
-  Form,
-  Input,
-  Row,
-  Col,
-  DatePicker,
-  Select,
-  Table,
-  message,
-} from "antd";
-import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
+import { Form, Input, Row, Col, DatePicker, Select, message } from "antd";
 import {
   useCreateEmployeeMutation,
   useGetEmployeeQuery,
@@ -26,8 +15,6 @@ import { useMemo } from "react";
 import { useGetDepartmentsQuery } from "@/features/departments";
 import { genderOption } from "@/constants/option/gender";
 import { employeeStatusOption } from "@/constants/option/employee-status";
-import { contractStatusOption } from "@/constants/option/contract-status";
-import { ContractStatus } from "@/constants/enum/contract.enum";
 import type { EmployeeResponse } from "@appraisal/types";
 
 type IEmployee = Partial<EmployeeResponse>;
@@ -60,7 +47,7 @@ export const EmployeeForm = ({
 
   const { data: departmentsResponse } = useGetDepartmentsQuery();
 
-  const { data: managerResponse } = useGetEmployeeQuery({});
+  const { data: superiorResponse } = useGetEmployeeQuery({});
 
   const positionOption = useMemo(() => {
     const positions = positionsResponse?.data;
@@ -82,37 +69,24 @@ export const EmployeeForm = ({
     );
   }, [departmentsResponse]);
 
-  const managerOption = useMemo(() => {
-    const managers = managerResponse?.data;
+  const superiorOption = useMemo(() => {
+    const superiors = superiorResponse?.data;
 
-    return (Array.isArray(managers) ? managers : []).map((manager: any) => ({
-      value: manager.id,
-      label: manager.fullName,
-    }));
-  }, [managerResponse]);
+    return (Array.isArray(superiors) ? superiors : []).map(
+      (superior: any) => ({
+        value: superior.id,
+        label: superior.fullName,
+      }),
+    );
+  }, [superiorResponse]);
 
   const onFinish = async (values: any) => {
     const payload = {
       ...values,
       birthDate: dayjs(values.birthDate).format(dateFormat),
-      contracts: values.contracts?.map((c: any) => {
-        const status = c.status || ContractStatus.CONTRACT;
-
-        if (status === ContractStatus.PERMANENT) {
-          return {
-            status,
-            startDate: c.startDate
-              ? dayjs(c.startDate).format(dateFormat)
-              : null,
-          };
-        }
-
-        return {
-          status,
-          startDate: c.startDate ? dayjs(c.startDate).format(dateFormat) : null,
-          endDate: c.endDate ? dayjs(c.endDate).format(dateFormat) : null,
-        };
-      }),
+      joinDate: values.joinDate
+        ? dayjs(values.joinDate).format(dateFormat)
+        : null,
     };
     console.log(payload);
     try {
@@ -137,19 +111,22 @@ export const EmployeeForm = ({
 
   const initialFormValues = useMemo(() => {
     if (createForm) {
-      return { contracts: [{ status: ContractStatus.CONTRACT }] };
+      return {};
     }
 
     return {
-      nip: initialValues?.nip,
+      employeeNumber: initialValues?.employeeNumber,
       fullName: initialValues?.fullName,
       gender: initialValues?.gender,
       birthDate: initialValues?.birthDate
         ? dayjs(initialValues.birthDate, dateFormat)
         : null,
+      joinDate: initialValues?.joinDate
+        ? dayjs(initialValues.joinDate, dateFormat)
+        : null,
       departmentId: initialValues?.department?.id,
       positionId: initialValues?.position?.id,
-      managerId: initialValues?.manager?.id,
+      superiorId: initialValues?.superior?.id,
       address: initialValues?.address,
       status: initialValues?.status,
     };
@@ -169,15 +146,12 @@ export const EmployeeForm = ({
         <Row gutter={[16, 0]}>
           <Col sm={24} md={12}>
             <Form.Item
-              label="NIP"
-              name="nip"
+              label="Employee Number"
+              name="employeeNumber"
               hasFeedback
               rules={[
-                {
-                  required: true,
-                  whitespace: true,
-                },
-                { min: 6, max: 6, message: "NIP must be 6 characters long" },
+                { required: true, whitespace: true },
+                { max: 50, message: "Employee number is too long" },
               ]}
             >
               <Input />
@@ -212,6 +186,15 @@ export const EmployeeForm = ({
             >
               <DatePicker format={dateFormat} placeholder="Birth Date" />
             </Form.Item>
+
+            <Form.Item
+              label="Join Date"
+              name="joinDate"
+              hasFeedback
+              rules={[{ required: true }]}
+            >
+              <DatePicker format={dateFormat} placeholder="Join Date" />
+            </Form.Item>
           </Col>
 
           <Col sm={24} md={12}>
@@ -240,15 +223,15 @@ export const EmployeeForm = ({
               />
             </Form.Item>
             <Form.Item
-              label="Manager"
-              name="managerId"
+              label="Superior"
+              name="superiorId"
               hasFeedback
-              rules={[{ required: true }]}
             >
               <Select
                 showSearch
+                allowClear
                 optionFilterProp="label"
-                options={managerOption}
+                options={superiorOption}
               />
             </Form.Item>
             <Form.Item
@@ -273,130 +256,6 @@ export const EmployeeForm = ({
         >
           <Input.TextArea />
         </Form.Item>
-
-        {createForm && (
-          <Form.List name="contracts">
-            {(fields, { add, remove }) => (
-              <>
-                <Button
-                  style={{ marginBottom: "24px", marginTop: "12px" }}
-                  color="default"
-                  variant="dashed"
-                  onClick={() => add({ status: ContractStatus.CONTRACT })}
-                  icon={<PlusOutlined />}
-                >
-                  Add Contract
-                </Button>
-                <Table
-                  size="small"
-                  pagination={false}
-                  dataSource={fields.map((field) => ({
-                    ...field,
-                    key: field.key,
-                  }))}
-                  rowKey="key"
-                  columns={[
-                    {
-                      title: "Status",
-                      dataIndex: "status",
-                      // width: 180,
-                      render: (_value, record: any) => (
-                        <Form.Item
-                          name={[record.name, "status"]}
-                          rules={[
-                            { required: true, message: "Please select status" },
-                          ]}
-                        >
-                          <Select
-                            placeholder="Select status"
-                            options={contractStatusOption}
-                          />
-                        </Form.Item>
-                      ),
-                    },
-                    {
-                      title: "Contract Duration",
-                      dataIndex: "duration",
-                      render: (_value, record: any) => (
-                        <Form.Item noStyle shouldUpdate>
-                          {() => {
-                            const status = form.getFieldValue([
-                              "contracts",
-                              record.name,
-                              "status",
-                            ]);
-
-                            return status === ContractStatus.PERMANENT ? (
-                              <Form.Item
-                                name={[record.name, "startDate"]}
-                                rules={[
-                                  {
-                                    required: true,
-                                    message: "Please select start date",
-                                  },
-                                ]}
-                              >
-                                <DatePicker
-                                  format={dateFormat}
-                                  placeholder="Start Date"
-                                />
-                              </Form.Item>
-                            ) : (
-                              <div style={{ display: "flex", gap: 8 }}>
-                                <Form.Item
-                                  name={[record.name, "startDate"]}
-                                  rules={[
-                                    {
-                                      required: true,
-                                      message: "Please select start date",
-                                    },
-                                  ]}
-                                >
-                                  <DatePicker
-                                    format={dateFormat}
-                                    placeholder="Start Date"
-                                  />
-                                </Form.Item>
-                                <Form.Item
-                                  name={[record.name, "endDate"]}
-                                  rules={[
-                                    {
-                                      required: true,
-                                      message: "Please select end date",
-                                    },
-                                  ]}
-                                >
-                                  <DatePicker
-                                    format={dateFormat}
-                                    placeholder="End Date"
-                                  />
-                                </Form.Item>
-                              </div>
-                            );
-                          }}
-                        </Form.Item>
-                      ),
-                    },
-                    {
-                      title: "Action",
-                      width: 80,
-                      render: (_value, record: any, index) =>
-                        index != 0 && (
-                          <Button
-                            color="danger"
-                            variant="solid"
-                            size="small"
-                            icon={<DeleteOutlined />}
-                            onClick={() => remove(record.name)}
-                          ></Button>
-                        ),
-                    },
-                  ]}
-                />
-              </>
-            )}
-          </Form.List>
-        )}
       </Form>
 
       {!createForm && (

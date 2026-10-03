@@ -33,10 +33,7 @@ export class AuthService {
   ) {}
 
   async register(signUp: SignUpDto) {
-    const existingUser = await this.usersRepository.findOneByUsername(
-      signUp.username,
-    );
-    if (existingUser) {
+    if (await this.usersRepository.existsByUsername(signUp.username)) {
       throw new ConflictException({
         message: 'Username already exists',
         errorCode: 'AUTH_USERNAME_ALREADY_EXISTS',
@@ -47,6 +44,7 @@ export class AuthService {
     const user = await this.usersRepository.createAndSave({
       username: signUp.username,
       password: hashedPassword,
+      fullName: signUp.fullName,
       role: signUp.role,
       employeeId: signUp.employeeId,
     });
@@ -60,12 +58,12 @@ export class AuthService {
 
     return {
       message: 'User registered successfully',
-      data: { id: user.id, username: user.username },
+      data: { id: user.id, username: signUp.username },
     };
   }
 
   async login(signIn: SignInDto, meta: RequestMeta = {}) {
-    const user = await this.usersRepository.findOneWithRelationsByUsername(
+    const user = await this.usersRepository.findByUsernameForAuth(
       signIn.username,
     );
 
@@ -75,6 +73,15 @@ export class AuthService {
         errorCode: 'AUTH_INVALID_CREDENTIALS',
       });
     }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException({
+        message: 'This account is inactive',
+        errorCode: 'AUTH_USER_INACTIVE',
+      });
+    }
+
+    await this.usersRepository.updateLastLogin(user.id);
 
     const tokens = await this.issueTokens(
       user.id,
@@ -123,7 +130,7 @@ export class AuthService {
       });
     }
 
-    const user = await this.usersRepository.findOneWithRelations(stored.userId);
+    const user = await this.usersRepository.findById(stored.userId);
     const tokens = await this.issueTokens(
       stored.userId,
       user?.username ?? payload.username,

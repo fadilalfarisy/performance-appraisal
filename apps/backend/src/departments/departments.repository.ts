@@ -1,86 +1,107 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { DB_CONNECTION } from '../db/db.module';
-import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import * as schema from '../db/schema';
-import { eq, sql, ilike, and } from 'drizzle-orm';
+import { and, eq, ilike, or, sql, type SQL } from 'drizzle-orm';
+import { DB_CONNECTION } from '../db/db.constants';
+import type { Database, DbExecutor } from '../db/db.type';
+import { departments, employees } from '../db/schema';
+import { notDeleted } from '../db/helpers/soft-delete';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { DepartmentQueryDto } from './dto/department-query.dto';
 
+export type DepartmentRow = typeof departments.$inferSelect;
+
 @Injectable()
 export class DepartmentsRepository {
-  constructor(
-    @Inject(DB_CONNECTION) private readonly db: NodePgDatabase<typeof schema>,
-  ) { }
+  constructor(@Inject(DB_CONNECTION) private readonly db: Database) {}
 
-  async findById(id: string) {
-    const [result] = await this.db
+  async findById(
+    id: string,
+    executor: DbExecutor = this.db,
+  ): Promise<DepartmentRow | null> {
+    const [result] = await executor
       .select()
-      .from(schema.departments)
-      .where(eq(schema.departments.id, id))
+      .from(departments)
+      .where(and(eq(departments.id, id), notDeleted(departments)))
       .limit(1);
-    return result || null;
+    return result ?? null;
   }
 
-  async findAllWithCount(query: DepartmentQueryDto): Promise<[any[], number]> {
+  async findAllWithCount(
+    query: DepartmentQueryDto,
+  ): Promise<[DepartmentRow[], number]> {
     const { page = 1, limit = 20, search } = query;
 
-    const whereClauses = [];
+    const filters: SQL[] = [notDeleted(departments)];
     if (search) {
-      whereClauses.push(ilike(schema.departments.name, `%${search}%`));
+      const searchFilter = or(
+        ilike(departments.name, `%${search}%`),
+        ilike(departments.code, `%${search}%`),
+      );
+      if (searchFilter) filters.push(searchFilter);
     }
-
-    const where = whereClauses.length > 0 ? and(...whereClauses) : undefined;
+    const where = and(...filters);
 
     const data = await this.db
       .select()
-      .from(schema.departments)
+      .from(departments)
       .where(where)
       .limit(limit)
       .offset((page - 1) * limit);
 
     const [totalResult] = await this.db
       .select({ count: sql<number>`count(*)` })
-      .from(schema.departments)
+      .from(departments)
       .where(where);
 
-    if (!totalResult || totalResult.count === undefined) {
-      throw new Error('Failed to count departments');
-    }
-
-    return [data, Number(totalResult.count ?? 0)];
+    return [data, Number(totalResult?.count ?? 0)];
   }
 
-  async createAndSave(dto: CreateDepartmentDto) {
-    const [result] = await this.db
-      .insert(schema.departments)
+  async createAndSave(
+    dto: CreateDepartmentDto,
+    executor: DbExecutor = this.db,
+  ): Promise<DepartmentRow | null> {
+    const [result] = await executor
+      .insert(departments)
       .values(dto)
       .returning();
-    return result;
+    return result ?? null;
   }
 
-  async updateAndSave(id: string, dto: UpdateDepartmentDto) {
-    const [result] = await this.db
-      .update(schema.departments)
+  async updateAndSave(
+    id: string,
+    dto: UpdateDepartmentDto,
+    executor: DbExecutor = this.db,
+  ): Promise<DepartmentRow | null> {
+    const [result] = await executor
+      .update(departments)
       .set(dto)
-      .where(eq(schema.departments.id, id))
+      .where(and(eq(departments.id, id), notDeleted(departments)))
       .returning();
-    return result || null;
+    return result ?? null;
   }
 
-  async delete(id: string) {
-    const [result] = await this.db
-      .delete(schema.departments)
-      .where(eq(schema.departments.id, id))
+  async softDelete(
+    id: string,
+    executor: DbExecutor = this.db,
+  ): Promise<DepartmentRow | null> {
+    const [result] = await executor
+      .update(departments)
+      .set({ isDeleted: true, deletedAt: new Date() })
+      .where(and(eq(departments.id, id), notDeleted(departments)))
       .returning();
-    return result || null;
+    return result ?? null;
   }
 
-  async isLinkedToEmployees(id: string): Promise<boolean> {
-    const [employee] = await this.db
-      .select()
-      .from(schema.employees)
-      .where(eq(schema.employees.departmentId, id))
+  async isLinkedToEmployees(
+    id: string,
+    executor: DbExecutor = this.db,
+  ): Promise<boolean> {
+    const [employee] = await executor
+      .select({ id: employees.id })
+      .from(employees)
+      .where(
+        and(eq(employees.departmentId, id), notDeleted(employees)),
+      )
       .limit(1);
     return !!employee;
   }

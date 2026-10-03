@@ -1,10 +1,10 @@
 -- Extension required for the contracts exclusion constraint.
 CREATE EXTENSION IF NOT EXISTS "btree_gist";--> statement-breakpoint
--- One employee cannot have two non-deleted contracts with overlapping dates.
-ALTER TABLE "contracts" ADD CONSTRAINT "contracts_no_overlapping_dates" EXCLUDE USING gist (
+-- One employee cannot have two ACTIVE contracts with overlapping dates.
+ALTER TABLE "contracts" ADD CONSTRAINT "contracts_no_overlapping_active" EXCLUDE USING gist (
 	"employee_id" WITH =,
 	daterange("start_date", COALESCE("end_date", 'infinity'::date), '[]') WITH &&
-) WHERE ("deleted_at" IS NULL);--> statement-breakpoint
+) WHERE ("status" = 'ACTIVE' AND "deleted_at" IS NULL);--> statement-breakpoint
 -- Append-only audit log, partitioned by month on occurred_at.
 CREATE TABLE "audit_logs" (
 	"id" bigint GENERATED ALWAYS AS IDENTITY NOT NULL,

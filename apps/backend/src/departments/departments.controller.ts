@@ -16,6 +16,8 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { Roles } from '../common/decorators/roles.decorator';
+import { UserRole } from '@appraisal/types';
 import { ApiResponse } from '../common/utils/response.util';
 import { DepartmentsService } from './departments.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
@@ -31,7 +33,7 @@ export class DepartmentsController {
   constructor(private readonly departmentsService: DepartmentsService) { }
 
   @Post()
-  // @Roles('ADMINISTRATOR')
+  @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new department (Admin only)' })
   create(
@@ -57,7 +59,7 @@ export class DepartmentsController {
   }
 
   @Patch(':id')
-  // @Roles('ADMINISTRATOR')
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Update department details (Admin only)' })
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -67,7 +69,7 @@ export class DepartmentsController {
   }
 
   @Delete(':id')
-  // @Roles('ADMINISTRATOR')
+  @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete department (Admin only)' })
   remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {

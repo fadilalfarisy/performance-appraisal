@@ -83,6 +83,12 @@ const ErrorPage = lazy(() =>
   })),
 );
 
+const Forbidden = lazy(() =>
+  import("@/features/errors/Forbidden").then((module) => ({
+    default: module.Forbidden,
+  })),
+);
+
 const suspenseWrapper = (element: React.ReactNode) => (
   <Suspense fallback={<div className="center-content">Loading...</div>}>
     {element}
@@ -213,6 +219,10 @@ export default createBrowserRouter(
               ],
             },
           ],
+        },
+        {
+          path: "403",
+          element: suspenseWrapper(<Forbidden />),
         },
         {
           path: "*",

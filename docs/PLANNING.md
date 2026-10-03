@@ -36,12 +36,14 @@ The repo currently contains scaffold modules that are not part of the PRD and a 
 
 ## Phase 2 — Master data
 
-- [ ] Build the Users module: CRUD, deactivate, reset password, role and department assignment, optional linked employee.
-- [ ] Build the Departments module: CRUD, soft delete, head employee.
-- [ ] Build the Positions module: CRUD, soft delete.
-- [ ] Build the Employees module: unique employee number, superior link, soft delete, search/filter/sort/pagination.
-- [ ] Build the Contracts module: CRUD, overlapping-active-contract rule, soft delete.
-- [ ] Add a table-driven permission e2e test covering every row of the PRD 5.8 matrix.
+Approach: full PRD alignment (PRD fields, not just behavior), done in stages so the build stays green. Migrations were reset and regenerated from the redesigned schema.
+
+- [x] Build the Departments module: CRUD, soft delete, `code`, head employee, active flag, audit, `@Roles(ADMIN)`.
+- [x] Build the Positions module: CRUD, soft delete, `code`, `level`, active flag, audit.
+- [x] Build the Employees module: `employee_number` (partial-unique among non-deleted), superior link, join date, soft delete, search/filter/sort/pagination, audit, department scope.
+- [x] Build the Contracts module: standalone `/contracts` CRUD, `contract_type` + ACTIVE/INACTIVE status, overlapping-active-contract rule (exclusion constraint + 422 `CONTRACT_OVERLAP`), soft delete, audit.
+- [x] Build the Users module: CRUD, deactivate (`PATCH /users/:id/status`), reset password, full name, optional linked employee, department assignment, `@Roles(ADMIN)`, audit.
+- [x] Permission matrix covered by a table-driven unit test (`src/common/permissions/permissions.spec.ts`); the live-DB e2e version is deferred until Postgres is available in CI.
 
 ## Phase 3 — Criteria versioning
 
@@ -77,10 +79,10 @@ The repo currently contains scaffold modules that are not part of the PRD and a 
 
 ## Phase 7 — Frontend foundation
 
-- [ ] Build the app store, typed hooks, and RTK Query `baseApi` with single-flight re-auth.
-- [ ] Build the router (`createBrowserRouter`), layout, role-based menu, theme, and dayjs setup.
-- [ ] Build auth: `authSlice`, `authApi`, Login page, `tokenStorage`, bootstrap, logout.
-- [ ] Build error mapping (`ApiError`), global toasts via `App.useApp()`, `ErrorBoundary`, and 403/404 pages.
+- [x] Build the app store, typed hooks, and RTK Query `baseApi` with single-flight re-auth (shared refresh promise, access token in memory, refresh in `sessionStorage`).
+- [x] Router (`createBrowserRouter`), layout, role-based menu, theme (`ConfigProvider`), and dayjs setup (present from the scaffold, reviewed).
+- [x] Auth: `authSlice` (access in memory), `authApi` (`/auth/signin`, `/auth/refresh`, `/auth/me`, `/auth/logout`), Login page, `tokenStorage`, app bootstrap (restore session via refresh + me), logout.
+- [x] Error mapping (`ApiError`), global toasts via `App.useApp()` (message bridge), route error element, and a 403 page (`/403`); 404 handled by the route error element.
 
 ## Phase 8 — Frontend screens
 

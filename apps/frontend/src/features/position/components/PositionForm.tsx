@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { Form, Input, message } from "antd";
+import { Form, Input, InputNumber, message } from "antd";
 import { useCreatePositionMutation, useUpdatePositionMutation } from "../positionsApi";
 import { errorHandling } from "@/utils/errorUtils";
 import { FormButton } from "@/components";
@@ -59,12 +59,28 @@ export const PositionForm = ({
         autoComplete="off"
       >
         <Form.Item
-          label="Position"
-          name="name"
+          label="Code"
+          name="code"
           hasFeedback
-          rules={[{ required: true, max: 20, whitespace: true }]}
+          rules={[{ required: true, max: 50, whitespace: true }]}
         >
           <Input />
+        </Form.Item>
+        <Form.Item
+          label="Name"
+          name="name"
+          hasFeedback
+          rules={[{ required: true, max: 255, whitespace: true }]}
+        >
+          <Input />
+        </Form.Item>
+        <Form.Item
+          label="Level"
+          name="level"
+          hasFeedback
+          rules={[{ required: true, type: "number", min: 1 }]}
+        >
+          <InputNumber min={1} style={{ width: "100%" }} />
         </Form.Item>
       </Form>
 

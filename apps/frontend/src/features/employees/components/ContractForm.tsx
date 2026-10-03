@@ -9,21 +9,19 @@ import {
 import { errorHandling } from "@/utils/errorUtils";
 import { dateFormat } from "@/utils/dateUtils";
 import { FormButton } from "@/components";
-import { ContractStatus } from "@/constants/enum/contract.enum";
-import { contractStatusOption } from "@/constants/option/contract-status";
-
-type IContract = {
-  status?: string;
-  startDate?: string;
-  endDate?: string | null;
-};
+import { ContractStatus, ContractType } from "@/constants/enum/contract.enum";
+import {
+  contractStatusOption,
+  contractTypeOption,
+} from "@/constants/option/contract-status";
+import type { ContractResponse } from "@appraisal/types";
 
 type Props = {
   createForm: boolean;
   formFunction:
     | typeof useCreateContractMutation
     | typeof useUpdateContractMutation;
-  initialValues?: IContract;
+  initialValues?: Partial<ContractResponse>;
   employeeId?: string;
   contractId?: string;
 };
@@ -48,6 +46,7 @@ export const ContractForm = ({
   useEffect(() => {
     if (!createForm && initialValues) {
       form.setFieldsValue({
+        contractType: initialValues.contractType,
         status: initialValues.status,
         startDate: initialValues.startDate
           ? dayjs(initialValues.startDate, dateFormat)
@@ -62,30 +61,23 @@ export const ContractForm = ({
   const onFinish = async (values: any) => {
     try {
       const request = {
-        status: values.status,
+        contractType: values.contractType,
+        status: values.status ?? ContractStatus.ACTIVE,
         startDate: values.startDate
           ? dayjs(values.startDate).format(dateFormat)
           : null,
         endDate:
-          values.status === ContractStatus.PERMANENT
+          values.contractType === ContractType.PERMANENT || !values.endDate
             ? null
-            : values.endDate
-              ? dayjs(values.endDate).format(dateFormat)
-              : null,
+            : dayjs(values.endDate).format(dateFormat),
       };
 
       if (createForm) {
-        await queryContract({ id: employeeId, body: request }).unwrap();
+        await queryContract({ employeeId, ...request }).unwrap();
         message.success("Record was created");
         navigate(-1);
-      }
-
-      if (!createForm) {
-        await queryContract({
-          id: employeeId,
-          contractId,
-          body: request,
-        }).unwrap();
+      } else {
+        await queryContract({ id: contractId, body: request }).unwrap();
         message.success("Record was updated");
         navigate(-1);
       }
@@ -102,20 +94,24 @@ export const ContractForm = ({
         form={form}
         initialValues={
           createForm
-            ? {
-                status: ContractStatus.CONTRACT,
-              }
+            ? { contractType: ContractType.PERMANENT, status: ContractStatus.ACTIVE }
             : undefined
         }
         layout="vertical"
         autoComplete="off"
       >
         <Form.Item
+          label="Contract Type"
+          name="contractType"
+          rules={[{ required: true, message: "Please select a contract type" }]}
+        >
+          <Select options={contractTypeOption} placeholder="Select type" />
+        </Form.Item>
+
+        <Form.Item
           label="Status"
           name="status"
-          rules={[
-            { required: true, message: "Please select a contract status" },
-          ]}
+          rules={[{ required: true, message: "Please select a status" }]}
         >
           <Select options={contractStatusOption} placeholder="Select status" />
         </Form.Item>
@@ -130,9 +126,9 @@ export const ContractForm = ({
 
         <Form.Item shouldUpdate noStyle>
           {() => {
-            const currentStatus = form.getFieldValue("status");
+            const currentType = form.getFieldValue("contractType");
 
-            if (currentStatus === ContractStatus.PERMANENT) {
+            if (currentType === ContractType.PERMANENT) {
               return null;
             }
 

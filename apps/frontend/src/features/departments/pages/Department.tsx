@@ -74,6 +74,11 @@ export const Department = () => {
       render: (_, __, index) => index + 1,
     },
     {
+      title: "Code",
+      dataIndex: "code",
+      width: "1%",
+    },
+    {
       title: "Department",
       dataIndex: "name",
     },

@@ -60,10 +60,18 @@ export const DepartmentForm = ({
         autoComplete="off"
       >
         <Form.Item
-          label="Department"
+          label="Code"
+          name="code"
+          hasFeedback
+          rules={[{ required: true, max: 50, whitespace: true }]}
+        >
+          <Input />
+        </Form.Item>
+        <Form.Item
+          label="Name"
           name="name"
           hasFeedback
-          rules={[{ required: true, max: 20, whitespace: true }]}
+          rules={[{ required: true, max: 255, whitespace: true }]}
         >
           <Input />
         </Form.Item>

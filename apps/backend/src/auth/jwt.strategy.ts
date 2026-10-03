@@ -3,7 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import type { AuthenticatedUser } from '@appraisal/types';
-import { UsersService } from '../users/users.service';
+import { UsersRepository } from '../users/users.repository';
 import { RequestContextService } from '../common/context/request-context.service';
 
 interface AccessTokenPayload {
@@ -17,7 +17,7 @@ interface AccessTokenPayload {
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     configService: ConfigService,
-    private readonly usersService: UsersService,
+    private readonly usersRepository: UsersRepository,
     private readonly requestContext: RequestContextService,
   ) {
     super({
@@ -33,8 +33,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Invalid token type. Please login again.');
     }
 
-    const user = await this.usersService.findOne(payload.sub);
-    if (!user) {
+    const user = await this.usersRepository.findById(payload.sub);
+    if (!user || !user.isActive) {
       throw new UnauthorizedException('Invalid token. Please login again.');
     }
 

@@ -91,6 +91,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
             message: `Missing required field: ${dbError.column ?? 'unknown'}`,
             details: {},
           };
+        case '23P01': // exclusion_violation (overlapping active contracts)
+          return {
+            status: HttpStatus.UNPROCESSABLE_ENTITY,
+            code: 'CONTRACT_OVERLAP',
+            message:
+              'This contract overlaps another active contract for the employee',
+            details: {},
+          };
         default:
           this.logger.error(`Database error [${dbError.code}]`, exception as Error);
           return {

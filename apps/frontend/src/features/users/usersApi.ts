@@ -17,29 +17,40 @@ export const usersApi = apiSlice.injectEndpoints({
       providesTags: ["Users"],
     }),
     createUser: builder.mutation<ApiResponse<UserResponse>, CreateUserRequest>({
-      query: (body) => ({
-        url: `/users`,
-        method: "POST",
-        body: body,
-      }),
+      query: (body) => ({ url: `/users`, method: "POST", body }),
       invalidatesTags: ["Users"],
     }),
     updateUser: builder.mutation<
       ApiResponse<UserResponse>,
-      { id: string; body: UpdateUserRequest }
+      { id: string | undefined; body: UpdateUserRequest }
     >({
-      query: ({ id, body }) => ({
-        url: `/users/${id}`,
+      query: ({ id, body }) => ({ url: `/users/${id}`, method: "PATCH", body }),
+      invalidatesTags: ["Users"],
+    }),
+    setUserStatus: builder.mutation<
+      ApiResponse<UserResponse>,
+      { id: string; isActive: boolean }
+    >({
+      query: ({ id, isActive }) => ({
+        url: `/users/${id}/status`,
         method: "PATCH",
-        body,
+        body: { isActive },
+      }),
+      invalidatesTags: ["Users"],
+    }),
+    resetPassword: builder.mutation<
+      ApiResponse<UserResponse>,
+      { id: string; password: string }
+    >({
+      query: ({ id, password }) => ({
+        url: `/users/${id}/reset-password`,
+        method: "POST",
+        body: { password },
       }),
       invalidatesTags: ["Users"],
     }),
     deleteUser: builder.mutation<ApiResponse<void>, string>({
-      query: (id) => ({
-        url: `/users/${id}`,
-        method: "DELETE",
-      }),
+      query: (id) => ({ url: `/users/${id}`, method: "DELETE" }),
       invalidatesTags: ["Users"],
     }),
   }),
@@ -51,5 +62,7 @@ export const {
   useGetUserByIdQuery,
   useCreateUserMutation,
   useUpdateUserMutation,
+  useSetUserStatusMutation,
+  useResetPasswordMutation,
   useDeleteUserMutation,
 } = usersApi;

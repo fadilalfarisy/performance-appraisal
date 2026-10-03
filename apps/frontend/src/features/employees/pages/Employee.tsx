@@ -121,8 +121,8 @@ export const Employee = () => {
       hidden: true,
     },
     {
-      title: "NIP",
-      dataIndex: "nip",
+      title: "Employee No",
+      dataIndex: "employeeNumber",
     },
     {
       title: "Name",

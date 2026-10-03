@@ -12,9 +12,15 @@ export enum GenderEnum {
   FEMALE = 'FEMALE',
 }
 
-export enum ContractStatus {
-  CONTRACT = 'CONTRACT',
+export enum ContractType {
   PERMANENT = 'PERMANENT',
+  FIXED_TERM = 'FIXED_TERM',
+  PROBATION = 'PROBATION',
+}
+
+export enum ContractStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
 }
 
 export enum EmployeeStatus {
@@ -28,7 +34,7 @@ export enum CriteriaType {
 }
 
 export enum ColumnEmployee {
-  NIP = 'nip',
+  EMPLOYEE_NUMBER = 'employeeNumber',
   FULL_NAME = 'fullName',
   DEPARTMENT = 'department',
   POSITION = 'position',

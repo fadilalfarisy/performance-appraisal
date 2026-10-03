@@ -13,3 +13,4 @@
 - Prefers consistent tooling configuration shared across apps (identical Prettier config, matching ESLint rule severities) so the whole monorepo behaves uniformly. Confidence: 0.45
 - Prefers monorepo-wide root scripts (`lint`/`build`/`format`/`test`/`dev`, plus `db:up`/`db:down`) driven through the package manager's recursive/workspace flags. Confidence: 0.4
 - Prefers large-scope implementation work executed incrementally step by step (one phase/unit at a time, verifying the build after each step) rather than as a single big-bang change. Confidence: 0.55
+- Prefers fast tests that run locally without external infrastructure; when a test would require a live database (e.g. Postgres e2e), prefers covering it with a DB-free unit test now and deferring the e2e version to CI rather than blocking or skipping coverage entirely. Confidence: 0.45

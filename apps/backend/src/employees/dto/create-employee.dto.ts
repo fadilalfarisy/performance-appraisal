@@ -1,6 +1,4 @@
-// employees/dto/create-employee.dto.ts
 import {
-  IsArray,
   IsDateString,
   IsEnum,
   IsNotEmpty,
@@ -8,23 +6,21 @@ import {
   IsString,
   IsUUID,
   MaxLength,
-  ValidateNested,
 } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
-import { EmployeeStatus } from '../interfaces/employee.interface';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import { randomUUID } from 'crypto';
-import { GenderEnum } from '../enums/gender.enum';
-import { CreateContractDto } from './create-contract.dto';
 import type { CreateEmployeeRequest } from '@appraisal/types';
+import { EmployeeStatus } from '../interfaces/employee.interface';
+import { GenderEnum } from '../enums/gender.enum';
 
 export class CreateEmployeeDto implements CreateEmployeeRequest {
-  @ApiProperty({ example: 'GM0001', maxLength: 6 })
+  @ApiProperty({ example: 'EMP0001', maxLength: 50 })
   @IsString()
   @IsNotEmpty()
-  @MaxLength(6)
+  @MaxLength(50)
   @Transform(({ value }) => value?.trim())
-  nip!: string;
+  employeeNumber!: string;
 
   @ApiProperty({ example: 'John Doe', maxLength: 255 })
   @IsString()
@@ -43,6 +39,11 @@ export class CreateEmployeeDto implements CreateEmployeeRequest {
   @IsNotEmpty()
   birthDate!: string;
 
+  @ApiProperty({ example: '2023-01-01' })
+  @IsDateString()
+  @IsNotEmpty()
+  joinDate!: string;
+
   @ApiProperty({ example: randomUUID() })
   @IsUUID()
   @IsNotEmpty()
@@ -53,10 +54,10 @@ export class CreateEmployeeDto implements CreateEmployeeRequest {
   @IsNotEmpty()
   positionId!: string;
 
-  @ApiProperty({ example: randomUUID(), required: false })
+  @ApiPropertyOptional({ example: randomUUID() })
+  @IsOptional()
   @IsUUID()
-  @IsNotEmpty()
-  managerId!: string;
+  superiorId?: string;
 
   @ApiProperty({
     enum: EmployeeStatus,
@@ -71,10 +72,4 @@ export class CreateEmployeeDto implements CreateEmployeeRequest {
   @IsString()
   @IsNotEmpty()
   address!: string;
-
-  @ApiProperty({ type: [CreateContractDto] })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CreateContractDto)
-  contracts!: [CreateContractDto];
 }

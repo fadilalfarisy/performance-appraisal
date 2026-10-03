@@ -5,6 +5,7 @@ import { useCreateUserMutation, useUpdateUserMutation } from "../usersApi";
 import { errorHandling } from "@/utils/errorUtils";
 import { FormButton } from "@/components";
 import { useGetEmployeeQuery } from "@/features/employees";
+import { useGetDepartmentsQuery } from "@/features/departments";
 
 const ROLE_OPTIONS = [
   { value: "ADMIN", label: "Admin" },
@@ -15,16 +16,19 @@ const ROLE_OPTIONS = [
   { value: "GENERAL_MANAGER", label: "General Manager" },
 ];
 
+const DEPARTMENT_SCOPED_ROLES = ["HEAD_DEPARTMENT", "SUPERVISOR", "MANAGER"];
+
 type UserInitialValues = {
   username?: string;
+  fullName?: string;
   password?: string;
   role?: string | null;
   employeeId?: string;
   employee?: {
     id?: string;
     fullName?: string;
-    full_name?: string;
   } | null;
+  departments?: { id: string; name: string }[];
 };
 
 type Props = {
@@ -53,35 +57,44 @@ export const UserForm = ({
     isError: isEmployeeError,
     isSuccess: isEmployeeSuccess,
   } = useGetEmployeeQuery({});
+  const { data: departmentsResponse } = useGetDepartmentsQuery();
+
+  const roleValue = Form.useWatch("role", form);
 
   const employeeOptions = useMemo(() => {
     const employees = employeesResponse?.data;
-
     return (Array.isArray(employees) ? employees : []).map((employee: any) => ({
       value: employee.id,
       label: employee.fullName,
     }));
   }, [employeesResponse]);
 
+  const departmentOptions = useMemo(() => {
+    const departments = departmentsResponse?.data;
+    return (Array.isArray(departments) ? departments : []).map((d: any) => ({
+      value: d.id,
+      label: d.name,
+    }));
+  }, [departmentsResponse]);
+
   const formInitialValues = createForm
     ? {}
     : {
         username: initialValues?.username,
+        fullName: initialValues?.fullName,
         role: initialValues?.role ?? undefined,
-        employeeId: initialValues?.employee
-          ? {
-              value: initialValues.employee?.id,
-              label: initialValues.employee?.fullName,
-            }
-          : {},
+        employeeId: initialValues?.employee?.id ?? undefined,
+        departmentIds: initialValues?.departments?.map((d) => d.id) ?? [],
         password: "",
       };
 
   const onFinish = async (values: any) => {
     const body = {
       username: values.username,
-      role: values.role?.value ?? values.role,
-      employeeId: values.employeeId?.value ?? values.employeeId,
+      fullName: values.fullName,
+      role: values.role,
+      employeeId: values.employeeId ?? null,
+      departmentIds: values.departmentIds ?? [],
       ...(values.password ? { password: values.password } : {}),
     };
 
@@ -90,8 +103,7 @@ export const UserForm = ({
         await queryUser(body).unwrap();
         message.success("Record was created");
         form.resetFields();
-      }
-      if (!createForm) {
+      } else {
         await queryUser({ id, body }).unwrap();
         message.success("Record was updated");
         navigate(-1);
@@ -99,10 +111,6 @@ export const UserForm = ({
     } catch (err: any) {
       errorHandling(err);
     }
-  };
-
-  const onFinishFailed = (error: any) => {
-    console.log("Received values of form: ", error);
   };
 
   if (isEmployeeError) {
@@ -120,7 +128,7 @@ export const UserForm = ({
       <Form
         name={createForm ? "Create User" : "Update User"}
         onFinish={onFinish}
-        onFinishFailed={onFinishFailed}
+        onFinishFailed={(error) => console.log(error)}
         form={form}
         initialValues={formInitialValues}
         layout="vertical"
@@ -130,7 +138,15 @@ export const UserForm = ({
           label="Username"
           name="username"
           hasFeedback
-          rules={[{ required: true, min: 7, max: 20, whitespace: true }]}
+          rules={[{ required: true, min: 3, max: 255, whitespace: true }]}
+        >
+          <Input />
+        </Form.Item>
+        <Form.Item
+          label="Full Name"
+          name="fullName"
+          hasFeedback
+          rules={[{ required: true, min: 3, max: 255, whitespace: true }]}
         >
           <Input />
         </Form.Item>
@@ -147,18 +163,27 @@ export const UserForm = ({
             placeholder="Select role"
           />
         </Form.Item>
-        <Form.Item
-          label="Employee"
-          name="employeeId"
-          hasFeedback
-          rules={[{ required: true }]}
-        >
+
+        {DEPARTMENT_SCOPED_ROLES.includes(roleValue) && (
+          <Form.Item label="Departments" name="departmentIds">
+            <Select
+              mode="multiple"
+              showSearch
+              optionFilterProp="label"
+              options={departmentOptions}
+              placeholder="Select departments"
+            />
+          </Form.Item>
+        )}
+
+        <Form.Item label="Employee" name="employeeId">
           <Select
             showSearch
+            allowClear
             optionFilterProp="label"
             options={employeeOptions}
             loading={!isEmployeeSuccess}
-            placeholder="Select employee"
+            placeholder="Optional linked employee"
           />
         </Form.Item>
 
@@ -167,7 +192,7 @@ export const UserForm = ({
             label="Password"
             name="password"
             hasFeedback
-            rules={[{ required: true, min: 7, max: 255, whitespace: true }]}
+            rules={[{ required: true, min: 6, max: 255, whitespace: true }]}
           >
             <Input.Password />
           </Form.Item>
@@ -175,8 +200,8 @@ export const UserForm = ({
           <Form.Item
             label="New Password"
             name="password"
-            rules={[{ min: 7, max: 255, whitespace: true }]}
-            tooltip="Fill the field to replace password"
+            rules={[{ min: 6, max: 255, whitespace: true }]}
+            tooltip="Fill the field to replace the password"
           >
             <Input.Password placeholder="Reset password" />
           </Form.Item>

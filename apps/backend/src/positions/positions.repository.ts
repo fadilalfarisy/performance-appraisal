@@ -1,66 +1,79 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { DB_CONNECTION } from '../db/db.module';
-import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import * as schema from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
+import { DB_CONNECTION } from '../db/db.constants';
+import type { Database, DbExecutor } from '../db/db.type';
+import { employees, positions } from '../db/schema';
+import { notDeleted } from '../db/helpers/soft-delete';
 import { CreatePositionDto } from './dto/create-position.dto';
 import { UpdatePositionDto } from './dto/update-position.dto';
 
+export type PositionRow = typeof positions.$inferSelect;
+
 @Injectable()
 export class PositionsRepository {
-  constructor(
-    @Inject(DB_CONNECTION) private readonly db: NodePgDatabase<typeof schema>,
-  ) { }
+  constructor(@Inject(DB_CONNECTION) private readonly db: Database) {}
 
-  async findById(id: string) {
-    const [result] = await this.db
+  async findById(
+    id: string,
+    executor: DbExecutor = this.db,
+  ): Promise<PositionRow | null> {
+    const [result] = await executor
       .select()
-      .from(schema.positions)
-      .where(eq(schema.positions.id, id))
+      .from(positions)
+      .where(and(eq(positions.id, id), notDeleted(positions)))
       .limit(1);
-    return result || null;
+    return result ?? null;
   }
 
-  async findAll() {
-    const result = await this.db
-      .select({
-        id: schema.positions.id,
-        name: schema.positions.name
-      })
-      .from(schema.positions);
-    return result
-  }
-
-  async createAndSave(dto: CreatePositionDto) {
-    const [result] = await this.db
-      .insert(schema.positions)
-      .values(dto)
-      .returning();
-    return result;
-  }
-
-  async updateAndSave(id: string, dto: UpdatePositionDto) {
-    const [result] = await this.db
-      .update(schema.positions)
-      .set(dto)
-      .where(eq(schema.positions.id, id))
-      .returning();
-    return result || null;
-  }
-
-  async delete(id: string) {
-    const [result] = await this.db
-      .delete(schema.positions)
-      .where(eq(schema.positions.id, id))
-      .returning();
-    return result || null;
-  }
-
-  async isLinkedToEmployees(id: string) {
-    const [employee] = await this.db
+  async findAll(executor: DbExecutor = this.db): Promise<PositionRow[]> {
+    return executor
       .select()
-      .from(schema.employees)
-      .where(eq(schema.employees.positionId, id))
+      .from(positions)
+      .where(notDeleted(positions))
+      .orderBy(asc(positions.name));
+  }
+
+  async createAndSave(
+    dto: CreatePositionDto,
+    executor: DbExecutor = this.db,
+  ): Promise<PositionRow | null> {
+    const [result] = await executor.insert(positions).values(dto).returning();
+    return result ?? null;
+  }
+
+  async updateAndSave(
+    id: string,
+    dto: UpdatePositionDto,
+    executor: DbExecutor = this.db,
+  ): Promise<PositionRow | null> {
+    const [result] = await executor
+      .update(positions)
+      .set(dto)
+      .where(and(eq(positions.id, id), notDeleted(positions)))
+      .returning();
+    return result ?? null;
+  }
+
+  async softDelete(
+    id: string,
+    executor: DbExecutor = this.db,
+  ): Promise<PositionRow | null> {
+    const [result] = await executor
+      .update(positions)
+      .set({ isDeleted: true, deletedAt: new Date() })
+      .where(and(eq(positions.id, id), notDeleted(positions)))
+      .returning();
+    return result ?? null;
+  }
+
+  async isLinkedToEmployees(
+    id: string,
+    executor: DbExecutor = this.db,
+  ): Promise<boolean> {
+    const [employee] = await executor
+      .select({ id: employees.id })
+      .from(employees)
+      .where(and(eq(employees.positionId, id), notDeleted(employees)))
       .limit(1);
     return !!employee;
   }

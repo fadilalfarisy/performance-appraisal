@@ -4,10 +4,7 @@ import type { TableColumnsType } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { ActionTable } from "@/components";
-import {
-  useDeleteContractMutation,
-  useGetContractEmployeeQuery,
-} from "../contractApi";
+import { useDeleteContractMutation, useGetContractsQuery } from "../contractApi";
 import { dateFormat } from "@/utils/dateUtils";
 import type { ContractResponse } from "@appraisal/types";
 
@@ -17,23 +14,15 @@ export const Contract = () => {
   const navigate = useNavigate();
   const { id: employeeId } = useParams();
 
-  const {
-    data: initialValueContract,
-    isSuccess,
-    isError,
-  } = useGetContractEmployeeQuery(employeeId);
+  const { data, isSuccess, isError } = useGetContractsQuery(
+    employeeId ? { employeeId, limit: 100 } : undefined,
+  );
   const [deleteContract] = useDeleteContractMutation();
 
-  const contracts = Array.isArray(initialValueContract)
-    ? initialValueContract
-    : [];
+  const contracts = data?.data ?? [];
 
   const handleDelete = async (contractId: string) => {
-    if (!employeeId) {
-      return;
-    }
-
-    return deleteContract({ id: employeeId, contractId }).unwrap();
+    return deleteContract(contractId).unwrap();
   };
 
   const columns: TableColumnsType<DataType> = [
@@ -41,6 +30,11 @@ export const Contract = () => {
       title: "No",
       width: "1%",
       render: (_, __, index) => index + 1,
+    },
+    {
+      title: "Type",
+      dataIndex: "contractType",
+      width: "5%",
     },
     {
       title: "Status",
@@ -94,9 +88,7 @@ export const Contract = () => {
           scroll={{ x: "max-content" }}
           rowKey="id"
           pagination={false}
-          style={{
-            marginBottom: "18px",
-          }}
+          style={{ marginBottom: "18px" }}
         />
 
         <Button

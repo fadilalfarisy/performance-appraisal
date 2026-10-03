@@ -10,8 +10,10 @@ import {
   decimal,
   jsonb,
   primaryKey,
+  uniqueIndex,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 import { uuid } from 'drizzle-orm/pg-core';
 import { index } from 'drizzle-orm/pg-core';
 
@@ -43,10 +45,11 @@ export const users = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     username: varchar('username', { length: 255 }).notNull().unique(),
     password: text('password').notNull(),
-    employeeId: uuid('employee_id')
-      .references(() => employees.id)
-      .notNull(),
+    fullName: varchar('full_name', { length: 255 }).notNull(),
+    employeeId: uuid('employee_id').references(() => employees.id),
     role: userRoleEnum('role').notNull(),
+    isActive: boolean('is_active').default(true).notNull(),
+    lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
     ...baseFields,
   },
   (table) => [
@@ -95,8 +98,8 @@ export const userDepartments = pgTable(
 // --- 2. Employee & Contract Structure ---
 
 export const contractStatusEnum = pgEnum('contract_status', [
-  'CONTRACT',
-  'PERMANENT',
+  'ACTIVE',
+  'INACTIVE',
 ]);
 export const employeeStatusEnum = pgEnum('employee_status', [
   'ACTIVE',
@@ -108,11 +111,17 @@ export const departments = pgTable(
   'departments',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    code: varchar('code', { length: 50 }).notNull().unique(),
     name: varchar('name', { length: 255 }).notNull(),
+    headEmployeeId: uuid('head_employee_id').references(
+      (): AnyPgColumn => employees.id,
+    ),
+    isActive: boolean('is_active').default(true).notNull(),
     ...baseFields,
   },
   (table) => [
     index('idx_departments_name').on(table.name),
+    index('idx_departments_code').on(table.code),
     index('idx_departments_created_at_desc').on(table.createdAt.desc()),
   ],
 );
@@ -121,13 +130,15 @@ export const positions = pgTable(
   'positions',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    code: varchar('code', { length: 50 }).notNull().unique(),
     name: varchar('name', { length: 255 }).notNull(),
-    departmentId: uuid('department_id').references(() => departments.id),
+    level: integer('level').default(1).notNull(),
+    isActive: boolean('is_active').default(true).notNull(),
     ...baseFields,
   },
   (table) => [
     index('idx_positions_name').on(table.name),
-    index('idx_positions_department').on(table.departmentId),
+    index('idx_positions_code').on(table.code),
     index('idx_positions_created_at_desc').on(table.createdAt.desc()),
   ],
 );
@@ -136,25 +147,28 @@ export const employees = pgTable(
   'employees',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    nip: varchar('nip', { length: 6 }).notNull().unique(),
+    employeeNumber: varchar('employee_number', { length: 50 }).notNull(),
     fullName: varchar('full_name', { length: 255 }).notNull(),
-    birthDate: date('birth_date').notNull(),
     gender: employeeGenderEnum('gender').notNull(),
-    positionId: uuid('position_id').references(() => positions.id),
-    departmentId: uuid('department_id').references(() => departments.id),
-    managerId: uuid('manager_id'), // Self-reference configured in relations
-    status: employeeStatusEnum('status').default('ACTIVE').notNull(),
+    birthDate: date('birth_date').notNull(),
+    joinDate: date('join_date').notNull(),
     address: text('address'),
+    departmentId: uuid('department_id').references(() => departments.id),
+    positionId: uuid('position_id').references(() => positions.id),
+    status: employeeStatusEnum('status').default('ACTIVE').notNull(),
+    superiorId: uuid('superior_id'), // self-reference configured in relations
     ...baseFields,
   },
   (table) => [
-    index('idx_employees_nip').on(table.nip),
+    uniqueIndex('uq_employees_number_active')
+      .on(table.employeeNumber)
+      .where(sql`deleted_at is null`),
+    index('idx_employees_number').on(table.employeeNumber),
     index('idx_employees_fullname').on(table.fullName),
-    index('idx_employees_gender').on(table.gender),
     index('idx_employees_status').on(table.status),
     index('idx_employees_department').on(table.departmentId),
     index('idx_employees_position').on(table.positionId),
-    index('idx_employees_manager').on(table.managerId),
+    index('idx_employees_superior').on(table.superiorId),
     index('idx_employees_created_at_desc').on(table.createdAt.desc()),
   ],
 );
@@ -166,12 +180,16 @@ export const contracts = pgTable(
     employeeId: uuid('employee_id')
       .references(() => employees.id, { onDelete: 'cascade' })
       .notNull(),
+    contractType: varchar('contract_type', { length: 50 }).notNull(),
     startDate: date('start_date').notNull(),
     endDate: date('end_date'),
-    status: contractStatusEnum('status').default('CONTRACT').notNull(),
+    status: contractStatusEnum('status').default('ACTIVE').notNull(),
     ...baseFields,
   },
   (table) => [
+    uniqueIndex('uq_contracts_employee_start')
+      .on(table.employeeId, table.startDate)
+      .where(sql`deleted_at is null`),
     index('idx_contracts_employee').on(table.employeeId),
     index('idx_contracts_start_date').on(table.startDate),
     index('idx_contracts_end_date').on(table.endDate),
@@ -267,28 +285,38 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     references: [employees.id],
   }),
   refreshTokens: many(refreshTokens),
+  departments: many(userDepartments),
 }));
+
+export const userDepartmentsRelations = relations(
+  userDepartments,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [userDepartments.userId],
+      references: [users.id],
+    }),
+    department: one(departments, {
+      fields: [userDepartments.departmentId],
+      references: [departments.id],
+    }),
+  }),
+);
 
 export const departmentsRelations = relations(departments, ({ many }) => ({
   employees: many(employees),
-  positions: many(positions),
 }));
 
-export const positionsRelations = relations(positions, ({ one, many }) => ({
+export const positionsRelations = relations(positions, ({ many }) => ({
   employees: many(employees),
-  department: one(departments, {
-    fields: [positions.departmentId],
-    references: [departments.id],
-  }),
 }));
 
 export const employeesRelations = relations(employees, ({ one, many }) => ({
-  manager: one(employees, {
-    fields: [employees.managerId],
+  superior: one(employees, {
+    fields: [employees.superiorId],
     references: [employees.id],
-    relationName: 'managerRelation',
+    relationName: 'superiorRelation',
   }),
-  subordinates: many(employees, { relationName: 'managerRelation' }),
+  subordinates: many(employees, { relationName: 'superiorRelation' }),
   department: one(departments, {
     fields: [employees.departmentId],
     references: [departments.id],
