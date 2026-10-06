@@ -7,4 +7,7 @@ export * from './positions';
 export * from './employees';
 export * from './contracts';
 export * from './criteria';
+export * from './appraisals';
+export * from './dashboard';
+export * from './imports';
 export * from './daily-notes';

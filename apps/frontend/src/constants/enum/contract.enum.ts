@@ -1,1 +1,1 @@
-export { ContractStatus, ContractType } from '@appraisal/types';
+export { ContractType } from '@appraisal/types';

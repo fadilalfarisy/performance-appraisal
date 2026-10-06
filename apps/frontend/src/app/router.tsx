@@ -76,6 +76,11 @@ const CreateUser = lazy(() =>
 const UpdateUser = lazy(() =>
   import("@/features/users").then((module) => ({ default: module.UpdateUser })),
 );
+const ContractList = lazy(() =>
+  import("@/features/contract").then((module) => ({
+    default: module.ContractList,
+  })),
+);
 
 const ErrorPage = lazy(() =>
   import("@/features/errors/GeneralError").then((module) => ({
@@ -86,6 +91,22 @@ const ErrorPage = lazy(() =>
 const Forbidden = lazy(() =>
   import("@/features/errors/Forbidden").then((module) => ({
     default: module.Forbidden,
+  })),
+);
+
+const Appraisal = lazy(() =>
+  import("@/features/appraisals").then((module) => ({
+    default: module.Appraisal,
+  })),
+);
+const CreateAppraisal = lazy(() =>
+  import("@/features/appraisals").then((module) => ({
+    default: module.CreateAppraisal,
+  })),
+);
+const AppraisalDetail = lazy(() =>
+  import("@/features/appraisals").then((module) => ({
+    default: module.AppraisalDetail,
   })),
 );
 
@@ -181,6 +202,28 @@ export default createBrowserRouter(
                   element: suspenseWrapper(<UpdateUser />),
                 },
               ],
+            },
+            {
+              path: "appraisals",
+              element: <Outlet />,
+              children: [
+                {
+                  index: true,
+                  element: suspenseWrapper(<Appraisal />),
+                },
+                {
+                  path: "new",
+                  element: suspenseWrapper(<CreateAppraisal />),
+                },
+                {
+                  path: ":id",
+                  element: suspenseWrapper(<AppraisalDetail />),
+                },
+              ],
+            },
+            {
+              path: "contracts",
+              element: suspenseWrapper(<ContractList />),
             },
             {
               path: "departments",

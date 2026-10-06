@@ -1,65 +1,87 @@
+import { useNavigate } from "react-router-dom";
 import { PlusOutlined, HistoryOutlined } from "@ant-design/icons";
 import type { TableColumnsType } from "antd";
-import { Button, Table, Tooltip, Space } from "antd";
-import { useNavigate } from "react-router-dom";
+import { Button, Table, Tag, Space, Tooltip, message } from "antd";
 import { TitlePage } from "@/components";
-import { useGetCriteriaQuery } from "@/features/criteria/criteriaApi";
 import { role } from "@/constants/roleAccess";
 import { useAppSelector } from "@/app/hooks";
-import { useState } from "react";
-import type { CriteriaVersionResponse } from "@appraisal/types";
+import {
+  useCreateCriteriaSetMutation,
+  useGetCriteriaSetsQuery,
+} from "@/features/criteria/criteriaApi";
+import { errorHandling } from "@/utils/errorUtils";
+import type { CriteriaSetResponse } from "@appraisal/types";
 
-type DataType = CriteriaVersionResponse;
+const STATUS_COLOR: Record<string, string> = {
+  DRAFT: "default",
+  ACTIVE: "green",
+  SUPERSEDED: "orange",
+};
 
 export const Criteria = () => {
   const auth = useAppSelector((state) => state.auth);
-
-  const [pagination] = useState({ current: 1, pageSize: 10 });
-
   const navigate = useNavigate();
 
-  const { data: initialValueCriteria } = useGetCriteriaQuery();
+  const { data, isSuccess } = useGetCriteriaSetsQuery();
+  const [createCriteriaSet, { isLoading: isCreating }] =
+    useCreateCriteriaSetMutation();
 
-  const criteria = Array.isArray(initialValueCriteria?.data)
-    ? initialValueCriteria.data
-    : [];
+  const canManage = role.accessHumanResource.includes(auth.role);
+  const sets = data?.data ?? [];
 
-  const columns: TableColumnsType<DataType> = [
-    {
-      title: "No",
-      width: "1%",
-      render: (_, __, index) =>
-        index + 1 + (pagination.current - 1) * pagination.pageSize,
-    },
-    {
-      dataIndex: "id",
-      hidden: true,
-    },
+  const handleCreate = async () => {
+    try {
+      const { data: created } = await createCriteriaSet(undefined).unwrap();
+      message.success("Draft criteria set created");
+      navigate(`/dashboard/criteria/${created.id}`);
+    } catch (error) {
+      errorHandling(error);
+    }
+  };
+
+  const columns: TableColumnsType<CriteriaSetResponse> = [
     {
       title: "Version",
-      width: "3%",
-      render: (_, record) => `v${record.major}.${record.minor}.${record.patch}`,
+      dataIndex: "version",
+      width: "1%",
+      render: (value) => `v${value}`,
     },
     {
-      title: "Description",
-      dataIndex: "description",
-      width: "5%",
+      title: "Status",
+      dataIndex: "status",
+      width: "1%",
+      render: (value) => (
+        <Tag color={STATUS_COLOR[value] ?? "default"}>{value}</Tag>
+      ),
     },
+    {
+      title: "Criteria",
+      width: "1%",
+      render: (_, record) => record.criteria.length,
+    },
+    {
+      title: "Effective date",
+      dataIndex: "effectiveDate",
+      render: (value) => value || "-",
+    },
+    {
+      title: "Activated at",
+      dataIndex: "activatedAt",
+      render: (value) => (value ? new Date(value).toLocaleString() : "-"),
+    },
+    { title: "Note", dataIndex: "note", render: (value) => value || "-" },
     {
       title: "Action",
       dataIndex: "id",
       width: "1%",
       fixed: "right",
-      hidden: !role.accessHumanResource.includes(auth.role),
-      render: (record) => (
+      render: (id) => (
         <Space>
-          <Tooltip title="History">
+          <Tooltip title="Open">
             <Button
               icon={<HistoryOutlined />}
               size="small"
-              onClick={() => {
-                navigate(`/dashboard/criteria/${record}`);
-              }}
+              onClick={() => navigate(`/dashboard/criteria/${id}`)}
             />
           </Tooltip>
         </Space>
@@ -67,27 +89,30 @@ export const Criteria = () => {
     },
   ];
 
-  return (
-    <>
-      <TitlePage title="List Criteria" description="Criteria assessment">
-        {role.accessHumanResource.includes(auth.role) && (
-          <Button
-            type="primary"
-            onClick={() => navigate("/dashboard/criteria/create")}
-            icon={<PlusOutlined />}
-          >
-            Add Criteria
-          </Button>
-        )}
-      </TitlePage>
+  if (isSuccess) {
+    return (
+      <>
+        <TitlePage title="Criteria Sets" description="Versioned criteria">
+          {canManage && (
+            <Button
+              type="primary"
+              loading={isCreating}
+              onClick={handleCreate}
+              icon={<PlusOutlined />}
+            >
+              New draft from active
+            </Button>
+          )}
+        </TitlePage>
 
-      <Table<DataType>
-        columns={columns}
-        dataSource={criteria}
-        scroll={{ x: "max-content" }}
-        rowKey="id"
-        pagination={false}
-      />
-    </>
-  );
+        <Table<CriteriaSetResponse>
+          columns={columns}
+          dataSource={sets}
+          scroll={{ x: "max-content" }}
+          rowKey="id"
+          pagination={false}
+        />
+      </>
+    );
+  }
 };

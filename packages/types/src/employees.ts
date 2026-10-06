@@ -4,7 +4,6 @@ import type { PositionResponse } from './positions';
 import type { ContractResponse } from './contracts';
 import type {
   ColumnEmployee,
-  ContractStatus,
   EmployeeStatus,
   GenderEnum,
 } from './enums';
@@ -29,7 +28,6 @@ export interface EmployeeQuery extends PaginationQuery {
   department?: string;
   position?: string;
   status?: EmployeeStatus;
-  contractStatus?: ContractStatus;
 }
 
 export interface SuperiorResponse {

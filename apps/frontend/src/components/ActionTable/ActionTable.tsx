@@ -5,7 +5,7 @@ import type { PopconfirmProps } from "antd";
 import { errorHandling } from "@/utils/errorUtils";
 
 type BaseProps = {
-  id: number;
+  id: string | number;
 };
 
 type EditProps =

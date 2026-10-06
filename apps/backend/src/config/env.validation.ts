@@ -48,6 +48,18 @@ export class EnvironmentVariables {
   @IsIn(['true', 'false'])
   @IsOptional()
   SWAGGER_ENABLED: string = 'true';
+
+  @IsIn(['true', 'false'])
+  @IsOptional()
+  SCHEDULER_ENABLED: string = 'true';
+
+  @IsNumberString()
+  @IsOptional()
+  IMPORT_MAX_FILE_SIZE_MB: string = '5';
+
+  @IsNumberString()
+  @IsOptional()
+  IMPORT_MAX_ROWS: string = '5000';
 }
 
 export function validateEnv(config: Record<string, unknown>) {

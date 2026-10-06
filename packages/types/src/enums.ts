@@ -18,11 +18,6 @@ export enum ContractType {
   PROBATION = 'PROBATION',
 }
 
-export enum ContractStatus {
-  ACTIVE = 'ACTIVE',
-  INACTIVE = 'INACTIVE',
-}
-
 export enum EmployeeStatus {
   ACTIVE = 'ACTIVE',
   INACTIVE = 'INACTIVE',
@@ -33,12 +28,36 @@ export enum CriteriaType {
   COST = 'COST',
 }
 
+export enum CriteriaSetStatus {
+  DRAFT = 'DRAFT',
+  ACTIVE = 'ACTIVE',
+  SUPERSEDED = 'SUPERSEDED',
+}
+
+export enum AppraisalStatus {
+  DRAFT = 'DRAFT',
+  PENDING = 'PENDING',
+  SUBMITTED = 'SUBMITTED',
+  APPROVED = 'APPROVED',
+  COMPLETE = 'COMPLETE',
+}
+
+export enum AppraisalSource {
+  MANUAL = 'MANUAL',
+  SCHEDULER = 'SCHEDULER',
+}
+
+export enum AppraisalAction {
+  TRANSITION = 'TRANSITION',
+  SEND_BACK = 'SEND_BACK',
+  REOPEN = 'REOPEN',
+}
+
 export enum ColumnEmployee {
   EMPLOYEE_NUMBER = 'employeeNumber',
   FULL_NAME = 'fullName',
   DEPARTMENT = 'department',
   POSITION = 'position',
   STATUS = 'status',
-  CONTRACT_STATUS = 'contractStatus',
   CREATED_AT = 'createdAt',
 }

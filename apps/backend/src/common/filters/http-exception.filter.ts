@@ -55,6 +55,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
         if (typeof record.errorCode === 'string') {
           code = record.errorCode;
         }
+        if (record.details !== undefined) {
+          details = record.details;
+        }
       }
 
       return {

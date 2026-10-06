@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsOptional, IsUUID } from 'class-validator';
-import { ContractStatus, ContractType } from '@appraisal/types';
+import { ContractType } from '@appraisal/types';
 import { QueryDto } from '../../common/query/query.dto';
 
 export class ContractQueryDto extends QueryDto {
@@ -13,9 +13,4 @@ export class ContractQueryDto extends QueryDto {
   @IsOptional()
   @IsEnum(ContractType)
   contractType?: ContractType;
-
-  @ApiPropertyOptional({ enum: ContractStatus })
-  @IsOptional()
-  @IsEnum(ContractStatus)
-  status?: ContractStatus;
 }

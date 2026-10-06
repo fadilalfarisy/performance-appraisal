@@ -39,7 +39,7 @@ performance-appraisal/
 
 **Shared API types (`@appraisal/types`)**
 
-- `packages/types` is the single source of truth for the API contract: the shared enums (`UserRole`, `GenderEnum`, `ContractStatus`, `EmployeeStatus`, `CriteriaType`, `ColumnEmployee`), the `ApiResponse` envelope and `PaginationMeta`, and every request/response type.
+- `packages/types` is the single source of truth for the API contract: the shared enums (`UserRole`, `GenderEnum`, `EmployeeStatus`, `CriteriaType`, `ColumnEmployee`), the `ApiResponse` envelope and `PaginationMeta`, and every request/response type.
 - Both apps depend on it via `"@appraisal/types": "workspace:*"`. It is a built package (dual CJS + ESM output with `.d.ts`), so it works for the CJS backend and the ESM frontend.
 - Backend DTO classes `implements` the matching shared request interface (validation decorators stay on the class); response payloads and enums are re-exported from the package rather than re-declared.
 - Frontend RTK Query endpoints are typed with `ApiResponse<XResponse>` and the shared `CreateXRequest`/`UpdateXRequest` types; enum shims under `src/constants/enum` re-export from the package.

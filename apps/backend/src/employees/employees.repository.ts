@@ -1,8 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql, type SQL } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { DB_CONNECTION } from '../db/db.constants';
 import type { Database, DbExecutor } from '../db/db.type';
 import * as schema from '../db/schema';
+import { departments, positions } from '../db/schema';
 import { notDeleted } from '../db/helpers/soft-delete';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
@@ -28,8 +30,7 @@ export class EmployeesRepository {
         'id', c.id,
         'contractType', c.contract_type,
         'startDate', c.start_date,
-        'endDate', c.end_date,
-        'status', c.status
+        'endDate', c.end_date
       ) AS contract
   `;
 
@@ -136,5 +137,60 @@ export class EmployeesRepository {
       .where(and(eq(schema.users.employeeId, id), notDeleted(schema.users)))
       .limit(1);
     return !!user;
+  }
+
+  async findIdsByNumbers(numbers: string[], executor: DbExecutor = this.db) {
+    if (numbers.length === 0) return [];
+    return executor
+      .select({
+        id: schema.employees.id,
+        employeeNumber: schema.employees.employeeNumber,
+      })
+      .from(schema.employees)
+      .where(
+        and(
+          inArray(schema.employees.employeeNumber, numbers),
+          notDeleted(schema.employees),
+        ),
+      );
+  }
+
+  async findDepartmentIdsByCodes(codes: string[]) {
+    if (codes.length === 0) return [];
+    return this.db
+      .select({ id: departments.id, code: departments.code })
+      .from(departments)
+      .where(and(inArray(departments.code, codes), notDeleted(departments)));
+  }
+
+  async findPositionIdsByCodes(codes: string[]) {
+    if (codes.length === 0) return [];
+    return this.db
+      .select({ id: positions.id, code: positions.code })
+      .from(positions)
+      .where(and(inArray(positions.code, codes), notDeleted(positions)));
+  }
+
+  async findForExport() {
+    const superior = alias(schema.employees, 'superior');
+    return this.db
+      .select({
+        employeeNumber: schema.employees.employeeNumber,
+        fullName: schema.employees.fullName,
+        gender: schema.employees.gender,
+        birthDate: schema.employees.birthDate,
+        joinDate: schema.employees.joinDate,
+        address: schema.employees.address,
+        departmentCode: departments.code,
+        positionCode: positions.code,
+        status: schema.employees.status,
+        superiorNumber: superior.employeeNumber,
+      })
+      .from(schema.employees)
+      .leftJoin(departments, eq(schema.employees.departmentId, departments.id))
+      .leftJoin(positions, eq(schema.employees.positionId, positions.id))
+      .leftJoin(superior, eq(schema.employees.superiorId, superior.id))
+      .where(notDeleted(schema.employees))
+      .orderBy(asc(schema.employees.employeeNumber));
   }
 }

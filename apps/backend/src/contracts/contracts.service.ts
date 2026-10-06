@@ -7,11 +7,16 @@ import { ApiResponse, ok, paginated } from '../common/utils/response.util';
 import { DbService } from '../db/db.service';
 import { AuditService, type AuditEntry } from '../audit/audit.service';
 import { RequestContextService } from '../common/context/request-context.service';
+import { ImportService } from '../imports/import.service';
+import type { UploadedFileLike } from '../imports/import.types';
 import { ContractsRepository, type ContractRow } from './contracts.repository';
+import { ContractImporter } from './contracts.importer';
+import { ContractsExcelService } from './contracts.excel';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
 import { ContractQueryDto } from './dto/contract-query.dto';
 import { ContractPayload } from './interfaces/contract.interface';
+import type { ImportResult } from '@appraisal/types';
 
 @Injectable()
 export class ContractsService {
@@ -20,6 +25,9 @@ export class ContractsService {
     private readonly dbService: DbService,
     private readonly audit: AuditService,
     private readonly requestContext: RequestContextService,
+    private readonly importService: ImportService,
+    private readonly contractImporter: ContractImporter,
+    private readonly excel: ContractsExcelService,
   ) {}
 
   async findAll(
@@ -98,6 +106,28 @@ export class ContractsService {
     });
   }
 
+  // ── Excel import / export ──────────────────────────────────────────────────
+
+  async exportContracts(query: ContractQueryDto): Promise<Buffer> {
+    const rows = await this.contractsRepository.findForExport(query);
+    return this.excel.buildExport(rows);
+  }
+
+  async buildTemplate(): Promise<Buffer> {
+    return this.excel.buildTemplate();
+  }
+
+  async importContracts(
+    file: UploadedFileLike | undefined,
+  ): Promise<ApiResponse<ImportResult>> {
+    const result = await this.importService.run(
+      file,
+      this.contractImporter,
+      'contract',
+    );
+    return ok(result);
+  }
+
   // ── Private helpers ────────────────────────────────────────────────────────
 
   private async findOneOrFail(id: string): Promise<ContractRow> {
@@ -129,7 +159,6 @@ export class ContractsService {
       contractType: contract.contractType,
       startDate: contract.startDate,
       endDate: contract.endDate ?? null,
-      status: contract.status,
       employee: contract.employee ?? null,
     };
   }

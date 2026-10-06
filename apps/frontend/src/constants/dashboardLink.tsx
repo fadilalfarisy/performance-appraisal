@@ -4,6 +4,7 @@ import {
   IdcardOutlined,
   TagOutlined,
   BuildFilled,
+  FileDoneOutlined,
 } from "@ant-design/icons";
 import { role } from "@/constants/roleAccess";
 
@@ -30,9 +31,35 @@ export const menuItem: MenuItem[] = [
     ],
   },
   {
+    key: "/dashboard/appraisals",
+    icon: <FileDoneOutlined />,
+    label: "Appraisals",
+    roles: [
+      ...role.accessAdministrator,
+      ...role.accessGeneralManager,
+      ...role.accessManager,
+      ...role.accessHumanResource,
+      ...role.accessHeadDepartment,
+      ...role.accessSupervisor,
+    ],
+  },
+  {
     key: "/dashboard/employee",
     icon: <IdcardOutlined />,
     label: "Employee",
+    roles: [
+      ...role.accessAdministrator,
+      ...role.accessGeneralManager,
+      ...role.accessManager,
+      ...role.accessHumanResource,
+      ...role.accessHeadDepartment,
+      ...role.accessSupervisor,
+    ],
+  },
+  {
+    key: "/dashboard/contracts",
+    icon: <FileDoneOutlined />,
+    label: "Contracts",
     roles: [
       ...role.accessAdministrator,
       ...role.accessGeneralManager,

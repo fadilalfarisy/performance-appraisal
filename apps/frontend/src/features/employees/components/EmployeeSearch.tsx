@@ -4,7 +4,6 @@ import { CloseOutlined, FilterOutlined } from "@ant-design/icons";
 import { useGetDepartmentsQuery } from "@/features/departments";
 import { useGetPositionsQuery } from "@/features/position";
 import { employeeStatusOption } from "@/constants/option/employee-status";
-import { contractStatusOption } from "@/constants/option/contract-status";
 import { dateFormat } from "@/utils/dateUtils";
 
 export type EmployeeSearchValues = {
@@ -12,7 +11,6 @@ export type EmployeeSearchValues = {
   departement?: string;
   position?: string;
   status?: string;
-  contractStatus?: string;
   startDate?: string[];
   endDate?: string[];
 };
@@ -52,7 +50,6 @@ export const EmployeeSearch = ({ onSearch, onReset }: Props) => {
       departement: values.departement,
       position: values.position,
       status: values.status,
-      contractStatus: values.contractStatus,
     };
     if (startDate && startDate.length === 2) {
       result.startDate = [
@@ -172,16 +169,6 @@ export const EmployeeSearch = ({ onSearch, onReset }: Props) => {
                 placeholder="Select Status"
                 allowClear
                 options={employeeStatusOption}
-              />
-            </Form.Item>
-            <Form.Item
-              name="contractStatus"
-              label={<span style={{ fontWeight: 600 }}>Contract</span>}
-            >
-              <Select
-                placeholder="Select Contract"
-                allowClear
-                options={contractStatusOption}
               />
             </Form.Item>
             <Form.Item

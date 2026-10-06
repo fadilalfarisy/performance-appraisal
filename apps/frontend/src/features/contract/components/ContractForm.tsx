@@ -9,9 +9,8 @@ import {
 import { errorHandling } from "@/utils/errorUtils";
 import { dateFormat } from "@/utils/dateUtils";
 import { FormButton } from "@/components";
-import { ContractStatus, ContractType } from "@/constants/enum/contract.enum";
+import { ContractType } from "@/constants/enum/contract.enum";
 import {
-  contractStatusOption,
   contractTypeOption,
 } from "@/constants/option/contract-status";
 import type { ContractResponse } from "@appraisal/types";
@@ -47,7 +46,6 @@ export const ContractForm = ({
     if (!createForm && initialValues) {
       form.setFieldsValue({
         contractType: initialValues.contractType,
-        status: initialValues.status,
         startDate: initialValues.startDate
           ? dayjs(initialValues.startDate, dateFormat)
           : null,
@@ -62,7 +60,6 @@ export const ContractForm = ({
     try {
       const request = {
         contractType: values.contractType,
-        status: values.status ?? ContractStatus.ACTIVE,
         startDate: values.startDate
           ? dayjs(values.startDate).format(dateFormat)
           : null,
@@ -94,7 +91,7 @@ export const ContractForm = ({
         form={form}
         initialValues={
           createForm
-            ? { contractType: ContractType.PERMANENT, status: ContractStatus.ACTIVE }
+            ? { contractType: ContractType.PERMANENT }
             : undefined
         }
         layout="vertical"
@@ -106,14 +103,6 @@ export const ContractForm = ({
           rules={[{ required: true, message: "Please select a contract type" }]}
         >
           <Select options={contractTypeOption} placeholder="Select type" />
-        </Form.Item>
-
-        <Form.Item
-          label="Status"
-          name="status"
-          rules={[{ required: true, message: "Please select a status" }]}
-        >
-          <Select options={contractStatusOption} placeholder="Select status" />
         </Form.Item>
 
         <Form.Item

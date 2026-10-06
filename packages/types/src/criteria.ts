@@ -1,31 +1,56 @@
-import type { CriteriaType } from './enums';
+import type { CriteriaSetStatus } from './enums';
 
-export interface CreateChildCriteriaRequest {
+export interface CriteriaScaleDescriptionInput {
+  score: number;
+  description: string;
+}
+
+export interface CriterionInput {
+  code: string;
   name: string;
-  description: string;
+  description?: string;
+  scaleMin: number;
+  scaleMax: number;
   weight: number;
-  type: CriteriaType;
+  displayOrder?: number;
+  scaleDescriptions: CriteriaScaleDescriptionInput[];
 }
 
-export interface CreateCriteriaRequest {
-  version: string;
-  description: string;
-  criterias: CreateChildCriteriaRequest[];
+export interface CreateCriteriaSetRequest {
+  note?: string;
+  criteria?: CriterionInput[];
 }
 
-export interface CriteriaVersionResponse {
-  id: string;
-  major: number;
-  minor: number;
-  patch: number;
+export interface UpdateCriteriaSetRequest {
+  note?: string;
+  criteria?: CriterionInput[];
+}
+
+export interface CriteriaScaleDescriptionResponse {
+  score: number;
   description: string;
 }
 
 export interface CriterionResponse {
   id: string;
+  code: string;
   name: string;
+  description: string | null;
+  scaleMin: number;
+  scaleMax: number;
   weight: number;
-  type: string;
-  description: string;
+  displayOrder: number;
+  scaleDescriptions: CriteriaScaleDescriptionResponse[];
+}
+
+export interface CriteriaSetResponse {
+  id: string;
   version: number;
+  status: CriteriaSetStatus;
+  effectiveDate: string | null;
+  note: string | null;
+  createdBy: string | null;
+  activatedBy: string | null;
+  activatedAt: string | null;
+  criteria: CriterionResponse[];
 }

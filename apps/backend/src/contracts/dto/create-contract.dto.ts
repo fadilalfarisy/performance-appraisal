@@ -6,7 +6,7 @@ import {
   IsOptional,
   IsUUID,
 } from 'class-validator';
-import { ContractStatus, ContractType } from '@appraisal/types';
+import { ContractType } from '@appraisal/types';
 import type { CreateContractRequest } from '@appraisal/types';
 
 export class CreateContractDto implements CreateContractRequest {
@@ -29,12 +29,4 @@ export class CreateContractDto implements CreateContractRequest {
   @IsOptional()
   @IsDateString()
   endDate?: string;
-
-  @ApiPropertyOptional({
-    enum: ContractStatus,
-    default: ContractStatus.ACTIVE,
-  })
-  @IsOptional()
-  @IsEnum(ContractStatus)
-  status?: ContractStatus;
 }

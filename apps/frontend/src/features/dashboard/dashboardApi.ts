@@ -1,23 +1,14 @@
 import { apiSlice } from "@/api/apiSlice";
+import type { ApiResponse, DashboardSummary } from "@appraisal/types";
 
 export const dashboardApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
-    countEmployee: builder.query<{ total: number }, void>({
-      query: () => `/employee/count`,
-      providesTags: ["Employees"],
-    }),
-    countEmployeeByDepartment: builder.query<
-      { department: string; total: number }[],
-      void
-    >({
-      query: () => `/employee/count/department`,
-      providesTags: ["Employees"],
+    getDashboardSummary: builder.query<ApiResponse<DashboardSummary>, void>({
+      query: () => `/dashboard/summary`,
+      providesTags: ["Appraisals", "Employees"],
     }),
   }),
   overrideExisting: false,
 });
 
-export const {
-  useCountEmployeeQuery,
-  useCountEmployeeByDepartmentQuery,
-} = dashboardApi;
+export const { useGetDashboardSummaryQuery } = dashboardApi;

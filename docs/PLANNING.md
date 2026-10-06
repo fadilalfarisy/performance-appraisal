@@ -1,6 +1,6 @@
 # Implementation Planning: Employee Performance Appraisal System
 
-**Based on:** PRD v0.4, `DESIGN-BACKEND.md` v0.3, `DESIGN-FRONTEND.md` v0.3, and `CONVENTIONS.md` v1.0.
+**Based on:** PRD v0.6, `DESIGN-BACKEND.md` v0.4, `DESIGN-FRONTEND.md` v0.4, and `CONVENTIONS.md` v1.0.
 **Scope:** the build order for the whole system, backend and frontend.
 **Status:** Draft v1.0
 
@@ -41,36 +41,36 @@ Approach: full PRD alignment (PRD fields, not just behavior), done in stages so 
 - [x] Build the Departments module: CRUD, soft delete, `code`, head employee, active flag, audit, `@Roles(ADMIN)`.
 - [x] Build the Positions module: CRUD, soft delete, `code`, `level`, active flag, audit.
 - [x] Build the Employees module: `employee_number` (partial-unique among non-deleted), superior link, join date, soft delete, search/filter/sort/pagination, audit, department scope.
-- [x] Build the Contracts module: standalone `/contracts` CRUD, `contract_type` + ACTIVE/INACTIVE status, overlapping-active-contract rule (exclusion constraint + 422 `CONTRACT_OVERLAP`), soft delete, audit.
+- [x] Build the Contracts module: standalone `/contracts` CRUD, `contract_type`, date-based no-overlap rule (exclusion constraint + 422 `CONTRACT_OVERLAP`), soft delete, audit. (Contract status was removed in PRD v0.6.)
 - [x] Build the Users module: CRUD, deactivate (`PATCH /users/:id/status`), reset password, full name, optional linked employee, department assignment, `@Roles(ADMIN)`, audit.
 - [x] Permission matrix covered by a table-driven unit test (`src/common/permissions/permissions.spec.ts`); the live-DB e2e version is deferred until Postgres is available in CI.
 
 ## Phase 3 — Criteria versioning
 
-- [ ] Add schema and repository for `criteria_sets`, `criteria`, `criteria_scale_descriptions`.
-- [ ] Implement create DRAFT set (copy the active set) and DRAFT-only editing rules.
-- [ ] Implement activation: weights total 100, `scale_min < scale_max`, every score level described, unique codes; mark the previous set SUPERSEDED in one transaction.
-- [ ] Expose criteria version history; block edits to ACTIVE and SUPERSEDED sets.
+- [x] Add schema and repository for `criteria_sets`, `criteria`, `criteria_scale_descriptions` (unique version, one-ACTIVE partial unique index, `scale_min < scale_max` and `weight > 0` checks, unique `(set, code)` and `(criterion, score)`).
+- [x] Create DRAFT set (version = max + 1, copies the active set) and DRAFT-only editing rules.
+- [x] Activation: weights total 100, `scale_min < scale_max`, every score level described, unique codes; supersede the previous set and activate in one transaction (audited).
+- [x] Version history (`GET /criteria-sets`) and ACTIVE/SUPERSEDED edits blocked (422 `CRITERIA_SET_NOT_EDITABLE`).
 
 ## Phase 4 — Appraisals
 
-- [ ] Implement the eligibility query and `POST /appraisals/preview`.
-- [ ] Implement manual creation with snapshots, one-per-department-per-period, and employee validation.
-- [ ] Implement `PUT /appraisals/:id/employees` (DRAFT only, fresh snapshots for added employees).
-- [ ] Implement ratings bulk upsert with scale and criteria-set validation.
-- [ ] Implement `appraisal-score.ts` and unit tests (mixed scales, missing ratings, rounding).
-- [ ] Implement the workflow state machine, `TRANSITIONS` table, and transition service (`SELECT ... FOR UPDATE`, history row, audit row).
-- [ ] Implement DRAFT soft delete (HR) and free the department/period for a new appraisal.
-- [ ] Implement the day-1 scheduler: advisory lock, per-department transaction, idempotent, `SYSTEM` audit.
-- [ ] Add the admin rerun endpoint `POST /scheduler/appraisals/run`.
+- [x] Implement the eligibility query and `POST /appraisals/preview`.
+- [x] Implement manual creation with snapshots, one-per-department-per-period (partial unique index), and employee validation.
+- [x] Implement `PUT /appraisals/:id/employees` (DRAFT only, fresh snapshots for added employees).
+- [x] Implement ratings bulk upsert with scale and criteria-set validation.
+- [x] Implement `appraisal-score.ts` and unit tests (mixed scales, missing ratings, rounding).
+- [x] Implement the workflow state machine, `TRANSITIONS` table, and transition service (`SELECT ... FOR UPDATE`, history row, audit row).
+- [x] Implement DRAFT soft delete (HR), which frees the department/period for a new appraisal.
+- [x] Implement the day-1 scheduler: advisory lock, per-department transaction, idempotent, `SYSTEM` audit.
+- [x] Add the admin rerun endpoint `POST /scheduler/appraisals/run`.
 
 ## Phase 5 — Import and export
 
-- [ ] Build the shared `ImportService` pipeline: file checks, parse, stop-at-first-error validation, single transaction, audit.
-- [ ] Implement the employees importer (upsert matched by employee number).
-- [ ] Implement the contracts importer (match by employee number + start date, overlap checks inside file and DB).
+- [x] Build the shared `ImportService` pipeline: file checks, parse, stop-at-first-error validation, single transaction, audit.
+- [x] Implement the employees importer (upsert matched by employee number).
+- [x] Implement the contracts importer (match by employee number + start date, overlap checks inside file and DB).
 - [ ] Implement the assessment ratings importer (metadata match, scope/status checks, overwrite audit).
-- [ ] Implement export writers and template endpoints with formula-injection sanitization.
+- [~] Implement export writers and template endpoints with formula-injection sanitization (employees and contracts done; assessment template/result pending).
 
 ## Phase 6 — Audit and retention
 
@@ -86,24 +86,24 @@ Approach: full PRD alignment (PRD fields, not just behavior), done in stages so 
 
 ## Phase 8 — Frontend screens
 
-- [ ] Build `shared/permissions` (`canAccessRoute`, `canWriteMaster`, `getAvailableActions`) with tests.
-- [ ] Build Users, Departments, and Positions screens.
-- [ ] Build Employees and Contracts screens with import/export toolbars.
-- [ ] Build criteria list, read-only view, and DRAFT editor with the live weight total.
-- [ ] Build the appraisal list, "needs my action" tab, and create wizard.
-- [ ] Build the appraisal detail grid (sticky, keyboard, unsaved draft, completeness) with workflow actions and the history timeline.
-- [ ] Build the `downloadFile` helper and the reusable `ImportModal` (first-error display).
-- [ ] Build the audit trail screen with filters and expandable before/after values.
+- [x] `shared/permissions` — implemented as `src/permissions/appraisalPermissions.ts` (`getAvailableActions`, `canWriteMaster`); unit tests deferred until Vitest is added (Phase 9).
+- [x] Users, Departments, and Positions screens (present from earlier phases).
+- [x] Employees and Contracts screens (present); import/export toolbars pending Phase 5.
+- [x] Criteria list, read-only view, and DRAFT editor with the live weight total (Phase 3).
+- [x] Appraisal list, "needs my action" tab, and create wizard (department + month → preview → create).
+- [x] Appraisal detail grid with workflow actions and the status-history timeline (rating edits + total score; sticky/keyboard/completeness refinements still to polish).
+- [x] `downloadFile` helper and the reusable `ImportModal` (used by the employees and contracts screens).
+- [ ] Audit trail screen — blocked on Phase 6 (`GET /audit-logs`).
 
 ## Phase 9 — Testing, seed, deploy, docs
 
-- [ ] Write backend unit tests: transitions, eligibility, criteria validation, audit masking, importer validation order.
-- [ ] Write backend e2e tests: full DRAFT → COMPLETE workflow, scope isolation, scheduler idempotency, atomic imports, audit entry per write.
-- [ ] Write frontend Vitest/RTL tests: permissions, score, grid, `ImportModal`.
-- [ ] Add shared score-formula parity tests (same cases in both apps).
-- [ ] Write the idempotent seed script: first admin from env and criteria set v1 (placeholder weights).
-- [ ] Add the health endpoint, the production `migrate` script, and multi-stage Docker images.
-- [ ] Sync docs (PRD, design docs, `CONVENTIONS.md`) and follow the PRD release plan for UAT, migration, and rollout.
+- [x] Backend unit tests: transitions, criteria validation, audit masking, score, importer validation order (contracts), dashboard summary.
+- [ ] Backend e2e tests: full DRAFT → COMPLETE workflow, scope isolation, scheduler idempotency, atomic imports, audit entry per write — requires a live Postgres (blocked; no Docker here).
+- [x] Frontend Vitest tests: permissions and score (parity with the backend). Grid and `ImportModal` tests pending (need RTL + Phase 5).
+- [x] Add shared score-formula parity tests (same cases in both apps).
+- [x] Write the idempotent seed script: first admin from env (`SEED_ADMIN_USERNAME`/`SEED_ADMIN_PASSWORD`) and criteria set v1 (placeholder weights).
+- [x] Add the health endpoint (`GET /api/health`), the production `migrate` script, and multi-stage Docker images (backend + frontend with nginx). Dockerfiles are unverified (no Docker here).
+- [~] Sync docs to PRD v0.6 (`DESIGN-BACKEND.md` v0.4, `DESIGN-FRONTEND.md` v0.4); the PRD release plan for UAT, migration, and rollout is still pending.
 
 ---
 

@@ -1,43 +1,60 @@
 import { apiSlice } from "@/api/apiSlice";
 import type {
   ApiResponse,
-  CreateCriteriaRequest,
-  CriteriaVersionResponse,
-  CriterionResponse,
+  CreateCriteriaSetRequest,
+  CriteriaSetResponse,
+  UpdateCriteriaSetRequest,
 } from "@appraisal/types";
 
 export const criteriaApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
-    getCriteria: builder.query<ApiResponse<CriteriaVersionResponse[]>, void>({
-      query: () => `/criteria`,
+    getCriteriaSets: builder.query<ApiResponse<CriteriaSetResponse[]>, void>({
+      query: () => `/criteria-sets`,
       providesTags: ["Criteria"],
     }),
-    getCriteriaDetails: builder.query<
-      ApiResponse<CriterionResponse[]>,
+    getActiveCriteriaSet: builder.query<
+      ApiResponse<CriteriaSetResponse | null>,
+      void
+    >({
+      query: () => `/criteria-sets/active`,
+      providesTags: ["Criteria"],
+    }),
+    getCriteriaSetById: builder.query<
+      ApiResponse<CriteriaSetResponse>,
       string | undefined
     >({
-      query: (id) => `/criteria/${id}`,
+      query: (id) => `/criteria-sets/${id}`,
       providesTags: ["Criteria"],
     }),
-    createCriteria: builder.mutation<
-      ApiResponse<CriterionResponse>,
-      CreateCriteriaRequest
+    createCriteriaSet: builder.mutation<
+      ApiResponse<CriteriaSetResponse>,
+      CreateCriteriaSetRequest | undefined
     >({
       query: (body) => ({
-        url: `/criteria`,
+        url: `/criteria-sets`,
         method: "POST",
-        body: body,
+        body: body ?? {},
       }),
       invalidatesTags: ["Criteria"],
     }),
-    createCriteriaVersion: builder.mutation<
-      ApiResponse<CriterionResponse>,
-      { id: string; body: CreateCriteriaRequest }
+    updateCriteriaSet: builder.mutation<
+      ApiResponse<CriteriaSetResponse>,
+      { id: string | undefined; body: UpdateCriteriaSetRequest }
     >({
       query: ({ id, body }) => ({
-        url: `/criteria/${id}`,
+        url: `/criteria-sets/${id}`,
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: ["Criteria"],
+    }),
+    activateCriteriaSet: builder.mutation<
+      ApiResponse<CriteriaSetResponse>,
+      string | undefined
+    >({
+      query: (id) => ({
+        url: `/criteria-sets/${id}/activate`,
         method: "POST",
-        body: body,
       }),
       invalidatesTags: ["Criteria"],
     }),
@@ -46,8 +63,10 @@ export const criteriaApi = apiSlice.injectEndpoints({
 });
 
 export const {
-  useGetCriteriaQuery,
-  useGetCriteriaDetailsQuery,
-  useCreateCriteriaMutation,
-  useCreateCriteriaVersionMutation,
+  useGetCriteriaSetsQuery,
+  useGetActiveCriteriaSetQuery,
+  useGetCriteriaSetByIdQuery,
+  useCreateCriteriaSetMutation,
+  useUpdateCriteriaSetMutation,
+  useActivateCriteriaSetMutation,
 } = criteriaApi;

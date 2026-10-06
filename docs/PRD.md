@@ -1,6 +1,7 @@
 # PRD: Employee Performance Appraisal System
 
-**Status:** Draft v0.5
+**Status:** Draft v0.6
+**Changes from v0.5:** Removes the contract status field (5.1). A contract is active between its start and end dates, and no two contracts for the same employee may overlap in time; appraisal eligibility (5.4) uses the contract end date only.
 **Changes from v0.4:** Adds Daily Activity Notes (5.9): a per-day dynamic form generated from the criteria set, filled by HEAD DEPARTMENT and by the new SUPERVISOR role; the numeric sum appears on the appraisal as informational data. Adds the SUPERVISOR role (4) and its permissions (5.8).
 
 ---
@@ -63,11 +64,11 @@ Create, read, update, and deactivate (soft delete) the following entities. Recor
 | Department | code, name, head (employee), active flag | Admin |
 | Position | code, name, level, active flag | Admin |
 | Employee | employee number (unique), full name, gender, birth date, address, department, position, join date, status (active/inactive), superior (optional) | HR, Admin |
-| Contract | employee, contract type (permanent, fixed-term, etc.), start date, end date (empty for permanent), status | HR, Admin |
+| Contract | employee, contract type (permanent, fixed-term, etc.), start date, end date (empty for permanent) | HR, Admin |
 
 Acceptance criteria:
 - Employee number is unique. Duplicate creation is rejected with a clear message.
-- An employee can have multiple contracts over time, but only one active contract at a given date.
+- An employee can have multiple contracts over time, but no two contracts may overlap in time. A contract is active between its start and end dates; an empty end date means it stays active.
 - Deactivated departments or positions cannot be assigned to new employees but remain visible on historical data.
 - List screens support search, filter, sort, and pagination.
 
@@ -122,7 +123,7 @@ The appraisal is presented as a **table**: rows are employees, columns are crite
 - Audit entries for scheduler actions use the actor "SYSTEM".
 
 **Eligibility**
-- Employee is active, belongs to the department, and has an active contract whose end date falls in the period month.
+- Employee is active, belongs to the department, and has a contract whose end date falls in the period month.
 - An employee cannot appear in more than one open (not COMPLETE) appraisal for the same period.
 
 **Table behavior**

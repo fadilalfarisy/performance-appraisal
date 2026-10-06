@@ -1,8 +1,8 @@
 # Frontend Design: Employee Performance Appraisal System
 
-**Based on:** PRD v0.4, `DESIGN-BACKEND.md` v0.3, and the installed dependencies in `apps/frontend/package.json`
+**Based on:** PRD v0.6, `DESIGN-BACKEND.md` v0.4, and the installed dependencies in `apps/frontend/package.json`
 **Scope:** `apps/frontend` only (React 18, Vite 7, TypeScript 5.7, Redux Toolkit, Ant Design 5, `@ant-design/icons`, dayjs, react-router-dom 6).
-**Status:** Draft v0.3 (aligned with installed dependencies and PRD v0.4)
+**Status:** Draft v0.4 (aligned with installed dependencies and PRD v0.6)
 
 ---
 
@@ -303,7 +303,7 @@ Used by employees, contracts, departments, positions, users, appraisals, audit l
 | Screen | Notes |
 |---|---|
 | Employees | Filters: department, position, status, search. Form: employee number, name, gender, birth date, address, department, position, join date, status, superior (searchable select). Toolbar: Import, Export, Download template (ADMIN, HR only) |
-| Contracts | Filters: employee, type, status, end-date range. Form shows a clear error when the backend rejects overlapping active contracts. Toolbar as above |
+| Contracts | Filters: employee, type, end-date range. Form shows a clear error when the backend rejects overlapping contracts. Toolbar as above |
 | Departments | Code, name, head (employee select), active flag. Write for ADMIN only |
 | Positions | Code, name, level, active flag. Write for ADMIN only |
 

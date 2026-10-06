@@ -10,6 +10,11 @@ import { AuditService, type AuditEntry } from '../audit/audit.service';
 import { RequestContextService } from '../common/context/request-context.service';
 import { ScopeService } from '../common/scope/scope.service';
 import { EmployeesRepository } from './employees.repository';
+import { EmployeeImporter } from './employees.importer';
+import { EmployeesExcelService } from './employees.excel';
+import { ImportService } from '../imports/import.service';
+import type { UploadedFileLike } from '../imports/import.types';
+import type { ImportResult } from '@appraisal/types';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { QueryEmployeeDto } from './dto/query-employee.dto';
@@ -21,7 +26,6 @@ const SORT_COLUMNS: Record<string, string> = {
   department: 'd.name',
   position: 'p.name',
   status: 'e.status',
-  contractStatus: 'c.status',
   createdAt: 'e.created_at',
 };
 
@@ -33,6 +37,9 @@ export class EmployeesService {
     private readonly audit: AuditService,
     private readonly requestContext: RequestContextService,
     private readonly scopeService: ScopeService,
+    private readonly importService: ImportService,
+    private readonly employeeImporter: EmployeeImporter,
+    private readonly excel: EmployeesExcelService,
   ) {}
 
   async findAllEmployees(
@@ -47,7 +54,6 @@ export class EmployeesService {
       department,
       position,
       status,
-      contractStatus,
     } = query;
 
     const offset = (page - 1) * limit;
@@ -65,7 +71,6 @@ export class EmployeesService {
     if (department) whereParts.push(sql`d.name = ${department}`);
     if (position) whereParts.push(sql`p.name = ${position}`);
     if (status) whereParts.push(sql`e.status = ${status}`);
-    if (contractStatus) whereParts.push(sql`c.status = ${contractStatus}`);
 
     const user = this.requestContext.getUser();
     if (user) {
@@ -175,6 +180,28 @@ export class EmployeesService {
         ...this.actor(),
       });
     });
+  }
+
+  // ── Excel import / export ──────────────────────────────────────────────────
+
+  async exportEmployees(): Promise<Buffer> {
+    const rows = await this.employeesRepository.findForExport();
+    return this.excel.buildExport(rows);
+  }
+
+  async buildTemplate(): Promise<Buffer> {
+    return this.excel.buildTemplate();
+  }
+
+  async importEmployees(
+    file: UploadedFileLike | undefined,
+  ): Promise<ApiResponse<ImportResult>> {
+    const result = await this.importService.run(
+      file,
+      this.employeeImporter,
+      'employee',
+    );
+    return ok(result);
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────

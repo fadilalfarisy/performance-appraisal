@@ -57,7 +57,7 @@ export const SignIn = () => {
             name="username"
             rules={[{ required: true, min: 3, max: 20 }]}
           >
-            <Input />
+            <Input autoComplete="new-password" />
           </Form.Item>
           <Form.Item
             label="Password"

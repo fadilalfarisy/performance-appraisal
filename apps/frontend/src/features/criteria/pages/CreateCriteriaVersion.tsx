@@ -1,41 +1,29 @@
-import { Result, Spin } from "antd";
-import { TitlePage } from "@/components";
-import {
-  useCreateCriteriaVersionMutation,
-  useGetCriteriaDetailsQuery,
-} from "@/features/criteria/criteriaApi";
-import { CriteriaForm } from "../components/CriteriaForm";
-import { useParams } from "react-router-dom";
+import { useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { Spin } from "antd";
+import { useCreateCriteriaSetMutation } from "../criteriaApi";
+import { errorHandling } from "@/utils/errorUtils";
 
+/** Creates a new DRAFT version (copied from the active set) and opens it. */
 export const CreateCriteriaVersion = () => {
-  const { id } = useParams();
-  const { data, isLoading, isError } = useGetCriteriaDetailsQuery(id);
+  const navigate = useNavigate();
+  const [createSet] = useCreateCriteriaSetMutation();
+  const started = useRef(false);
 
-  if (isError) {
-    return (
-      <Result
-        status="error"
-        title="403 Forbidden"
-        subTitle="Oops, You can't access this page."
-      />
-    );
-  }
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
 
-  if (isLoading) {
-    return <Spin />;
-  }
+    (async () => {
+      try {
+        const { data } = await createSet(undefined).unwrap();
+        navigate(`/dashboard/criteria/${data.id}`, { replace: true });
+      } catch (error) {
+        errorHandling(error);
+        navigate("/dashboard/criteria", { replace: true });
+      }
+    })();
+  }, [createSet, navigate]);
 
-  return (
-    <>
-      <TitlePage
-        title="Create Criteria Version"
-        description="Form create criteria version"
-      />
-      <CriteriaForm
-        createForm={false}
-        formFunction={useCreateCriteriaVersionMutation}
-        initialValues={data?.data?.[0]}
-      />
-    </>
-  );
+  return <Spin />;
 };

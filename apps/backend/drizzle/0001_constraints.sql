@@ -5,6 +5,8 @@ ALTER TABLE "contracts" ADD CONSTRAINT "contracts_no_overlapping_active" EXCLUDE
 	"employee_id" WITH =,
 	daterange("start_date", COALESCE("end_date", 'infinity'::date), '[]') WITH &&
 ) WHERE ("status" = 'ACTIVE' AND "deleted_at" IS NULL);--> statement-breakpoint
+-- An appraisal period must be the first day of its month.
+ALTER TABLE "appraisals" ADD CONSTRAINT "appraisals_period_first_day" CHECK ("period" = date_trunc('month', "period")::date);--> statement-breakpoint
 -- Append-only audit log, partitioned by month on occurred_at.
 CREATE TABLE "audit_logs" (
 	"id" bigint GENERATED ALWAYS AS IDENTITY NOT NULL,

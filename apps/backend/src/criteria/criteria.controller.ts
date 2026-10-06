@@ -1,63 +1,78 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  Body,
-  Param,
-  ParseUUIDPipe,
   HttpCode,
   HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Put,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse as SwaggerResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { UserRole } from '@appraisal/types';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ApiResponse } from '../common/utils/response.util';
-import { UserRole } from '@appraisal/types';
 import { CriteriaService } from './criteria.service';
-import { ChildCriteriaPayload } from './interfaces/child-criteria.interface';
-import { CreateCriteriaDto } from './dto/create-criteria.dto';
-import { ParentCriteriaPayload } from './interfaces/parent-criteria.interface';
+import { CreateCriteriaSetDto } from './dto/create-criteria-set.dto';
+import { UpdateCriteriaSetDto } from './dto/update-criteria-set.dto';
+import { CriteriaSetPayload } from './interfaces/criteria-set.interface';
 
-@ApiTags('criteria')
+@ApiTags('criteria-sets')
 @ApiBearerAuth()
-// @UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('criteria')
+@Controller('criteria-sets')
 export class CriteriaController {
   constructor(private readonly criteriaService: CriteriaService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get all criteria' })
-  @SwaggerResponse({ status: 200, description: 'List of criteria' })
-  @SwaggerResponse({ status: 401, description: 'Unauthorized' })
-  findAll(): Promise<ApiResponse<ParentCriteriaPayload[]>> {
+  @ApiOperation({ summary: 'List criteria set versions' })
+  findAll(): Promise<ApiResponse<CriteriaSetPayload[]>> {
     return this.criteriaService.findAll();
   }
 
+  @Get('active')
+  @ApiOperation({ summary: 'Get the active criteria set' })
+  findActive(): Promise<ApiResponse<CriteriaSetPayload | null>> {
+    return this.criteriaService.findActive();
+  }
+
   @Get(':id')
-  @ApiOperation({ summary: 'Get criteria by ID' })
-  @SwaggerResponse({ status: 200, description: 'Criteria found' })
-  @SwaggerResponse({ status: 401, description: 'Unauthorized' })
-  @SwaggerResponse({ status: 404, description: 'Criteria not found' })
+  @ApiOperation({ summary: 'Get a criteria set by ID' })
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<ApiResponse<ChildCriteriaPayload[]>> {
+  ): Promise<ApiResponse<CriteriaSetPayload>> {
     return this.criteriaService.findOne(id);
   }
 
   @Post()
-  @Roles(UserRole.HR, UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.HR)
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a new criteria' })
-  @SwaggerResponse({ status: 201, description: 'Criteria created' })
-  @SwaggerResponse({ status: 401, description: 'Unauthorized' })
-  @SwaggerResponse({ status: 403, description: 'Forbidden' })
+  @ApiOperation({
+    summary: 'Create a DRAFT criteria set (copies the active set)',
+  })
   create(
-    @Body() createCriteriaDto: CreateCriteriaDto,
-  ): Promise<ApiResponse<ChildCriteriaPayload>> {
-    return this.criteriaService.create(createCriteriaDto);
+    @Body() dto: CreateCriteriaSetDto,
+  ): Promise<ApiResponse<CriteriaSetPayload>> {
+    return this.criteriaService.createDraft(dto);
+  }
+
+  @Put(':id')
+  @Roles(UserRole.ADMIN, UserRole.HR)
+  @ApiOperation({ summary: 'Update a DRAFT criteria set' })
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateCriteriaSetDto,
+  ): Promise<ApiResponse<CriteriaSetPayload>> {
+    return this.criteriaService.update(id, dto);
+  }
+
+  @Post(':id/activate')
+  @Roles(UserRole.ADMIN, UserRole.HR)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Activate a DRAFT criteria set' })
+  activate(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ApiResponse<CriteriaSetPayload>> {
+    return this.criteriaService.activate(id);
   }
 }

@@ -23,7 +23,11 @@ import { DepartmentsModule } from './departments/departments.module';
 import { PositionsModule } from './positions/positions.module';
 import { CriteriaModule } from './criteria/criteria.module';
 import { ContractsModule } from './contracts/contracts.module';
+import { AppraisalsModule } from './appraisals/appraisals.module';
 import { AuditModule } from './audit/audit.module';
+import { HealthModule } from './health/health.module';
+import { ImportsModule } from './imports/imports.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -53,7 +57,11 @@ import { AuditModule } from './audit/audit.module';
     DepartmentsModule,
     PositionsModule,
     CriteriaModule,
+    AppraisalsModule,
     AuditModule,
+    HealthModule,
+    ImportsModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [

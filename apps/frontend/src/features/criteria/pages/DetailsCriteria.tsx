@@ -1,100 +1,93 @@
-import { Table, Result, Button } from "antd";
-import type { TableColumnsType } from "antd";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeftOutlined, PlusOutlined } from "@ant-design/icons";
+import { Result, Spin, Table, Tag, Button } from "antd";
+import type { TableColumnsType } from "antd";
+import { ArrowLeftOutlined } from "@ant-design/icons";
 import { TitlePage } from "@/components";
-import { useGetCriteriaDetailsQuery } from "@/features/criteria/criteriaApi";
-
-interface DataType {
-  id: string;
-  name: string;
-  weight: number;
-  description: string;
-  type: string;
-  version: number;
-}
+import { useGetCriteriaSetByIdQuery } from "../criteriaApi";
+import { CriteriaForm } from "../components/CriteriaForm";
+import { role } from "@/constants/roleAccess";
+import { useAppSelector } from "@/app/hooks";
+import type { CriterionResponse } from "@appraisal/types";
 
 export const DetailsCriteria = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-
-  const { data, isSuccess, isError } = useGetCriteriaDetailsQuery(id);
-
-  const columns: TableColumnsType<DataType> = [
-    {
-      title: "No",
-      width: "1%",
-      render: (_, __, index) => index + 1,
-    },
-    {
-      title: "Version",
-      dataIndex: "version",
-      width: "1%",
-      render: (record) => `v${record}`,
-    },
-    {
-      title: "Name",
-      dataIndex: "name",
-      width: "3%",
-    },
-    {
-      title: "Description",
-      dataIndex: "description",
-      width: "5%",
-    },
-    {
-      title: "Type",
-      dataIndex: "type",
-      width: "2%",
-    },
-    {
-      title: "Weight",
-      dataIndex: "weight",
-      width: "1%",
-      render: (record) => `${record}%`,
-    },
-  ];
+  const auth = useAppSelector((state) => state.auth);
+  const { data, isLoading, isError } = useGetCriteriaSetByIdQuery(id);
 
   if (isError) {
     return (
       <Result
         status="error"
-        title="403 Forbidden"
-        subTitle="Oops, You can't access this page."
+        title="Something Error"
+        subTitle="You can't access this page."
       />
     );
   }
 
-  if (isSuccess) {
-    console.log(data?.data);
-    return (
-      <>
-        <TitlePage title="Criteria History" description="List of criteria versions">
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => navigate(`/dashboard/criteria/${id}/version/create`)}
-          >
-            Add Version
-          </Button>
-        </TitlePage>
-        <Table<DataType>
+  if (isLoading || !data) {
+    return <Spin />;
+  }
+
+  const criteriaSet = data.data;
+  const canManage = role.accessHumanResource.includes(auth.role);
+  const editable = criteriaSet.status === "DRAFT" && canManage;
+
+  const columns: TableColumnsType<CriterionResponse> = [
+    { title: "Code", dataIndex: "code", width: "1%" },
+    { title: "Name", dataIndex: "name" },
+    {
+      title: "Scale",
+      width: "1%",
+      render: (_, record) => `${record.scaleMin} - ${record.scaleMax}`,
+    },
+    {
+      title: "Weight",
+      dataIndex: "weight",
+      width: "1%",
+      render: (value) => `${value}%`,
+    },
+    { title: "Order", dataIndex: "displayOrder", width: "1%" },
+  ];
+
+  return (
+    <>
+      <TitlePage
+        title={`Criteria set v${criteriaSet.version}`}
+        description="Criteria set detail"
+      >
+        <Button
+          onClick={() => navigate("/dashboard/criteria")}
+          icon={<ArrowLeftOutlined />}
+        >
+          Back
+        </Button>
+      </TitlePage>
+
+      <Tag
+        color={
+          criteriaSet.status === "ACTIVE"
+            ? "green"
+            : criteriaSet.status === "DRAFT"
+              ? "default"
+              : "orange"
+        }
+      >
+        {criteriaSet.status}
+      </Tag>
+
+      {editable ? (
+        <CriteriaForm criteriaSet={criteriaSet} />
+      ) : (
+        <Table<CriterionResponse>
           columns={columns}
-          dataSource={data?.data}
-          scroll={{ x: "max-content" }}
+          dataSource={criteriaSet.criteria}
           rowKey="id"
           pagination={false}
+          scroll={{ x: "max-content" }}
+          style={{ marginTop: 16 }}
         />
-        <div style={{ display: "flex", justifyContent: "end", gap: 16, marginTop: "24px" }}>
-          <Button
-            type="default"
-            onClick={() => navigate(-1)}
-            icon={<ArrowLeftOutlined />}
-          >
-            Back
-          </Button>
-        </div>
-      </>
-    );
-  }
+      )}
+    </>
+  );
 };

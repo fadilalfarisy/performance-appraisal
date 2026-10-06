@@ -1,8 +1,8 @@
 # Backend Design: Employee Performance Appraisal System
 
-**Based on:** PRD v0.4 (`docs/PRD.md`, the latest version) and the installed dependencies in `apps/backend/package.json`
+**Based on:** PRD v0.6 (`docs/PRD.md`, the latest version) and the installed dependencies in `apps/backend/package.json`
 **Scope:** `apps/backend` only (NestJS + TypeScript + Drizzle + PostgreSQL). Frontend design lives in `DESIGN-FRONTEND.md`.
-**Status:** Draft v0.3 (aligned with installed dependencies and PRD v0.4)
+**Status:** Draft v0.4 (aligned with installed dependencies and PRD v0.6)
 
 ---
 
@@ -173,7 +173,7 @@ A `.env.example` with every variable is committed. Real `.env` files are never c
 
 ## 7. Data model
 
-Roles: `ADMIN`, `HR`, `HEAD_DEPARTMENT`, `MANAGER`, `GENERAL_MANAGER`.
+Roles: `ADMIN`, `HR`, `HEAD_DEPARTMENT`, `SUPERVISOR`, `MANAGER`, `GENERAL_MANAGER`.
 Appraisal status: `DRAFT`, `PENDING`, `SUBMITTED`, `APPROVED`, `COMPLETE`.
 Criteria set status: `DRAFT`, `ACTIVE`, `SUPERSEDED`.
 
@@ -250,13 +250,12 @@ Indexes: `(department_id)`, `(status)`, trigram or lower-case index on `full_nam
 | contract_type | varchar | validated list in code |
 | start_date | date | |
 | end_date | date nullable | null = permanent |
-| status | enum `ACTIVE` / `INACTIVE` | |
 | created_at, updated_at, deleted_at | | |
 
 Constraints:
 - Unique `(employee_id, start_date)` where not deleted (import match key).
-- **Exclusion constraint** so one employee cannot have two ACTIVE contracts with overlapping dates:
-  `EXCLUDE USING gist (employee_id WITH =, daterange(start_date, coalesce(end_date, 'infinity'), '[]') WITH &&) WHERE (status = 'ACTIVE' AND deleted_at IS NULL)` (needs `btree_gist`). Drizzle cannot express this, so it goes in a custom SQL migration.
+- **Exclusion constraint** so one employee cannot have two contracts with overlapping dates:
+  `EXCLUDE USING gist (employee_id WITH =, daterange(start_date, coalesce(end_date, 'infinity'), '[]') WITH &&) WHERE (deleted_at IS NULL)` (needs `btree_gist`). Drizzle cannot express this, so it goes in a custom SQL migration.
 - Check `end_date IS NULL OR end_date >= start_date`.
 - Index `(end_date)` for the scheduler query.
 
@@ -421,7 +420,7 @@ The service never hard-codes a transition outside this table. Unit tests cover e
 
 An employee is eligible for `(department, period)` when:
 - `employees.department_id = department`, `status = 'ACTIVE'`, `deleted_at IS NULL`
-- has a contract with `status = 'ACTIVE'`, `deleted_at IS NULL`, and `end_date` between the first and last day of the period month
+- has a contract with `deleted_at IS NULL` and `end_date` between the first and last day of the period month
 - is not already in another non-deleted, not COMPLETE appraisal for the same period
 
 ### 10.2 Manual creation
@@ -523,7 +522,7 @@ A shared cross-row check (for example duplicate keys inside the file) counts as 
 | Importer | Match key | Key validations |
 |---|---|---|
 | Employees (sync) | `employee_number` | Required fields; department and position codes exist and are active; valid enums and dates; no duplicate employee numbers in file; superior employee number exists in DB or file. Existing rows are updated, new rows created. Employees missing from the file are left unchanged |
-| Contracts | `employee_number` + `start_date` | Employee exists; valid dates; `end_date ≥ start_date`; no overlapping ACTIVE contracts (against DB and inside the file) |
+| Contracts | `employee_number` + `start_date` | Employee exists; valid dates; `end_date ≥ start_date`; no overlapping contracts (against DB and inside the file) |
 | Assessment ratings | appraisal id from template | See below |
 
 **Assessment ratings import** (`POST /appraisals/:id/assessment-import`)
@@ -614,9 +613,9 @@ Priority order when time is short: workflow, permissions and scope, imports, sch
 
 ## 19. PRD traceability
 
-Every PRD v0.4 requirement maps to a part of this design. When the PRD version changes, update this table and the "Based on" line at the top.
+Every PRD v0.6 requirement maps to a part of this design. When the PRD version changes, update this table and the "Based on" line at the top.
 
-| PRD v0.4 section | Covered in this document |
+| PRD v0.6 section | Covered in this document |
 |---|---|
 | 4 Users and roles, data scope | 7.2 (`users`, `user_departments`), 8.2 (guards, `ScopeService`) |
 | 5.1 Master data | 7.2 (departments, positions, employees, contracts), 13.2 (importers), 14 (API) |

@@ -1,11 +1,11 @@
 import { useState, useMemo } from "react";
-import { PlusOutlined } from "@ant-design/icons";
+import { PlusOutlined, DownloadOutlined, UploadOutlined } from "@ant-design/icons";
 import type { TableColumnsType } from "antd";
-import { Button, Table, Result } from "antd";
+import { Button, Table, Result, Space } from "antd";
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
-import { ActionTable, TitlePage } from "@/components";
+import { ActionTable, TitlePage, ImportModal } from "@/components";
 import {
   useGetEmployeeQuery,
   useDeleteEmployeeMutation,
@@ -15,7 +15,9 @@ import {
   type EmployeeSearchValues,
 } from "../components/EmployeeSearch";
 import { role } from "@/constants/roleAccess";
-import { useAppSelector } from "@/app/hooks";
+import { useAppSelector, useAppDispatch } from "@/app/hooks";
+import { apiSlice } from "@/api/apiSlice";
+import { downloadFile } from "@/api/downloadFile";
 import type { EmployeeResponse } from "@appraisal/types";
 
 dayjs.extend(isBetween);
@@ -54,6 +56,8 @@ export const Employee = () => {
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10 });
 
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const [importOpen, setImportOpen] = useState(false);
 
   const queryParams = useMemo(
     () => ({
@@ -149,11 +153,6 @@ export const Employee = () => {
       render: (value) => (value?.endDate ? value.endDate : "-"),
     },
     {
-      title: "Status Contract",
-      dataIndex: "contract",
-      render: (value) => value?.status ?? "-",
-    },
-    {
       title: "Action",
       dataIndex: "id",
       width: "1%",
@@ -184,19 +183,56 @@ export const Employee = () => {
       <>
         <TitlePage title="List Employees" description="All staff company">
           {role.accessHumanResource.includes(auth.role) && (
-            <Button
-              type="primary"
-              onClick={() => {
-                navigate("/dashboard/employee/create");
-              }}
-              icon={<PlusOutlined />}
-            >
-              Add Employee
-            </Button>
+            <Space>
+              <Button
+                onClick={() =>
+                  downloadFile(
+                    "/employees/import-template",
+                    undefined,
+                    "employees-template.xlsx",
+                  )
+                }
+                icon={<DownloadOutlined />}
+              >
+                Template
+              </Button>
+              <Button
+                onClick={() => setImportOpen(true)}
+                icon={<UploadOutlined />}
+              >
+                Import
+              </Button>
+              <Button
+                onClick={() =>
+                  downloadFile("/employees/export", undefined, "employees.xlsx")
+                }
+                icon={<DownloadOutlined />}
+              >
+                Export
+              </Button>
+              <Button
+                type="primary"
+                onClick={() => {
+                  navigate("/dashboard/employee/create");
+                }}
+                icon={<PlusOutlined />}
+              >
+                Add Employee
+              </Button>
+            </Space>
           )}
         </TitlePage>
 
         <EmployeeSearch onSearch={handleSearch} onReset={handleReset} />
+
+        <ImportModal
+          open={importOpen}
+          title="Import employees"
+          templatePath="/employees/import-template"
+          uploadEndpoint="/employees/import"
+          onClose={() => setImportOpen(false)}
+          onSuccess={() => dispatch(apiSlice.util.invalidateTags(["Employees"]))}
+        />
 
         <Table<DataType>
           columns={columns}

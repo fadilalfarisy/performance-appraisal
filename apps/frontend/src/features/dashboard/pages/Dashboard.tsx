@@ -1,45 +1,67 @@
-import { Row, Col, Descriptions, Card, Flex, Typography } from "antd";
-import { TeamOutlined } from "@ant-design/icons";
 import {
-  useCountEmployeeByDepartmentQuery,
-  useCountEmployeeQuery,
-} from "@/features/dashboard/dashboardApi";
-import { useGetCriteriaQuery } from "@/features/criteria/criteriaApi";
+  Row,
+  Col,
+  Card,
+  Flex,
+  Typography,
+  Descriptions,
+  Statistic,
+  Empty,
+  Tag,
+} from "antd";
+import { TeamOutlined } from "@ant-design/icons";
+import { useGetDashboardSummaryQuery } from "@/features/dashboard/dashboardApi";
+import { useGetActiveCriteriaSetQuery } from "@/features/criteria/criteriaApi";
 
-const { Title, Paragraph } = Typography;
+const { Paragraph } = Typography;
+
+const STATUS_COLOR: Record<string, string> = {
+  DRAFT: "default",
+  PENDING: "gold",
+  SUBMITTED: "blue",
+  APPROVED: "cyan",
+  COMPLETE: "green",
+};
 
 export const Dashboard = () => {
-  const { data: totalEmployee, isSuccess: isCountEmployeeSuccess } =
-    useCountEmployeeQuery();
-  const {
-    data: countEmployeeByDepartment,
-    isSuccess: isCountByDepartmentSuccess,
-  } = useCountEmployeeByDepartmentQuery();
-  const { data: initialValueCriteria, isSuccess: isGetCriteriaSuccess } =
-    useGetCriteriaQuery();
+  const { data: summary, isSuccess } = useGetDashboardSummaryQuery();
+  const { data: activeCriteriaSet, isSuccess: criteriaSuccess } =
+    useGetActiveCriteriaSetQuery();
 
   return (
     <>
-      <Card style={{ margin: "16px 0" }}>
+      <Card title="Appraisals by status" style={{ marginBottom: 16 }}>
+        <Row gutter={[16, 16]}>
+          {isSuccess &&
+            summary.data.appraisalsByStatus.map((item) => (
+              <Col key={item.status} xs={12} sm={8} md={4}>
+                <Card size="small" style={{ textAlign: "center" }}>
+                  <Statistic
+                    title={<Tag color={STATUS_COLOR[item.status]}>{item.status}</Tag>}
+                    value={item.count}
+                  />
+                </Card>
+              </Col>
+            ))}
+        </Row>
+      </Card>
+
+      <Card title="Employees" style={{ marginBottom: 16 }}>
         <Row gutter={[16, 16]} align="middle">
-          <Col sm={9}>
-            <Flex gap={"large"}>
+          <Col xs={24} sm={8}>
+            <Flex gap="large" align="center">
               <TeamOutlined style={{ fontSize: 36, color: "purple" }} />
-              <span>
-                <Title level={5} className="margin-0">
-                  Total Employee
-                </Title>
-                <Paragraph className="margin-0">
-                  {isCountEmployeeSuccess ? totalEmployee.total : 0}
-                </Paragraph>
-              </span>
+              <Statistic
+                title="Total employees"
+                value={isSuccess ? summary.data.employees.total : 0}
+              />
             </Flex>
           </Col>
-          <Col sm={15}>
-            <Descriptions size={"small"}>
-              {isCountByDepartmentSuccess &&
-                countEmployeeByDepartment?.map((item: any, index: number) => (
-                  <Descriptions.Item key={index} label={`${item.department}`}>
+          <Col xs={24} sm={16}>
+            <Descriptions size="small" column={2}>
+              {isSuccess &&
+                summary.data.employees.byDepartment.map((item) => (
+                  <Descriptions.Item key={item.departmentId} label={item.department}>
                     {item.total}
                   </Descriptions.Item>
                 ))}
@@ -48,21 +70,23 @@ export const Dashboard = () => {
         </Row>
       </Card>
 
-      <Card>
-        <Title level={5} style={{ marginBottom: "24px" }}>
-          Criteria & Preferences
-        </Title>
-        <Row gutter={[16, 16]}>
-          {isGetCriteriaSuccess &&
-            initialValueCriteria?.data?.map((item: any, index: number) => (
-              <Col key={index}>
-                <Card style={{ textAlign: "center" }}>
-                  <Paragraph className="margin-0">{item.name || '-'}</Paragraph>
-                  <Paragraph type="secondary">{`${item.weight || 0}%`}</Paragraph>
+      <Card title="Active criteria">
+        {criteriaSuccess && activeCriteriaSet?.data ? (
+          <Row gutter={[16, 16]}>
+            {activeCriteriaSet.data.criteria.map((criterion) => (
+              <Col key={criterion.id}>
+                <Card size="small" style={{ textAlign: "center" }}>
+                  <Paragraph className="margin-0">
+                    {criterion.name || "-"}
+                  </Paragraph>
+                  <Paragraph type="secondary">{`${criterion.weight}%`}</Paragraph>
                 </Card>
               </Col>
             ))}
-        </Row>
+          </Row>
+        ) : (
+          <Empty description="No active criteria set" />
+        )}
       </Card>
     </>
   );

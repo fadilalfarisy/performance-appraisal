@@ -8,8 +8,13 @@ import {
   Patch,
   Post,
   Query,
+  Res,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { UserRole } from '@appraisal/types';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ApiResponse } from '../common/utils/response.util';
@@ -18,6 +23,10 @@ import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { QueryEmployeeDto } from './dto/query-employee.dto';
 import { EmployeePayload } from './interfaces/employee.interface';
+import type { UploadedFileLike } from '../imports/import.types';
+
+const XLSX_MIME =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 @ApiTags('employees')
 @Controller('employees')
@@ -32,12 +41,45 @@ export class EmployeesController {
     return this.employeesService.findAllEmployees(query);
   }
 
+  @Get('export')
+  @Roles(UserRole.ADMIN, UserRole.HR)
+  @ApiOperation({ summary: 'Export employees to .xlsx (Admin, HR)' })
+  async export(@Res() res: Response): Promise<void> {
+    const buffer = await this.employeesService.exportEmployees();
+    res.setHeader('Content-Type', XLSX_MIME);
+    res.setHeader('Content-Disposition', 'attachment; filename="employees.xlsx"');
+    res.send(buffer);
+  }
+
+  @Get('import-template')
+  @Roles(UserRole.ADMIN, UserRole.HR)
+  @ApiOperation({ summary: 'Download the employee import template (Admin, HR)' })
+  async template(@Res() res: Response): Promise<void> {
+    const buffer = await this.employeesService.buildTemplate();
+    res.setHeader('Content-Type', XLSX_MIME);
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="employees-template.xlsx"',
+    );
+    res.send(buffer);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get employee by ID' })
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<ApiResponse<EmployeePayload>> {
     return this.employeesService.findOneEmployee(id);
+  }
+
+  @Post('import')
+  @Roles(UserRole.ADMIN, UserRole.HR)
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024 } }),
+  )
+  @ApiOperation({ summary: 'Import employees from .xlsx (Admin, HR)' })
+  import(@UploadedFile() file: UploadedFileLike) {
+    return this.employeesService.importEmployees(file);
   }
 
   @Post()

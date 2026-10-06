@@ -8,7 +8,6 @@ export type CriteriaSearchValues = {
   departement?: string;
   position?: string;
   status?: string;
-  contractStatus?: string;
   startDate?: string[];
   endDate?: string[];
 };
@@ -29,7 +28,6 @@ export const CriteriaSearch = ({ onSearch, onReset }: Props) => {
       departement: values.departement,
       position: values.position,
       status: values.status,
-      contractStatus: values.contractStatus,
     };
     console.log(result);
     return result;
