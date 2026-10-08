@@ -9,7 +9,6 @@ import dayjs from "dayjs";
 import { errorHandling } from "@/utils/errorUtils";
 import { dateFormat } from "@/utils/dateUtils";
 import { FormButton } from "@/components";
-import { Contract } from "@/features/contract";
 import { useGetPositionsQuery } from "@/features/position";
 import { useMemo } from "react";
 import { useGetDepartmentsQuery } from "@/features/departments";
@@ -257,12 +256,6 @@ export const EmployeeForm = ({
           <Input.TextArea />
         </Form.Item>
       </Form>
-
-      {!createForm && (
-        <div style={{ marginBottom: 18 }}>
-          <Contract />
-        </div>
-      )}
 
       <div style={{ marginTop: "24px" }}>
         <FormButton

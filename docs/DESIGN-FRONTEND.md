@@ -2,7 +2,7 @@
 
 **Based on:** PRD v0.6, `DESIGN-BACKEND.md` v0.4, and the installed dependencies in `apps/frontend/package.json`
 **Scope:** `apps/frontend` only (React 18, Vite 7, TypeScript 5.7, Redux Toolkit, Ant Design 5, `@ant-design/icons`, dayjs, react-router-dom 6).
-**Status:** Draft v0.4 (aligned with installed dependencies and PRD v0.6)
+**Status:** Draft v0.5 (aligned with installed dependencies and PRD v0.6)
 
 ---
 
@@ -23,6 +23,8 @@ The PRD and backend design do not specify these, so this document decides them. 
 | 9 | UI language is English; no i18n library. | Not required by the PRD. Text stays in components for now. |
 | 10 | API types are written by hand from the Swagger contract. | Fewer tools for v1. Generating types from OpenAPI is an option later. |
 | 11 | Dependency hygiene: TypeScript on a stable 5.7.x (not a beta range), `@types/node` 24 to match the backend, and exactly one `dayjs` version installed. | A beta compiler is unpredictable; a second `dayjs` copy would leave the plugins unapplied to Ant Design date pickers. |
+| 12 | The employee detail screen uses **tabs**: Information (the employee form) and Contracts (that employee's contract history). Contract rows offer **edit** and **delete** only, for ADMIN and HR. | Keeps employee master data separate from the contract collection, scales to more tabs later, and avoids a redundant View page because the list already shows every contract field and the edit form is the detail. |
+| 13 | The Contracts list row has **view**, **edit**, and **delete** actions. **View** opens the employee detail on its Contracts tab (`?tab=contracts`), **edit** goes straight to that contract's form, and **delete** removes it. View is shown to every role; edit and delete only to ADMIN and HR. The Employee column is plain text. | View jumps to the employee's contract history so one employee's contracts are seen together; edit and delete act on the row's contract. Read-only roles may read contracts (PRD 5.8), so they get view but no write actions, matching the Criteria "Open" button. |
 
 ## 2. Tech stack and dependencies
 
@@ -302,8 +304,8 @@ Used by employees, contracts, departments, positions, users, appraisals, audit l
 
 | Screen | Notes |
 |---|---|
-| Employees | Filters: department, position, status, search. Form: employee number, name, gender, birth date, address, department, position, join date, status, superior (searchable select). Toolbar: Import, Export, Download template (ADMIN, HR only) |
-| Contracts | Filters: employee, type, end-date range. Form shows a clear error when the backend rejects overlapping contracts. Toolbar as above |
+| Employees | Filters: department, position, status, search. Form: employee number, name, gender, birth date, address, department, position, join date, status, superior (searchable select). Employee detail shows tabs: Information (the form) and Contracts (that employee's contracts: type, start date, end date; edit and delete for ADMIN and HR). Toolbar: Import, Export, Download template (ADMIN, HR only) |
+| Contracts | Filters: employee, type, end-date range. Columns: employee, type, start date, end date. Row actions: view (opens the employee detail on its Contracts tab, every role), edit (direct to that contract's form) and delete (ADMIN, HR). Form shows a clear error when the backend rejects overlapping contracts. Toolbar as above |
 | Departments | Code, name, head (employee select), active flag. Write for ADMIN only |
 | Positions | Code, name, level, active flag. Write for ADMIN only |
 

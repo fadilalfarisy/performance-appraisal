@@ -1,10 +1,14 @@
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Table, Button, Result } from "antd";
+import { Table, Button, Result, Tag } from "antd";
 import type { TableColumnsType } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { ActionTable } from "@/components";
+import { useAppSelector } from "@/app/hooks";
+import { role } from "@/constants/roleAccess";
 import { useDeleteContractMutation, useGetContractsQuery } from "../contractApi";
+import { contractTypeColor } from "@/constants/option/contract-status";
 import { dateFormat } from "@/utils/dateUtils";
 import type { ContractResponse } from "@appraisal/types";
 
@@ -13,61 +17,62 @@ type DataType = ContractResponse;
 export const Contract = () => {
   const navigate = useNavigate();
   const { id: employeeId } = useParams();
+  const auth = useAppSelector((state) => state.auth);
+  const canWrite = role.accessHumanResource.includes(auth.role);
+
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 10 });
 
   const { data, isSuccess, isError } = useGetContractsQuery(
-    employeeId ? { employeeId, limit: 100 } : undefined,
+    employeeId
+      ? { employeeId, page: pagination.current, limit: pagination.pageSize }
+      : undefined,
   );
   const [deleteContract] = useDeleteContractMutation();
 
   const contracts = data?.data ?? [];
+  const total = data?.meta?.total ?? 0;
 
-  const handleDelete = async (contractId: string) => {
-    return deleteContract(contractId).unwrap();
+  const handleTableChange = (page: number, pageSize: number) => {
+    setPagination({ current: page, pageSize });
   };
 
   const columns: TableColumnsType<DataType> = [
     {
-      title: "No",
-      width: "1%",
-      render: (_, __, index) => index + 1,
-    },
-    {
-      title: "Type",
+      title: "Contract Type",
       dataIndex: "contractType",
-      width: "5%",
-    },
-    {
-      title: "Status",
-      dataIndex: "status",
-      width: "5%",
+      width: "1%",
+      render: (value) => (
+        <Tag color={contractTypeColor[value] ?? "default"}>{value}</Tag>
+      ),
     },
     {
       title: "Start Date",
       dataIndex: "startDate",
-      width: "5%",
-      render: (record) => (record ? dayjs(record).format(dateFormat) : "-"),
+      width: "1%",
+      render: (value) => (value ? dayjs(value).format(dateFormat) : "-"),
     },
     {
       title: "End Date",
       dataIndex: "endDate",
-      width: "5%",
-      render: (record) => (record ? dayjs(record).format(dateFormat) : "-"),
-    },
-    {
-      title: "Action",
-      dataIndex: "id",
-      key: "id",
       width: "1%",
-      fixed: "right",
-      render: (value) => (
-        <ActionTable
-          linkEditButton={`/dashboard/employee/contract/update/${employeeId}/${value}`}
-          id={value}
-          deleteFunction={handleDelete}
-        />
-      ),
+      render: (value) => (value ? dayjs(value).format(dateFormat) : "-"),
     },
   ];
+
+  if (canWrite) {
+    columns.push({
+      title: "Action",
+      width: "1%",
+      fixed: "right",
+      render: (_, record) => (
+        <ActionTable
+          id={record.id}
+          linkEditButton={`/dashboard/employee/contract/update/${employeeId}/${record.id}`}
+          deleteFunction={deleteContract}
+        />
+      ),
+    });
+  }
 
   if (isError) {
     return (
@@ -87,21 +92,30 @@ export const Contract = () => {
           dataSource={contracts}
           scroll={{ x: "max-content" }}
           rowKey="id"
-          pagination={false}
+          pagination={{
+            current: pagination.current,
+            pageSize: pagination.pageSize,
+            total,
+            showSizeChanger: true,
+            pageSizeOptions: ["10", "20", "50"],
+            onChange: handleTableChange,
+          }}
           style={{ marginBottom: "18px" }}
         />
 
-        <Button
-          block
-          color="default"
-          variant="dashed"
-          icon={<PlusOutlined />}
-          onClick={() =>
-            navigate(`/dashboard/employee/contract/create/${employeeId}`)
-          }
-        >
-          Add Contract
-        </Button>
+        {canWrite && (
+          <Button
+            block
+            color="default"
+            variant="dashed"
+            icon={<PlusOutlined />}
+            onClick={() =>
+              navigate(`/dashboard/employee/contract/create/${employeeId}`)
+            }
+          >
+            Add Contract
+          </Button>
+        )}
       </>
     );
   }

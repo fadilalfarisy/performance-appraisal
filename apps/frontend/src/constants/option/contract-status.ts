@@ -5,3 +5,9 @@ export const contractTypeOption = [
   { label: "Fixed term", value: ContractType.FIXED_TERM },
   { label: "Probation", value: ContractType.PROBATION },
 ];
+
+export const contractTypeColor: Record<string, string> = {
+  FIXED_TERM: "#eb2f96", // magenta
+  PROBATION: "#722ed1", // purple
+  PERMANENT: "#2f54eb", // geekblue
+};

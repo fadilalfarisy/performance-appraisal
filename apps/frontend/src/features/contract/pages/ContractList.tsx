@@ -8,7 +8,6 @@ import {
   Table,
   Tag,
   Modal,
-  App,
 } from "antd";
 import type { TableColumnsType } from "antd";
 import {
@@ -27,6 +26,7 @@ import {
   useDeleteContractMutation,
   useGetContractsQuery,
 } from "../contractApi";
+import { contractTypeColor } from "@/constants/option/contract-status";
 import {
   ContractType,
   UserRole,
@@ -38,14 +38,7 @@ const TYPE_OPTIONS = ["PERMANENT", "FIXED_TERM", "PROBATION"].map((value) => ({
   label: value,
 }));
 
-const TYPE_COLOR: Record<string, string> = {
-  FIXED_TERM: "#eb2f96", // magenta
-  PROBATION: "#722ed1", // purple
-  PERMANENT: "#2f54eb", // geekblue
-};
-
 export const ContractList = () => {
-  const { message } = App.useApp();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const auth = useAppSelector((state) => state.auth);
@@ -90,15 +83,6 @@ export const ContractList = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    try {
-      await deleteContract(id).unwrap();
-      message.success("Contract cancelled");
-    } catch (error) {
-      errorHandling(error);
-    }
-  };
-
   const columns: TableColumnsType<ContractResponse> = [
     {
       title: "Employee No",
@@ -115,7 +99,7 @@ export const ContractList = () => {
       dataIndex: "contractType",
       width: "1%",
       render: (value) => (
-        <Tag color={TYPE_COLOR[value] ?? "default"}>{value}</Tag>
+        <Tag color={contractTypeColor[value] ?? "default"}>{value}</Tag>
       ),
     },
     { title: "Start", dataIndex: "startDate", width: "1%" },
@@ -128,10 +112,18 @@ export const ContractList = () => {
         canWrite ? (
           <ActionTable
             id={record.id}
-            deleteFunction={handleDelete}
+            deleteFunction={deleteContract}
+            linkViewButton={`/dashboard/employee/${record.employeeId}?tab=contracts`}
             linkEditButton={`/dashboard/employee/contract/update/${record.employeeId}/${record.id}`}
           />
-        ) : null,
+        ) : (
+          <ActionTable
+            id={record.id}
+            linkViewButton={`/dashboard/employee/${record.employeeId}?tab=contracts`}
+            isEditButton={false}
+            isDeleteButton={false}
+          />
+        ),
     },
   ];
 

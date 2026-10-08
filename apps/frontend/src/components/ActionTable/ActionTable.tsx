@@ -1,11 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import { Space, Tooltip, Popconfirm, Button, message } from "antd";
-import { DeleteOutlined, EditOutlined } from "@ant-design/icons";
+import { DeleteOutlined, EditOutlined, EyeOutlined } from "@ant-design/icons";
 import type { PopconfirmProps } from "antd";
 import { errorHandling } from "@/utils/errorUtils";
 
 type BaseProps = {
   id: string | number;
+  linkViewButton?: string;
 };
 
 type EditProps =
@@ -20,6 +21,7 @@ type Props = BaseProps & EditProps & DeleteProps;
 
 export const ActionTable = ({
   id,
+  linkViewButton,
   linkEditButton,
   deleteFunction,
   isEditButton = true,
@@ -38,6 +40,17 @@ export const ActionTable = ({
 
   return (
     <Space>
+      {linkViewButton && (
+        <Tooltip title="View">
+          <Button
+            size={"small"}
+            icon={<EyeOutlined />}
+            onClick={() => {
+              navigate(linkViewButton);
+            }}
+          />
+        </Tooltip>
+      )}
       {isEditButton && (
         <Tooltip title="Edit">
           <Button
