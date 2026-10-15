@@ -3,7 +3,7 @@
 **Dibuat:** 2026-10-11
 **File sumber yang dianalisis:**
 - `auth/auth.module.ts`, `auth/auth.controller.ts`, `auth/auth.service.ts`, `auth/auth.repository.ts`, `auth/jwt.strategy.ts`
-- `auth/dto/signin.dto.ts`, `signup.dto.ts`, `refresh-token.dto.ts`
+- `auth/dto/signin.dto.ts`, `refresh-token.dto.ts`
 - Rujukan: `common/guards/jwt-auth.guard.ts`, `common/decorators/public.decorator.ts`, `users/users.repository.ts`
 
 ## Daftar Isi
@@ -21,7 +21,7 @@
 
 ## 1. Ringkasan Module
 
-**AuthModule** menangani proses masuk (login), pendaftaran, perpanjangan sesi (refresh token), dan keluar (logout). Ia menerbitkan dua token: **access token** (umur pendek, untuk tiap request) dan **refresh token** (umur panjang, disimpan di database untuk bisa dicabut).
+**AuthModule** menangani proses masuk (login), perpanjangan sesi (refresh token), dan keluar (logout). Ia menerbitkan dua token: **access token** (umur pendek, untuk tiap request) dan **refresh token** (umur panjang, disimpan di database untuk bisa dicabut).
 
 Analogi: ini seperti **satpam gedung dan sistem kartu akses**. Login = menunjukkan identitas dan menerima kartu. Access token = **kartu tamu harian** (cepat kedaluwarsa). Refresh token = **kartu keanggotaan** yang bisa ditukar dengan kartu harian baru saat yang lama habis. Logout = mengembalikan kartu sehingga tidak bisa dipakai lagi.
 
@@ -43,7 +43,6 @@ Analogi: ini seperti **satpam gedung dan sistem kartu akses**. Login = menunjukk
 | `auth.repository.ts` | Repository | Query tabel `refresh_tokens` |
 | `jwt.strategy.ts` | Strategy (Passport) | Memverifikasi access token & menempelkan user ke request |
 | `dto/signin.dto.ts` | DTO | Body login |
-| `dto/signup.dto.ts` | DTO | Body pendaftaran |
 | `dto/refresh-token.dto.ts` | DTO | Body berisi refresh token |
 
 Diagram alur:
@@ -141,8 +140,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post('signup') @Public() signUp(@Body() dto: SignUpDto) { return this.authService.register(dto); }
-
   @Post('signin') @Public() @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK) signIn(@Body() dto: SignInDto, @Req() req) { return this.authService.login(dto, this.meta(req)); }
 
@@ -159,7 +156,7 @@ export class AuthController {
 
 - **Fungsinya:**
   - `@UseGuards(ThrottlerGuard)` → membatasi jumlah request (anti brute force).
-  - `signup`/`signin`/`refresh`/`logout` → `@Public()` (tak perlu token) karena justru untuk mendapatkan/mengakhiri token.
+  - `signin`/`refresh`/`logout` → `@Public()` (tak perlu token) karena justru untuk mendapatkan/mengakhiri token.
   - `@Throttle({ default: { limit: 5, ttl: 60_000 } })` di `signin` → maksimal 5 percobaan/menit (melindungi dari menebak password).
   - `@Throttle({...limit:10...})` di `refresh`.
   - `me` → **tidak** `@Public()`, jadi wajib access token; mengembalikan `req.user`.
@@ -174,20 +171,6 @@ export class AuthController {
 ### `auth.service.ts`
 
 **Peran file:** Logika inti autentikasi.
-
-`register`:
-
-```ts
-if (await this.usersRepository.existsByUsername(signUp.username)) {
-  throw new ConflictException({ message: 'Username already exists', errorCode: 'AUTH_USERNAME_ALREADY_EXISTS' });
-}
-const hashedPassword = await bcrypt.hash(signUp.password, 10);
-const user = await this.usersRepository.createAndSave({ username, password: hashedPassword, fullName, role, employeeId });
-```
-
-- **Fungsinya:** Cek username, hash password, buat user.
-- **Kenapa:** Mencegah duplikat & menyimpan password aman. Login memakai `bcrypt.compare` yang cocok dengan hash ini.
-- **Analogi:** Pendaftaran anggota baru: nama dicek unik, identitas disimpan dalam bentuk tersandi.
 
 `login`:
 
@@ -308,11 +291,9 @@ async revokeAllForUser(userId: string) {
 | File | Isi |
 |------|-----|
 | `signin.dto.ts` | `username` (wajib), `password` (wajib, min 6) |
-| `signup.dto.ts` | `username`, `password` (min 6), `role` (`@IsEnum`), `employeeId` (wajib UUID) |
 | `refresh-token.dto.ts` | `refreshToken` (wajib) |
 
-- **Fungsinya:** Validasi bentuk body. `implements SignInRequest`/`SignUpRequest` mengikat DTO ke tipe bersama.
-- **Dampaknya:** `signup.dto` mewajibkan `employeeId` — berbeda dari `CreateUserDto` (opsional). *Perlu konfirmasi:* apakah pendaftaran mandiri memang harus terhubung ke karyawan; jika tidak, ini bisa menyulitkan registrasi user non-karyawan (mis. admin).
+- **Fungsinya:** Validasi bentuk body. `implements SignInRequest` mengikat DTO ke tipe bersama.
 
 ---
 
@@ -377,7 +358,6 @@ Skenario: **User login, memakai API, lalu refresh saat token habis.**
 ## 7. Catatan Kualitas Kode
 
 - **`refreshSecret` fallback ke `accessSecret`.** Berfungsi, tapi di produksi keduanya harus berbeda (AGENTS.md: "separate secrets"). Saran: di produksi, wajibkan `JWT_REFRESH_SECRET` (validasi env), atau tolak start bila kosong.
-- **`signup` terbuka (`@Public()`) dan mengizinkan pemilihan `role` sembarang.** Siapa pun bisa mendaftar sebagai `ADMIN`/`GENERAL_MANAGER`. Ini **risiko keamanan serius** bila signup publik memang aktif di produksi. *Perlu konfirmasi:* apakah signup sebenarnya hanya untuk internal/provisioning? Jika publik, batasi role yang boleh dipilih (mis. hanya user biasa) atau pindahkan ke ADMIN.
 - **Tidak ada audit log untuk login/logout.** Modul ini tidak memanggil `AuditService`. AGENTS.md menekankan audit untuk perubahan, tetapi peristiwa login biasanya juga penting diaudit. *Perlu konfirmasi* apakah direncanakan.
 - **`me` mengembalikan `req.user` langsung.** Karena `req.user` berasal dari `JwtStrategy.validate` (bukan data sensitif), ini aman.
 - **Password `bcrypt` cost 10** konsisten dengan UsersService. Baik.

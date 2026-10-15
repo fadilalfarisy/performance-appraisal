@@ -52,9 +52,7 @@ const authSlice = createSlice({
   },
 });
 
-export const { setAuth, setSession, setAccessToken, deleteAuth } =
-  authSlice.actions;
+export const { setAuth, setSession, setAccessToken, deleteAuth } = authSlice.actions;
 export const authReducer = authSlice.reducer;
-export const selectIsAuthenticated = (state: { auth: AuthState }) =>
-  state.auth.logged;
+export const selectIsAuthenticated = (state: { auth: AuthState }) => state.auth.logged;
 export const selectAuthUser = (state: { auth: AuthState }) => state.auth;

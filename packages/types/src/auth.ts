@@ -5,13 +5,6 @@ export interface SignInRequest {
   password: string;
 }
 
-export interface SignUpRequest {
-  username: string;
-  password: string;
-  role: UserRole;
-  employeeId: string;
-}
-
 export interface LoginResponse {
   username: string;
   role: UserRole | null;
@@ -22,9 +15,4 @@ export interface LoginResponse {
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
-}
-
-export interface RegisterResponse {
-  id: string;
-  username: string;
 }

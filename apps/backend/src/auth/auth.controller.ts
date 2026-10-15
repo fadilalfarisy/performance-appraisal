@@ -17,7 +17,6 @@ import {
 } from '@nestjs/swagger';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthService, type RequestMeta } from './auth.service';
-import { SignUpDto } from './dto/signup.dto';
 import { SignInDto } from './dto/signin.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { Public } from '../common/decorators/public.decorator';
@@ -28,14 +27,6 @@ import type { AuthenticatedUser } from '../common/decorators/current-user.decora
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
-
-  @Post('signup')
-  @Public()
-  @ApiOperation({ summary: 'Register a new user' })
-  @ApiResponse({ status: 201, description: 'User successfully created.' })
-  signUp(@Body() signUpDto: SignUpDto) {
-    return this.authService.register(signUpDto);
-  }
 
   @Post('signin')
   @Public()

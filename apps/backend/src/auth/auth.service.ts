@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type { JwtSignOptions } from '@nestjs/jwt';
@@ -10,7 +6,6 @@ import { createHash, randomUUID } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { UsersRepository } from '../users/users.repository';
 import { AuthRepository } from './auth.repository';
-import { SignUpDto } from './dto/signup.dto';
 import { SignInDto } from './dto/signin.dto';
 
 export interface RequestMeta {
@@ -31,35 +26,6 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
   ) {}
-
-  async register(signUp: SignUpDto) {
-    if (await this.usersRepository.existsByUsername(signUp.username)) {
-      throw new ConflictException({
-        message: 'Username already exists',
-        errorCode: 'AUTH_USERNAME_ALREADY_EXISTS',
-      });
-    }
-
-    const hashedPassword = await bcrypt.hash(signUp.password, 10);
-    const user = await this.usersRepository.createAndSave({
-      username: signUp.username,
-      password: hashedPassword,
-      role: signUp.role,
-      employeeId: signUp.employeeId,
-    });
-
-    if (!user) {
-      throw new ConflictException({
-        message: 'User registration failed',
-        errorCode: 'AUTH_USER_REGISTRATION_FAILED',
-      });
-    }
-
-    return {
-      message: 'User registered successfully',
-      data: { id: user.id, username: signUp.username },
-    };
-  }
 
   async login(signIn: SignInDto, meta: RequestMeta = {}) {
     const user = await this.usersRepository.findByUsernameForAuth(
