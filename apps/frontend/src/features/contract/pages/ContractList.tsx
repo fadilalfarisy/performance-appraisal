@@ -26,12 +26,9 @@ import {
   useDeleteContractMutation,
   useGetContractsQuery,
 } from "../contractApi";
+import { hasAccess, roles } from "@/constants/role-access";
 import { contractTypeColor } from "@/constants/option/contract-status";
-import {
-  ContractType,
-  UserRole,
-  type ContractResponse,
-} from "@appraisal/types";
+import { ContractType, type ContractResponse } from "@appraisal/types";
 
 const TYPE_OPTIONS = ["PERMANENT", "FIXED_TERM", "PROBATION"].map((value) => ({
   value,
@@ -42,8 +39,7 @@ export const ContractList = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const auth = useAppSelector((state) => state.auth);
-  const canWrite =
-    auth.role === UserRole.ADMIN || auth.role === UserRole.HR;
+  const canWrite = hasAccess(roles.humanResource, auth.role);
 
   const [search, setSearch] = useState("");
   const [contractType, setContractType] = useState<ContractType | undefined>();

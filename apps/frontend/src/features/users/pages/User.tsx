@@ -79,10 +79,6 @@ export const User = () => {
         record.username.toLowerCase().includes(String(value).toLowerCase()),
     },
     {
-      title: "Full Name",
-      dataIndex: "fullName",
-    },
-    {
       title: "Role",
       dataIndex: "role",
       render: (record) => record || "-",

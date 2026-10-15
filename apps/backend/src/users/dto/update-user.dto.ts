@@ -4,20 +4,12 @@ import {
   IsBoolean,
   IsEnum,
   IsOptional,
-  IsString,
   IsUUID,
-  MaxLength,
 } from 'class-validator';
 import { UserRole } from '@appraisal/types';
 import type { UpdateUserRequest } from '@appraisal/types';
 
 export class UpdateUserDto implements UpdateUserRequest {
-  @ApiPropertyOptional({ example: 'Jane Doe' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(255)
-  fullName?: string;
-
   @ApiPropertyOptional({ enum: UserRole })
   @IsOptional()
   @IsEnum(UserRole)

@@ -36,7 +36,6 @@ async function main() {
     await db.insert(schema.users).values({
       username,
       password: hash,
-      fullName: 'System Administrator',
       role: 'ADMIN',
       employeeId: null,
     });

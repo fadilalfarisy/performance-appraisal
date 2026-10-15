@@ -3,7 +3,7 @@ import { Layout, Menu, theme } from "antd";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { UserProfile } from "@/features/users/components/UserProfile";
 import { useAppSelector } from "@/app/hooks";
-import { filteredMenuByRole } from "@/constants/dashboardLink";
+import { filteredMenuByRole } from "@/constants/dashboard-link";
 
 const { Header, Sider, Content } = Layout;
 

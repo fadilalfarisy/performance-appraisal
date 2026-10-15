@@ -5,7 +5,7 @@ import { ArrowLeftOutlined } from "@ant-design/icons";
 import { TitlePage } from "@/components";
 import { useGetCriteriaSetByIdQuery } from "../criteriaApi";
 import { CriteriaForm } from "../components/CriteriaForm";
-import { role } from "@/constants/roleAccess";
+import { hasAccess, roles } from "@/constants/role-access";
 import { useAppSelector } from "@/app/hooks";
 import type { CriterionResponse } from "@appraisal/types";
 
@@ -30,7 +30,7 @@ export const DetailsCriteria = () => {
   }
 
   const criteriaSet = data.data;
-  const canManage = role.accessHumanResource.includes(auth.role);
+  const canManage = hasAccess(roles.humanResource, auth.role);
   const editable = criteriaSet.status === "DRAFT" && canManage;
 
   const columns: TableColumnsType<CriterionResponse> = [

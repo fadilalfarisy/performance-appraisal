@@ -4,6 +4,7 @@ import { useAppDispatch } from "@/app/hooks";
 import { setAccessToken, setSession } from "@/features/auth/authSlice";
 import { tokenStorage } from "@/features/auth/tokenStorage";
 import { useLazyMeQuery, useRefreshMutation } from "@/features/auth/authApi";
+import { isUserRole } from "@/constants/role-access";
 
 /**
  * Restores the session on app start: if a refresh token is present, exchange it
@@ -34,11 +35,12 @@ export const AppBootstrap = ({ children }: { children: ReactNode }) => {
         const me = await loadMe().unwrap();
         if (cancelled) return;
 
+        const roleValue = me.data?.roles?.[0];
         dispatch(
           setSession({
             accessToken: data.accessToken,
             username: me.data?.username ?? "",
-            role: me.data?.roles?.[0] ?? "",
+            role: isUserRole(roleValue) ? roleValue : "",
           }),
         );
       } catch {

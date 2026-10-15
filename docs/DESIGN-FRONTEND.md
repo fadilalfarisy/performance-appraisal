@@ -314,7 +314,7 @@ Deactivated departments and positions are hidden in the selects of new records a
 ### 10.3 User management (ADMIN)
 
 - Table: username, name, role, departments, linked employee, active.
-- Form: username, full name, password (create only), role, departments (multi-select, visible and required only for HEAD_DEPARTMENT and MANAGER), optional linked employee, active.
+- Form: username, password (create only), role, departments (multi-select, visible and required only for HEAD_DEPARTMENT and MANAGER), optional linked employee, active.
 - Reset password: modal where the admin enters a new password (assumption, see section 18).
 - Deactivate with confirm.
 

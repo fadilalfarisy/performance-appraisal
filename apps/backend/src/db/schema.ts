@@ -47,7 +47,6 @@ export const users = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     username: varchar('username', { length: 255 }).notNull().unique(),
     password: text('password').notNull(),
-    fullName: varchar('full_name', { length: 255 }).notNull(),
     employeeId: uuid('employee_id').references(() => employees.id),
     role: userRoleEnum('role').notNull(),
     isActive: boolean('is_active').default(true).notNull(),

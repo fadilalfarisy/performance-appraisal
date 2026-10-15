@@ -14,7 +14,7 @@ import {
   EmployeeSearch,
   type EmployeeSearchValues,
 } from "../components/EmployeeSearch";
-import { role } from "@/constants/roleAccess";
+import { hasAccess, roles } from "@/constants/role-access";
 import { useAppSelector, useAppDispatch } from "@/app/hooks";
 import { apiSlice } from "@/api/apiSlice";
 import { downloadFile } from "@/api/downloadFile";
@@ -157,7 +157,7 @@ export const Employee = () => {
       dataIndex: "id",
       width: "1%",
       fixed: "right",
-      hidden: !role.accessHumanResource.includes(auth.role),
+      hidden: !hasAccess(roles.humanResource, auth.role),
       render: (value) => (
         <ActionTable
           linkEditButton={`/dashboard/employee/${value}`}
@@ -182,7 +182,7 @@ export const Employee = () => {
     return (
       <>
         <TitlePage title="List Employees" description="All staff company">
-          {role.accessHumanResource.includes(auth.role) && (
+          {hasAccess(roles.humanResource, auth.role) && (
             <Space>
               <Button
                 onClick={() =>

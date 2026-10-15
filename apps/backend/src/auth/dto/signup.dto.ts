@@ -16,12 +16,6 @@ export class SignUpDto implements SignUpRequest {
     @IsNotEmpty()
     password!: string;
 
-    @ApiPropertyOptional({ example: 'Jane Doe' })
-    @IsString()
-    @IsNotEmpty()
-    @MaxLength(255)
-    fullName!: string;
-
     @ApiProperty({ enum: UserRole, example: UserRole.SUPERVISOR })
     @IsEnum(UserRole)
     @IsNotEmpty()

@@ -24,12 +24,6 @@ export class CreateUserDto implements CreateUserRequest {
   @MinLength(6)
   password!: string;
 
-  @ApiProperty({ example: 'Jane Doe' })
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(255)
-  fullName!: string;
-
   @ApiProperty({ enum: UserRole, example: UserRole.HEAD_DEPARTMENT })
   @IsEnum(UserRole)
   role!: UserRole;

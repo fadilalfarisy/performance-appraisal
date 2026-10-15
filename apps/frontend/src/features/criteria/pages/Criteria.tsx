@@ -3,7 +3,7 @@ import { PlusOutlined, HistoryOutlined } from "@ant-design/icons";
 import type { TableColumnsType } from "antd";
 import { Button, Table, Tag, Space, Tooltip, message } from "antd";
 import { TitlePage } from "@/components";
-import { role } from "@/constants/roleAccess";
+import { hasAccess, roles } from "@/constants/role-access";
 import { useAppSelector } from "@/app/hooks";
 import {
   useCreateCriteriaSetMutation,
@@ -26,7 +26,7 @@ export const Criteria = () => {
   const [createCriteriaSet, { isLoading: isCreating }] =
     useCreateCriteriaSetMutation();
 
-  const canManage = role.accessHumanResource.includes(auth.role);
+  const canManage = hasAccess(roles.humanResource, auth.role);
   const sets = data?.data ?? [];
 
   const handleCreate = async () => {

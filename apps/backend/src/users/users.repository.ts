@@ -8,7 +8,6 @@ import { notDeleted } from '../db/helpers/soft-delete';
 
 export type UserUpdate = Partial<{
   password: string;
-  fullName: string;
   role: UserRole;
   employeeId: string | null;
   isActive: boolean;
@@ -21,7 +20,6 @@ export class UsersRepository {
   private readonly baseSelect = {
     id: users.id,
     username: users.username,
-    fullName: users.fullName,
     role: users.role,
     isActive: users.isActive,
     employee: { id: employees.id, fullName: employees.fullName },
@@ -100,7 +98,6 @@ export class UsersRepository {
     values: {
       username: string;
       password: string;
-      fullName: string;
       role: UserRole;
       employeeId?: string | null;
     },
@@ -111,7 +108,6 @@ export class UsersRepository {
       .values({
         username: values.username,
         password: values.password,
-        fullName: values.fullName,
         role: values.role,
         employeeId: values.employeeId ?? null,
       })

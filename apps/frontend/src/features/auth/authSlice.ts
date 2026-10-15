@@ -1,17 +1,16 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { UserRole } from "@appraisal/types";
 
 export interface AuthState {
   logged: boolean;
   username: string;
-  fullName: string;
-  role: string;
+  role: UserRole | "";
   accessToken: string;
 }
 
 const initialValue: AuthState = {
   logged: false,
   username: "",
-  fullName: "",
   role: "",
   accessToken: "",
 };
@@ -23,7 +22,6 @@ const authSlice = createSlice({
     setAuth: (state, action: PayloadAction<AuthState>) => {
       state.logged = action.payload.logged;
       state.username = action.payload.username;
-      state.fullName = action.payload.fullName;
       state.role = action.payload.role;
       state.accessToken = action.payload.accessToken;
     },
@@ -34,17 +32,13 @@ const authSlice = createSlice({
       action: PayloadAction<{
         accessToken: string;
         username: string;
-        role: string;
-        fullName?: string;
+        role: UserRole | "";
       }>,
     ) => {
       state.logged = true;
       state.accessToken = action.payload.accessToken;
       state.username = action.payload.username;
       state.role = action.payload.role;
-      if (action.payload.fullName !== undefined) {
-        state.fullName = action.payload.fullName;
-      }
     },
     setAccessToken: (state, action: PayloadAction<string>) => {
       state.accessToken = action.payload;
@@ -52,7 +46,6 @@ const authSlice = createSlice({
     deleteAuth: (state) => {
       state.logged = false;
       state.username = "";
-      state.fullName = "";
       state.role = "";
       state.accessToken = "";
     },

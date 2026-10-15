@@ -44,7 +44,6 @@ export class AuthService {
     const user = await this.usersRepository.createAndSave({
       username: signUp.username,
       password: hashedPassword,
-      fullName: signUp.fullName,
       role: signUp.role,
       employeeId: signUp.employeeId,
     });

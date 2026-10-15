@@ -8,7 +8,6 @@ export interface SignInRequest {
 export interface SignUpRequest {
   username: string;
   password: string;
-  fullName: string;
   role: UserRole;
   employeeId: string;
 }

@@ -78,8 +78,8 @@ export const UserProfile = () => {
         footer={null}
       >
         <Descriptions layout="vertical" size={"small"} title="User Info">
-          <Descriptions.Item label="Full Name">
-            {auth.fullName || auth.username}
+          <Descriptions.Item label="Username">
+            {auth.username}
           </Descriptions.Item>
           <Descriptions.Item label="Role">{auth.role}</Descriptions.Item>
         </Descriptions>

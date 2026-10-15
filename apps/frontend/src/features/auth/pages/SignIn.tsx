@@ -26,7 +26,6 @@ export const SignIn = () => {
         setAuth({
           logged: true,
           username: data.username,
-          fullName: "",
           role: data.role ?? "",
           accessToken: data.accessToken,
         }),

@@ -51,7 +51,6 @@ export class UsersService {
         {
           username: dto.username,
           password,
-          fullName: dto.fullName,
           role: dto.role,
           employeeId: dto.employeeId ?? null,
         },
@@ -86,7 +85,6 @@ export class UsersService {
 
     await this.dbService.transaction(async (tx) => {
       const values: UserUpdate = {};
-      if (dto.fullName !== undefined) values.fullName = dto.fullName;
       if (dto.role !== undefined) values.role = dto.role;
       if (dto.employeeId !== undefined) values.employeeId = dto.employeeId ?? null;
       if (dto.isActive !== undefined) values.isActive = dto.isActive;
@@ -188,7 +186,6 @@ export class UsersService {
     row: {
       id: string;
       username: string;
-      fullName: string;
       role: string;
       isActive: boolean;
       employee: { id: string | null; fullName: string | null } | null;
@@ -198,7 +195,6 @@ export class UsersService {
     return {
       id: row.id,
       username: row.username,
-      fullName: row.fullName,
       role: row.role as UserPayload['role'],
       isActive: row.isActive,
       employee: row.employee?.id

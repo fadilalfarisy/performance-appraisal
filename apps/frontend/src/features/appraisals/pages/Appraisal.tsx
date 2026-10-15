@@ -22,7 +22,7 @@ const STATUS_COLOR: Record<string, string> = {
   COMPLETE: "green",
 };
 
-const NEEDS_ACTION: Record<string, AppraisalStatus> = {
+const NEEDS_ACTION: Partial<Record<UserRole, AppraisalStatus>> = {
   [UserRole.HR]: AppraisalStatus.DRAFT,
   [UserRole.HEAD_DEPARTMENT]: AppraisalStatus.PENDING,
   [UserRole.MANAGER]: AppraisalStatus.SUBMITTED,
@@ -35,13 +35,15 @@ export const Appraisal = () => {
   const auth = useAppSelector((state) => state.auth);
   const isAdmin = auth.role === UserRole.ADMIN;
   const isHr = auth.role === UserRole.HR;
+  const needsActionStatus =
+    auth.role === "" ? undefined : NEEDS_ACTION[auth.role];
 
   const [status, setStatus] = useState<AppraisalStatus | undefined>();
   const [department, setDepartment] = useState<string | undefined>();
   const [needsAction, setNeedsAction] = useState(false);
 
   const { data, isSuccess } = useGetAppraisalsQuery({
-    status: needsAction ? NEEDS_ACTION[auth.role] : status,
+    status: needsAction ? needsActionStatus : status,
     department,
     page: 1,
     limit: 50,
@@ -145,7 +147,7 @@ export const Appraisal = () => {
           {
             key: "mine",
             label: `Needs my action${
-              NEEDS_ACTION[auth.role] ? ` (${NEEDS_ACTION[auth.role]})` : ""
+              needsActionStatus ? ` (${needsActionStatus})` : ""
             }`,
           },
         ]}

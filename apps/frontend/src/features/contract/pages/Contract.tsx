@@ -6,7 +6,7 @@ import { PlusOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { ActionTable } from "@/components";
 import { useAppSelector } from "@/app/hooks";
-import { role } from "@/constants/roleAccess";
+import { hasAccess, roles } from "@/constants/role-access";
 import { useDeleteContractMutation, useGetContractsQuery } from "../contractApi";
 import { contractTypeColor } from "@/constants/option/contract-status";
 import { dateFormat } from "@/utils/dateUtils";
@@ -18,7 +18,7 @@ export const Contract = () => {
   const navigate = useNavigate();
   const { id: employeeId } = useParams();
   const auth = useAppSelector((state) => state.auth);
-  const canWrite = role.accessHumanResource.includes(auth.role);
+  const canWrite = hasAccess(roles.humanResource, auth.role);
 
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10 });
 

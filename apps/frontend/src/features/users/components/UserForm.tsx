@@ -6,21 +6,26 @@ import { errorHandling } from "@/utils/errorUtils";
 import { FormButton } from "@/components";
 import { useGetEmployeeQuery } from "@/features/employees";
 import { useGetDepartmentsQuery } from "@/features/departments";
+import { UserRole } from "@appraisal/types";
+import { isUserRole } from "@/constants/role-access";
 
-const ROLE_OPTIONS = [
-  { value: "ADMIN", label: "Admin" },
-  { value: "HR", label: "Human Resource" },
-  { value: "HEAD_DEPARTMENT", label: "Head Department" },
-  { value: "SUPERVISOR", label: "Supervisor" },
-  { value: "MANAGER", label: "Manager" },
-  { value: "GENERAL_MANAGER", label: "General Manager" },
+const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
+  { value: UserRole.ADMIN, label: "Admin" },
+  { value: UserRole.HR, label: "Human Resource" },
+  { value: UserRole.HEAD_DEPARTMENT, label: "Head Department" },
+  { value: UserRole.SUPERVISOR, label: "Supervisor" },
+  { value: UserRole.MANAGER, label: "Manager" },
+  { value: UserRole.GENERAL_MANAGER, label: "General Manager" },
 ];
 
-const DEPARTMENT_SCOPED_ROLES = ["HEAD_DEPARTMENT", "SUPERVISOR", "MANAGER"];
+const DEPARTMENT_SCOPED_ROLES: UserRole[] = [
+  UserRole.HEAD_DEPARTMENT,
+  UserRole.SUPERVISOR,
+  UserRole.MANAGER,
+];
 
 type UserInitialValues = {
   username?: string;
-  fullName?: string;
   password?: string;
   role?: string | null;
   employeeId?: string;
@@ -81,7 +86,6 @@ export const UserForm = ({
     ? {}
     : {
         username: initialValues?.username,
-        fullName: initialValues?.fullName,
         role: initialValues?.role ?? undefined,
         employeeId: initialValues?.employee?.id ?? undefined,
         departmentIds: initialValues?.departments?.map((d) => d.id) ?? [],
@@ -91,7 +95,6 @@ export const UserForm = ({
   const onFinish = async (values: any) => {
     const body = {
       username: values.username,
-      fullName: values.fullName,
       role: values.role,
       employeeId: values.employeeId ?? null,
       departmentIds: values.departmentIds ?? [],
@@ -143,14 +146,6 @@ export const UserForm = ({
           <Input />
         </Form.Item>
         <Form.Item
-          label="Full Name"
-          name="fullName"
-          hasFeedback
-          rules={[{ required: true, min: 3, max: 255, whitespace: true }]}
-        >
-          <Input />
-        </Form.Item>
-        <Form.Item
           label="Role"
           name="role"
           hasFeedback
@@ -164,7 +159,7 @@ export const UserForm = ({
           />
         </Form.Item>
 
-        {DEPARTMENT_SCOPED_ROLES.includes(roleValue) && (
+        {isUserRole(roleValue) && DEPARTMENT_SCOPED_ROLES.includes(roleValue) && (
           <Form.Item label="Departments" name="departmentIds">
             <Select
               mode="multiple"

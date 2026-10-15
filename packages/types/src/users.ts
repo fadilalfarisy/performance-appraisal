@@ -3,14 +3,12 @@ import type { UserRole } from './enums';
 export interface CreateUserRequest {
   username: string;
   password: string;
-  fullName: string;
   role: UserRole;
   employeeId?: string | null;
   departmentIds?: string[];
 }
 
 export interface UpdateUserRequest {
-  fullName?: string;
   role?: UserRole;
   employeeId?: string | null;
   departmentIds?: string[];
@@ -38,7 +36,6 @@ export interface UserDepartmentSummary {
 export interface UserResponse {
   id: string;
   username: string;
-  fullName: string;
   role: UserRole;
   isActive: boolean;
   employee: UserEmployeeSummary | null;

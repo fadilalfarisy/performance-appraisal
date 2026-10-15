@@ -208,7 +208,6 @@ erDiagram
 | id | uuid PK | |
 | username | varchar unique | |
 | password_hash | varchar | bcrypt |
-| full_name | varchar | |
 | role | enum | one role per user |
 | employee_id | uuid FK nullable | optional link |
 | is_active | boolean | |
