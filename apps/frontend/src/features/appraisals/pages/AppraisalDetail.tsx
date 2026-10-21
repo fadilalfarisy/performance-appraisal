@@ -5,24 +5,21 @@ import {
   Spin,
   Card,
   Button,
-  Space,
   Table,
   Tag,
-  Steps,
   InputNumber,
   Timeline,
   Modal,
   Form,
   Select,
   Input,
-  Popconfirm,
   message,
 } from "antd";
 import type { TableColumnsType } from "antd";
+import { ArrowLeftOutlined } from "@ant-design/icons";
 import { TitlePage } from "@/components";
 import { useAppSelector } from "@/app/hooks";
 import {
-  useDeleteAppraisalMutation,
   useGetAppraisalByIdQuery,
   useGetAppraisalHistoryQuery,
   useSaveRatingsMutation,
@@ -37,22 +34,7 @@ import {
   AppraisalStatus,
   type AppraisalEmployeeResponse,
 } from "@appraisal/types";
-
-const STATUS_ORDER: AppraisalStatus[] = [
-  AppraisalStatus.DRAFT,
-  AppraisalStatus.PENDING,
-  AppraisalStatus.SUBMITTED,
-  AppraisalStatus.APPROVED,
-  AppraisalStatus.COMPLETE,
-];
-
-const STATUS_COLOR: Record<string, string> = {
-  DRAFT: "default",
-  PENDING: "gold",
-  SUBMITTED: "blue",
-  APPROVED: "cyan",
-  COMPLETE: "green",
-};
+import { APPRAISAL_STATUS_COLOR as STATUS_COLOR } from "@/features/appraisals/appraisalStatus";
 
 export const AppraisalDetail = () => {
   const { id } = useParams();
@@ -62,10 +44,9 @@ export const AppraisalDetail = () => {
   const { data, isLoading, isError } =
     useGetAppraisalByIdQuery(id);
   const { data: history } = useGetAppraisalHistoryQuery(id);
-  const [saveRatings, { isLoading: isSaving }] = useSaveRatingsMutation();
+  const [saveRatings] = useSaveRatingsMutation();
   const [transition, { isLoading: isTransitioning }] =
     useTransitionAppraisalMutation();
-  const [deleteAppraisal] = useDeleteAppraisalMutation();
 
   const [edits, setEdits] = useState<Record<string, number>>({});
   const [modalAction, setModalAction] = useState<AvailableAction | null>(null);
@@ -116,26 +97,6 @@ export const AppraisalDetail = () => {
     }
   };
 
-  const onAction = (available: AvailableAction) => {
-    switch (available.action) {
-      case "moveToPending":
-        return runTransition(AppraisalStatus.PENDING);
-      case "submit":
-        return runTransition(AppraisalStatus.SUBMITTED);
-      case "approve":
-        return runTransition(AppraisalStatus.APPROVED);
-      case "complete":
-        return runTransition(AppraisalStatus.COMPLETE);
-      case "sendBack":
-      case "reopen":
-        setModalAction(available);
-        form.resetFields();
-        return;
-      default:
-        return;
-    }
-  };
-
   const columns: TableColumnsType<AppraisalEmployeeResponse> = [
     {
       title: "Employee",
@@ -183,21 +144,25 @@ export const AppraisalDetail = () => {
     },
   ];
 
-  const stepIndex = STATUS_ORDER.indexOf(appraisal.status);
-  const dirtyCount = Object.keys(edits).length;
-
   return (
     <>
       <TitlePage
         title={`${appraisal.departmentName ?? "Department"} — ${appraisal.period}`}
         description={`Criteria set v${appraisal.criteriaSetVersion}`}
       >
-        <Tag color={STATUS_COLOR[appraisal.status] ?? "default"}>
-          {appraisal.status}
-        </Tag>
+        <Button
+          onClick={() => navigate("/dashboard/appraisals")}
+          icon={<ArrowLeftOutlined />}
+        >
+          Back
+        </Button>
       </TitlePage>
 
-      <Steps
+      <Tag color={STATUS_COLOR[appraisal.status] ?? "default"}>
+        {appraisal.status}
+      </Tag>
+
+      {/* <Steps
         size="small"
         current={stepIndex}
         items={STATUS_ORDER.map((status) => ({ title: status }))}
@@ -245,7 +210,7 @@ export const AppraisalDetail = () => {
               </Button>
             ),
           )}
-      </Space>
+      </Space> */}
 
       <Table<AppraisalEmployeeResponse>
         columns={columns}

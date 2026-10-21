@@ -1,0 +1,1 @@
+ALTER TABLE "criteria_sets" DROP COLUMN "effective_date";

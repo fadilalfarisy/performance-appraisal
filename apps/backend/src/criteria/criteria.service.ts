@@ -146,7 +146,6 @@ export class CriteriaService {
       await this.criteriaRepository.activate(
         id,
         this.requestContext.getUser()?.userId ?? null,
-        null,
         tx,
       );
       await this.audit.record(tx, {
@@ -181,6 +180,16 @@ export class CriteriaService {
       weight: criterion.weight,
       displayOrder: criterion.displayOrder,
       scaleDescriptions: criterion.scaleDescriptions,
+      fields: criterion.fields.map((field) => ({
+        fieldKey: field.fieldKey,
+        label: field.label,
+        inputType: field.inputType,
+        required: field.required,
+        defaultValue: field.defaultValue ?? undefined,
+        rules: field.rules ?? undefined,
+        options: field.options ?? undefined,
+        displayOrder: field.displayOrder,
+      })),
     };
   }
 
@@ -206,7 +215,6 @@ export class CriteriaService {
       id: set.id,
       version: set.version,
       status: set.status as CriteriaSetPayload['status'],
-      effectiveDate: set.effectiveDate ?? null,
       note: set.note ?? null,
       createdBy: set.createdBy ?? null,
       activatedBy: set.activatedBy ?? null,

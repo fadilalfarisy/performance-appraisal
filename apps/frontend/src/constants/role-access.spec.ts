@@ -12,6 +12,7 @@ const EXPECTED_GROUPS: Record<keyof typeof roles, UserRole[]> = {
   humanResource: [UserRole.ADMIN, UserRole.HR],
   headDepartment: [UserRole.ADMIN, UserRole.HEAD_DEPARTMENT],
   supervisor: [UserRole.ADMIN, UserRole.SUPERVISOR],
+  noteManagers: [UserRole.HEAD_DEPARTMENT, UserRole.SUPERVISOR],
 };
 
 const menuKeys = (userRole: UserRole | "") => {
@@ -28,8 +29,10 @@ describe("role groups", () => {
     });
   }
 
-  it("gives ADMIN access to every group", () => {
-    for (const group of Object.values(EXPECTED_GROUPS)) {
+  it("gives ADMIN access to every group except note managers", () => {
+    for (const [name, group] of Object.entries(EXPECTED_GROUPS)) {
+      // Daily notes follow PRD 5.8: ADMIN has no access there.
+      if (name === "noteManagers") continue;
       expect(hasAccess(group, UserRole.ADMIN)).toBe(true);
     }
   });
@@ -68,20 +71,35 @@ describe("isUserRole", () => {
 
 describe("filteredMenuByRole", () => {
   const EVERYONE = 5;
+  const NOTE_MANAGERS = [UserRole.HEAD_DEPARTMENT, UserRole.SUPERVISOR];
 
-  it("shows ADMIN every section", () => {
+  it("shows ADMIN every section except Daily Notes", () => {
     const keys = menuKeys(UserRole.ADMIN);
     expect(keys).toHaveLength(EVERYONE + 2);
     expect(keys).toEqual(
       expect.arrayContaining(["/dashboard/master-data", "/dashboard/user"]),
     );
+    expect(keys).not.toContain("/dashboard/daily-notes");
+  });
+
+  it("shows Daily Notes only to note managers", () => {
+    for (const userRole of Object.values(UserRole)) {
+      if (userRole === UserRole.ADMIN) continue;
+      const keys = menuKeys(userRole);
+      const expected = NOTE_MANAGERS.includes(userRole)
+        ? EVERYONE + 1
+        : EVERYONE;
+      expect(keys).toHaveLength(expected);
+      expect(keys.includes("/dashboard/daily-notes")).toBe(
+        NOTE_MANAGERS.includes(userRole),
+      );
+    }
   });
 
   it("hides Master Data and Manage User from the other roles", () => {
     const others = Object.values(UserRole).filter((r) => r !== UserRole.ADMIN);
     for (const userRole of others) {
       const keys = menuKeys(userRole);
-      expect(keys).toHaveLength(EVERYONE);
       expect(keys).not.toContain("/dashboard/master-data");
       expect(keys).not.toContain("/dashboard/user");
     }

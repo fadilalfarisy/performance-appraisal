@@ -8,6 +8,8 @@ import {
   Space,
   Divider,
   Popconfirm,
+  Select,
+  Switch,
   message,
 } from "antd";
 import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
@@ -17,11 +19,18 @@ import {
   useUpdateCriteriaSetMutation,
 } from "../criteriaApi";
 import { errorHandling } from "@/utils/errorUtils";
-import type { CriteriaSetResponse } from "@appraisal/types";
+import { FieldInputType, type CriteriaSetResponse } from "@appraisal/types";
 
 type Props = {
   criteriaSet: CriteriaSetResponse;
 };
+
+type FieldValueShape = { inputType?: FieldInputType };
+
+const FIELD_TYPE_OPTIONS = Object.values(FieldInputType).map((value) => ({
+  value,
+  label: value,
+}));
 
 export const CriteriaForm = ({ criteriaSet }: Props) => {
   const [form] = Form.useForm();
@@ -54,6 +63,15 @@ export const CriteriaForm = ({ criteriaSet }: Props) => {
         score: d.score,
         description: d.description,
       })),
+      fields: criterion.fields.map((field) => ({
+        fieldKey: field.fieldKey,
+        label: field.label,
+        inputType: field.inputType,
+        required: field.required ?? false,
+        displayOrder: field.displayOrder ?? 0,
+        options: field.options ?? [],
+        rules: field.rules ?? {},
+      })),
     })),
   };
 
@@ -79,6 +97,14 @@ export const CriteriaForm = ({ criteriaSet }: Props) => {
       errorHandling(error);
     }
   };
+
+  const fieldInputTypeAt = (
+    criterionIndex: number,
+    fieldIndex: number,
+  ): FieldInputType | undefined =>
+    (criteria as { fields?: FieldValueShape[] }[])[criterionIndex]?.fields?.[
+      fieldIndex
+    ]?.inputType;
 
   return (
     <Form
@@ -196,6 +222,192 @@ export const CriteriaForm = ({ criteriaSet }: Props) => {
                     </>
                   )}
                 </Form.List>
+
+                <Divider orientation="left">Form fields</Divider>
+                <Form.List name={[field.name, "fields"]}>
+                  {(fieldRows, fieldOps) => (
+                    <>
+                      {fieldRows.map((fieldRow) => {
+                        const inputType = fieldInputTypeAt(
+                          field.name,
+                          fieldRow.name,
+                        );
+                        const needsOptions =
+                          inputType === FieldInputType.OPTION ||
+                          inputType === FieldInputType.MULTI_OPTION;
+                        const isNumber = inputType === FieldInputType.NUMBER;
+                        const isText = inputType === FieldInputType.TEXT;
+
+                        return (
+                          <Card
+                            key={fieldRow.key}
+                            type="inner"
+                            size="small"
+                            style={{ marginBottom: 8 }}
+                            title={`Field ${fieldRow.name + 1}`}
+                            extra={
+                              <Button
+                                danger
+                                size="small"
+                                icon={<DeleteOutlined />}
+                                onClick={() => fieldOps.remove(fieldRow.name)}
+                              />
+                            }
+                          >
+                            <Space wrap size="middle">
+                              <Form.Item
+                                label="Key"
+                                name={[fieldRow.name, "fieldKey"]}
+                                rules={[{ required: true }]}
+                              >
+                                <Input style={{ width: 160 }} />
+                              </Form.Item>
+                              <Form.Item
+                                label="Label"
+                                name={[fieldRow.name, "label"]}
+                                rules={[{ required: true }]}
+                              >
+                                <Input style={{ width: 200 }} />
+                              </Form.Item>
+                              <Form.Item
+                                label="Type"
+                                name={[fieldRow.name, "inputType"]}
+                                rules={[{ required: true }]}
+                              >
+                                <Select
+                                  style={{ width: 160 }}
+                                  options={FIELD_TYPE_OPTIONS}
+                                />
+                              </Form.Item>
+                              <Form.Item
+                                label="Required"
+                                name={[fieldRow.name, "required"]}
+                                valuePropName="checked"
+                              >
+                                <Switch />
+                              </Form.Item>
+                              <Form.Item
+                                label="Order"
+                                name={[fieldRow.name, "displayOrder"]}
+                              >
+                                <InputNumber min={0} />
+                              </Form.Item>
+                            </Space>
+
+                            {isNumber && (
+                              <Space wrap size="middle">
+                                <Form.Item
+                                  label="Min"
+                                  name={[fieldRow.name, "rules", "min"]}
+                                >
+                                  <InputNumber />
+                                </Form.Item>
+                                <Form.Item
+                                  label="Max"
+                                  name={[fieldRow.name, "rules", "max"]}
+                                >
+                                  <InputNumber />
+                                </Form.Item>
+                              </Space>
+                            )}
+
+                            {isText && (
+                              <Space wrap size="middle">
+                                <Form.Item
+                                  label="Min length"
+                                  name={[
+                                    fieldRow.name,
+                                    "rules",
+                                    "minLength",
+                                  ]}
+                                >
+                                  <InputNumber min={0} />
+                                </Form.Item>
+                                <Form.Item
+                                  label="Max length"
+                                  name={[
+                                    fieldRow.name,
+                                    "rules",
+                                    "maxLength",
+                                  ]}
+                                >
+                                  <InputNumber min={0} />
+                                </Form.Item>
+                                <Form.Item
+                                  label="Pattern"
+                                  name={[fieldRow.name, "rules", "pattern"]}
+                                >
+                                  <Input style={{ width: 220 }} />
+                                </Form.Item>
+                              </Space>
+                            )}
+
+                            {needsOptions && (
+                              <Form.List name={[fieldRow.name, "options"]}>
+                                {(optionRows, optionOps) => (
+                                  <>
+                                    {optionRows.map((optionRow) => (
+                                      <Space
+                                        key={optionRow.key}
+                                        align="baseline"
+                                      >
+                                        <Form.Item
+                                          label="Value"
+                                          name={[optionRow.name, "value"]}
+                                          rules={[{ required: true }]}
+                                        >
+                                          <Input style={{ width: 160 }} />
+                                        </Form.Item>
+                                        <Form.Item
+                                          label="Label"
+                                          name={[optionRow.name, "label"]}
+                                          rules={[{ required: true }]}
+                                        >
+                                          <Input style={{ width: 200 }} />
+                                        </Form.Item>
+                                        <Button
+                                          type="text"
+                                          danger
+                                          icon={<DeleteOutlined />}
+                                          onClick={() =>
+                                            optionOps.remove(optionRow.name)
+                                          }
+                                        />
+                                      </Space>
+                                    ))}
+                                    <Button
+                                      type="dashed"
+                                      icon={<PlusOutlined />}
+                                      onClick={() =>
+                                        optionOps.add({ value: "", label: "" })
+                                      }
+                                    >
+                                      Add option
+                                    </Button>
+                                  </>
+                                )}
+                              </Form.List>
+                            )}
+                          </Card>
+                        );
+                      })}
+                      <Button
+                        type="dashed"
+                        icon={<PlusOutlined />}
+                        onClick={() =>
+                          fieldOps.add({
+                            inputType: FieldInputType.TEXT,
+                            required: false,
+                            displayOrder: 0,
+                            options: [],
+                          })
+                        }
+                      >
+                        Add field
+                      </Button>
+                    </>
+                  )}
+                </Form.List>
               </Card>
             ))}
             <Button
@@ -208,6 +420,7 @@ export const CriteriaForm = ({ criteriaSet }: Props) => {
                   scaleMax: 5,
                   weight: 0,
                   scaleDescriptions: [],
+                  fields: [],
                 })
               }
             >

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Table, Tag, Select, Space, Tabs, message, Popconfirm } from "antd";
 import type { TableColumnsType } from "antd";
 import { PlusOutlined, ThunderboltOutlined, EyeOutlined } from "@ant-design/icons";
@@ -11,39 +11,26 @@ import {
   useGetAppraisalsQuery,
   useRunSchedulerMutation,
 } from "@/features/appraisals/appraisalsApi";
+import {
+  APPRAISAL_STATUS_COLOR,
+  APPRAISAL_STATUS_ORDER,
+  resolveStatusTab,
+} from "@/features/appraisals/appraisalStatus";
 import { errorHandling } from "@/utils/errorUtils";
 import { AppraisalStatus, UserRole, type AppraisalResponse } from "@appraisal/types";
 
-const STATUS_COLOR: Record<string, string> = {
-  DRAFT: "default",
-  PENDING: "gold",
-  SUBMITTED: "blue",
-  APPROVED: "cyan",
-  COMPLETE: "green",
-};
-
-const NEEDS_ACTION: Partial<Record<UserRole, AppraisalStatus>> = {
-  [UserRole.HR]: AppraisalStatus.DRAFT,
-  [UserRole.HEAD_DEPARTMENT]: AppraisalStatus.PENDING,
-  [UserRole.MANAGER]: AppraisalStatus.SUBMITTED,
-  [UserRole.GENERAL_MANAGER]: AppraisalStatus.APPROVED,
-  [UserRole.ADMIN]: AppraisalStatus.COMPLETE,
-};
-
 export const Appraisal = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const auth = useAppSelector((state) => state.auth);
   const isAdmin = auth.role === UserRole.ADMIN;
   const isHr = auth.role === UserRole.HR;
-  const needsActionStatus =
-    auth.role === "" ? undefined : NEEDS_ACTION[auth.role];
 
-  const [status, setStatus] = useState<AppraisalStatus | undefined>();
+  const activeTab = resolveStatusTab(searchParams.get("tab"), auth.role);
   const [department, setDepartment] = useState<string | undefined>();
-  const [needsAction, setNeedsAction] = useState(false);
 
   const { data, isSuccess } = useGetAppraisalsQuery({
-    status: needsAction ? needsActionStatus : status,
+    status: activeTab,
     department,
     page: 1,
     limit: 50,
@@ -80,7 +67,9 @@ export const Appraisal = () => {
     {
       title: "Status",
       dataIndex: "status",
-      render: (value) => <Tag color={STATUS_COLOR[value] ?? "default"}>{value}</Tag>,
+      render: (value) => (
+        <Tag color={APPRAISAL_STATUS_COLOR[value] ?? "default"}>{value}</Tag>
+      ),
     },
     { title: "Employees", width: "1%", render: (_, record) => record.employees?.length ?? "-" },
     { title: "Source", dataIndex: "source", width: "1%" },
@@ -140,32 +129,12 @@ export const Appraisal = () => {
       </TitlePage>
 
       <Tabs
-        activeKey={needsAction ? "mine" : "all"}
-        onChange={(key) => setNeedsAction(key === "mine")}
-        items={[
-          { key: "all", label: "All" },
-          {
-            key: "mine",
-            label: `Needs my action${
-              needsActionStatus ? ` (${needsActionStatus})` : ""
-            }`,
-          },
-        ]}
+        activeKey={activeTab}
+        onChange={(key) => setSearchParams({ tab: key }, { replace: true })}
+        items={APPRAISAL_STATUS_ORDER.map((s) => ({ key: s, label: s }))}
       />
 
       <Space style={{ marginBottom: 16 }}>
-        <Select
-          allowClear
-          placeholder="Status"
-          style={{ width: 160 }}
-          value={status}
-          onChange={setStatus}
-          disabled={needsAction}
-          options={Object.values(AppraisalStatus).map((s) => ({
-            value: s,
-            label: s,
-          }))}
-        />
         <Select
           allowClear
           placeholder="Department"

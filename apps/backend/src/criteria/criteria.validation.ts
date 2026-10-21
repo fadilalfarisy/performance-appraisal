@@ -1,5 +1,10 @@
 import type { CriterionInput } from '@appraisal/types';
 import { BusinessLogicException } from '../common/exceptions/custom.exceptions';
+import {
+  isValueEmpty,
+  requiresOptions,
+  validateFieldValue,
+} from '../common/utils/field-validation';
 
 /**
  * Validates a whole criteria set. Extracted as a pure function so it can be
@@ -37,6 +42,8 @@ export function validateCriteriaSet(list: CriterionInput[]): void {
       }
     }
 
+    validateCriterionFields(criterion);
+
     total += criterion.weight;
   }
 
@@ -45,5 +52,40 @@ export function validateCriteriaSet(list: CriterionInput[]): void {
       `Criteria weights must total 100 (currently ${total})`,
       'CRITERIA_WEIGHTS_NOT_100',
     );
+  }
+}
+
+function validateCriterionFields(criterion: CriterionInput): void {
+  const keys = new Set<string>();
+  for (const field of criterion.fields ?? []) {
+    if (keys.has(field.fieldKey)) {
+      throw new BusinessLogicException(
+        `Duplicate field key ${field.fieldKey} in criterion ${criterion.code}`,
+        'CRITERIA_FIELD_DUPLICATE_KEY',
+      );
+    }
+    keys.add(field.fieldKey);
+
+    if (requiresOptions(field.inputType) && (field.options ?? []).length === 0) {
+      throw new BusinessLogicException(
+        `Field ${field.fieldKey} needs at least one option`,
+        'CRITERIA_FIELD_OPTIONS_REQUIRED',
+      );
+    }
+
+    if (!isValueEmpty(field.defaultValue)) {
+      const error = validateFieldValue(
+        field.inputType,
+        field.defaultValue ?? null,
+        field.rules,
+        field.options,
+      );
+      if (error) {
+        throw new BusinessLogicException(
+          `Field ${field.fieldKey} default value ${error}`,
+          'CRITERIA_FIELD_INVALID_DEFAULT',
+        );
+      }
+    }
   }
 }

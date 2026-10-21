@@ -13,10 +13,10 @@ describe('maskSensitive', () => {
 
     expect(result.password).toBe(MASKED);
     expect(result.profile.refreshToken).toBe(MASKED);
-    expect(result.items[0].accessToken).toBe(MASKED);
+    expect(result.items[0]?.accessToken).toBe(MASKED);
     expect(result.username).toBe('budi');
     expect(result.profile.fullName).toBe('Budi');
-    expect(result.items[0].name).toBe('a');
+    expect(result.items[0]?.name).toBe('a');
   });
 
   it('leaves primitives and null untouched', () => {

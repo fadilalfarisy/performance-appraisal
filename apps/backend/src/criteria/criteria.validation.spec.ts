@@ -1,4 +1,4 @@
-import type { CriterionInput } from '@appraisal/types';
+import { FieldInputType, type CriterionInput } from '@appraisal/types';
 import { validateCriteriaSet } from './criteria.validation';
 
 function criterion(overrides: Partial<CriterionInput> = {}): CriterionInput {
@@ -53,5 +53,66 @@ describe('validateCriteriaSet', () => {
         criterion({ weight: 50 }),
       ]),
     ).toThrow(/Duplicate criterion code/);
+  });
+
+  describe('form fields', () => {
+    it('accepts a valid field definition', () => {
+      expect(() =>
+        validateCriteriaSet([
+          criterion({
+            fields: [
+              {
+                fieldKey: 'tasks',
+                label: 'Tasks completed',
+                inputType: FieldInputType.NUMBER,
+                rules: { min: 0, max: 20 },
+              },
+            ],
+          }),
+        ]),
+      ).not.toThrow();
+    });
+
+    it('rejects duplicate field keys', () => {
+      expect(() =>
+        validateCriteriaSet([
+          criterion({
+            fields: [
+              { fieldKey: 'x', label: 'X', inputType: FieldInputType.TEXT },
+              { fieldKey: 'x', label: 'X2', inputType: FieldInputType.TEXT },
+            ],
+          }),
+        ]),
+      ).toThrow(/Duplicate field key/);
+    });
+
+    it('requires options for option fields', () => {
+      expect(() =>
+        validateCriteriaSet([
+          criterion({
+            fields: [
+              { fieldKey: 'pick', label: 'Pick', inputType: FieldInputType.OPTION },
+            ],
+          }),
+        ]),
+      ).toThrow(/at least one option/);
+    });
+
+    it('rejects a default value that does not match the type', () => {
+      expect(() =>
+        validateCriteriaSet([
+          criterion({
+            fields: [
+              {
+                fieldKey: 'count',
+                label: 'Count',
+                inputType: FieldInputType.NUMBER,
+                defaultValue: 'not a number',
+              },
+            ],
+          }),
+        ]),
+      ).toThrow(/default value/);
+    });
   });
 });

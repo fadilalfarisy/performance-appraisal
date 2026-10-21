@@ -1,11 +1,13 @@
-import { useParams } from "react-router-dom";
-import { Result } from "antd";
+import { useNavigate, useParams } from "react-router-dom";
+import { Button, Result } from "antd";
+import { ArrowLeftOutlined } from "@ant-design/icons";
 import { TitlePage } from "@/components";
 import { UserForm } from "../components/UserForm";
 import { useGetUserByIdQuery, useUpdateUserMutation } from "../usersApi";
 
 export const UpdateUser = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
 
   const {
     data: initialValueUser,
@@ -26,7 +28,14 @@ export const UpdateUser = () => {
   if (isSuccess) {
     return (
       <>
-        <TitlePage title="Update User" description="Form update user" />
+        <TitlePage title="Update User" description="Form update user">
+          <Button
+            onClick={() => navigate("/dashboard/users")}
+            icon={<ArrowLeftOutlined />}
+          >
+            Back
+          </Button>
+        </TitlePage>
         <UserForm
           createForm={false}
           formFunction={useUpdateUserMutation}

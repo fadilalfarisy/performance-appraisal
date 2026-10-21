@@ -2,7 +2,7 @@
 
 **Based on:** PRD v0.6 (`docs/PRD.md`, the latest version) and the installed dependencies in `apps/backend/package.json`
 **Scope:** `apps/backend` only (NestJS + TypeScript + Drizzle + PostgreSQL). Frontend design lives in `DESIGN-FRONTEND.md`.
-**Status:** Draft v0.4 (aligned with installed dependencies and PRD v0.6)
+**Status:** Draft v0.5 (adds daily activity notes with criteria-driven form fields; aligned with installed dependencies and PRD v0.6)
 
 ---
 
@@ -265,7 +265,6 @@ Constraints:
 | id | uuid PK | |
 | version | int unique | increasing |
 | status | enum | |
-| effective_date | date nullable | |
 | note | text | change reason |
 | created_by, created_at, activated_by, activated_at | | who changed it and when |
 
@@ -274,6 +273,24 @@ Constraint: partial unique index on `(status)` where `status = 'ACTIVE'` → onl
 **criteria**: `id`, `criteria_set_id` FK, `code`, `name`, `description`, `scale_min` int, `scale_max` int, `weight` numeric(5,2), `display_order`. Unique `(criteria_set_id, code)`. Check `scale_min < scale_max` and `weight > 0`.
 
 **criteria_scale_descriptions**: `id`, `criterion_id` FK, `score` int, `description`. Unique `(criterion_id, score)`.
+
+**criteria_fields** (the dynamic note form, versioned with the set; see section 20)
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| criteria_set_id | uuid FK `criteria_sets` | cascade on delete |
+| criterion_id | uuid FK `criteria` | the group this field belongs to; cascade on delete |
+| field_key | varchar(100) | key inside the criterion |
+| label | varchar(255) | |
+| input_type | enum `field_input_type` | `TEXT`, `NUMBER`, `OPTION`, `MULTI_OPTION`, `BOOLEAN`, `DATE` |
+| required | boolean | |
+| default_value | jsonb | type must match `input_type` |
+| rules | jsonb | `{ min, max, minLength, maxLength, pattern }` |
+| options | jsonb | `[{ value, label }]` for `OPTION` / `MULTI_OPTION` |
+| display_order | int | |
+
+Unique `(criteria_set_id, criterion_id, field_key)`. Index `(criteria_set_id)`.
 
 **appraisals**
 
@@ -310,6 +327,23 @@ Unique `(appraisal_id, employee_id)`.
 **appraisal_ratings**: `id`, `appraisal_employee_id` FK, `criterion_id` FK, `rating` int, `updated_by`, `updated_at`. Unique `(appraisal_employee_id, criterion_id)`. Range check against the criterion's scale is done in the service (a check constraint cannot read another table).
 
 **appraisal_status_history**: `id` bigint, `appraisal_id`, `from_status`, `to_status`, `action` (`TRANSITION` / `SEND_BACK` / `REOPEN`), `comment`, `actor_user_id`, `created_at`.
+
+**daily_notes** (see section 20)
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| employee_id | uuid FK `employees` | the employee the note is about |
+| department_id | uuid FK `departments` | snapshot of the employee's department at creation |
+| criteria_set_id | uuid FK `criteria_sets` | the **pinned** set version the note was filled under |
+| period | date | first day of the record month, derived from `record_date` |
+| record_date | date | the day |
+| created_by | uuid FK `users` nullable | |
+| deleted_by | uuid nullable | soft delete |
+
+Unique `(employee_id, record_date)` where `deleted_at IS NULL` (one note per employee per day). Indexes `(department_id, period)`, `(employee_id)`.
+
+**daily_note_values**: `id`, `note_id` FK `daily_notes` (cascade), `field_id` FK `criteria_fields`, `value` jsonb, audit columns. Unique `(note_id, field_id)`.
 
 **audit_logs** (see section 12)
 
@@ -625,5 +659,47 @@ Every PRD v0.6 requirement maps to a part of this design. When the PRD version c
 | 5.6 Audit trail | 7.2 (`audit_logs`), 12 |
 | 5.7 Excel import and export, templates | 13, 6 (`IMPORT_MAX_*`) |
 | 5.8 Permission matrix | 8.3, 16 (table-driven permission test) |
+| 5.9 Daily activity notes | 7.2 (`criteria_fields`, `daily_notes`, `daily_note_values`), 20 |
 | 6 Non-functional requirements | 12.2 (retention), 15 (security), 16 (testing), 17 (deployment) |
 | 8 Risks | 18 |
+
+## 20. Daily activity notes (PRD 5.9)
+
+Supervisors and Head Department record what an employee did each day. The form is generated from the criteria set.
+
+**Dynamic form (versioned with the set)**
+
+- Field definitions (`criteria_fields`, section 7.2) belong to a criteria set and are edited with it: each criterion is a group, and its fields carry a key, label, input type, required flag, default value, options (for choice types), and validation rules.
+- Supported input types: `TEXT`, `NUMBER`, `OPTION`, `MULTI_OPTION`, `BOOLEAN`, `DATE`. The list is extensible.
+- Validation at activation (`criteria.validation.ts`) checks field keys are unique inside a criterion, choice types carry options, and defaults match the type.
+- A note pins the set version it was created under. Editing the set and activating a new version changes the form for **new** notes only; existing notes keep their fields and values.
+
+**Record**
+
+- One note per employee per day: partial unique index `(employee_id, record_date) where deleted_at is null`. A duplicate create returns 409 `DAILY_NOTE_ALREADY_EXISTS`.
+- The note stores `department_id` and `period` (month) derived from the employee and `record_date`; the client never sends them.
+- The answers live in `daily_note_values` (one row per field). Create/update validate every value against the pinned set's field definitions (`daily-note.validation.ts`): unknown field, missing required field, wrong type, or a value outside the rules all return 422.
+- There is no approval step. Edit replaces the note's values (old rows are soft-deleted). Notes are soft-deleted, and every create/edit/delete is audited (`DAILY_NOTE_CREATED` / `DAILY_NOTE_UPDATED` / `DAILY_NOTE_DELETED`), written in the same transaction as the change.
+
+**Access**
+
+| Role | Scope | Can |
+|---|---|---|
+| `SUPERVISOR` | employees whose `superior_id` = the user's linked employee (`users.employee_id`) | list, read, create, edit, delete |
+| `HEAD_DEPARTMENT` | departments from `user_departments` | list, read, create, edit, delete |
+
+- Any user in scope may edit or delete a note; there is no author-only check. Out-of-scope records return 404.
+- Every controller route is `@Roles(HEAD_DEPARTMENT, SUPERVISOR)`; ADMIN has no access (PRD 5.8).
+
+**Endpoints** (`/api`, `@Roles(HEAD_DEPARTMENT, SUPERVISOR)`)
+
+| Endpoint | Behavior |
+|---|---|
+| `GET /daily-notes` | Scoped, paginated list. Filters: `employeeId`, `departmentId`, `dateFrom`, `dateTo` |
+| `GET /daily-notes/accessible-employees` | Employees the caller may record for (own subordinates / own department); drives the form select |
+| `GET /daily-notes/:id` | One note with its values (scoped) |
+| `POST /daily-notes` | Create (201). Body `{ employeeId, recordDate, values: [{ fieldId, value }] }` |
+| `PATCH /daily-notes/:id` | Replace values. `employeeId` and `recordDate` are immutable |
+| `DELETE /daily-notes/:id` | Soft delete (204) |
+
+**Deferred:** the informational **daily note sum** on the appraisal detail and result export (PRD 5.4 / 5.9). The values table is shaped so the sum (of `NUMBER` field values per employee per department and month) is a single SQL aggregate when that work lands.

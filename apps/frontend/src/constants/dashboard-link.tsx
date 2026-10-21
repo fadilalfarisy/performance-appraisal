@@ -5,6 +5,7 @@ import {
   TagOutlined,
   BuildFilled,
   FileDoneOutlined,
+  FileAddOutlined,
 } from "@ant-design/icons";
 import { UserRole } from "@appraisal/types";
 import { ALL_ROLES, roles } from "@/constants/role-access";
@@ -47,6 +48,12 @@ export const menuItem: MenuItem[] = [
     icon: <TagOutlined />,
     label: "Criteria",
     roles: ALL_ROLES,
+  },
+  {
+    key: "/dashboard/daily-notes",
+    icon: <FileAddOutlined />,
+    label: "Daily Notes",
+    roles: roles.noteManagers,
   },
   {
     key: "/dashboard/master-data",

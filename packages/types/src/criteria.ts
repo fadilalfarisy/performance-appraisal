@@ -1,8 +1,34 @@
-import type { CriteriaSetStatus } from './enums';
+import type { CriteriaSetStatus, FieldInputType } from './enums';
 
 export interface CriteriaScaleDescriptionInput {
   score: number;
   description: string;
+}
+
+export type FieldValue = string | number | boolean | string[] | null;
+
+export interface FieldOption {
+  value: string;
+  label: string;
+}
+
+export interface FieldRules {
+  min?: number;
+  max?: number;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+}
+
+export interface CriterionFieldInput {
+  fieldKey: string;
+  label: string;
+  inputType: FieldInputType;
+  required?: boolean;
+  defaultValue?: FieldValue;
+  rules?: FieldRules;
+  options?: FieldOption[];
+  displayOrder?: number;
 }
 
 export interface CriterionInput {
@@ -14,6 +40,7 @@ export interface CriterionInput {
   weight: number;
   displayOrder?: number;
   scaleDescriptions: CriteriaScaleDescriptionInput[];
+  fields?: CriterionFieldInput[];
 }
 
 export interface CreateCriteriaSetRequest {
@@ -31,6 +58,11 @@ export interface CriteriaScaleDescriptionResponse {
   description: string;
 }
 
+export interface CriterionFieldResponse extends CriterionFieldInput {
+  id: string;
+  criterionId: string;
+}
+
 export interface CriterionResponse {
   id: string;
   code: string;
@@ -41,13 +73,13 @@ export interface CriterionResponse {
   weight: number;
   displayOrder: number;
   scaleDescriptions: CriteriaScaleDescriptionResponse[];
+  fields: CriterionFieldResponse[];
 }
 
 export interface CriteriaSetResponse {
   id: string;
   version: number;
   status: CriteriaSetStatus;
-  effectiveDate: string | null;
   note: string | null;
   createdBy: string | null;
   activatedBy: string | null;

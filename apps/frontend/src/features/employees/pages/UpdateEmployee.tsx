@@ -1,5 +1,11 @@
-import { useParams, Navigate, useSearchParams } from "react-router-dom";
-import { Tabs } from "antd";
+import {
+  useParams,
+  Navigate,
+  useSearchParams,
+  useNavigate,
+} from "react-router-dom";
+import { Button, Tabs } from "antd";
+import { ArrowLeftOutlined } from "@ant-design/icons";
 import { TitlePage } from "@/components";
 import {
   useGetEmployeeByIdQuery,
@@ -10,6 +16,7 @@ import { Contract } from "@/features/contract";
 
 export const UpdateEmployee = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") ?? "information";
   const {
@@ -28,7 +35,14 @@ export const UpdateEmployee = () => {
         <TitlePage
           title="Employee"
           description="Employee information and contracts"
-        />
+        >
+          <Button
+            onClick={() => navigate("/dashboard/employee")}
+            icon={<ArrowLeftOutlined />}
+          >
+            Back
+          </Button>
+        </TitlePage>
         <Tabs
           activeKey={activeTab}
           onChange={(key) =>

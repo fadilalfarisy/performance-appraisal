@@ -34,6 +34,15 @@ export enum CriteriaSetStatus {
   SUPERSEDED = 'SUPERSEDED',
 }
 
+export enum FieldInputType {
+  TEXT = 'TEXT',
+  NUMBER = 'NUMBER',
+  OPTION = 'OPTION',
+  MULTI_OPTION = 'MULTI_OPTION',
+  BOOLEAN = 'BOOLEAN',
+  DATE = 'DATE',
+}
+
 export enum AppraisalStatus {
   DRAFT = 'DRAFT',
   PENDING = 'PENDING',

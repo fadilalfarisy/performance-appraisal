@@ -60,11 +60,6 @@ export const Criteria = () => {
       render: (_, record) => record.criteria.length,
     },
     {
-      title: "Effective date",
-      dataIndex: "effectiveDate",
-      render: (value) => value || "-",
-    },
-    {
       title: "Activated at",
       dataIndex: "activatedAt",
       render: (value) => (value ? new Date(value).toLocaleString() : "-"),

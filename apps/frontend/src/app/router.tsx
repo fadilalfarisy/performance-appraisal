@@ -110,6 +110,22 @@ const AppraisalDetail = lazy(() =>
   })),
 );
 
+const DailyNote = lazy(() =>
+  import("@/features/daily-notes").then((module) => ({
+    default: module.DailyNote,
+  })),
+);
+const CreateDailyNote = lazy(() =>
+  import("@/features/daily-notes").then((module) => ({
+    default: module.CreateDailyNote,
+  })),
+);
+const EditDailyNote = lazy(() =>
+  import("@/features/daily-notes").then((module) => ({
+    default: module.EditDailyNote,
+  })),
+);
+
 const suspenseWrapper = (element: React.ReactNode) => (
   <Suspense fallback={<div className="center-content">Loading...</div>}>
     {element}
@@ -218,6 +234,24 @@ export default createBrowserRouter(
                 {
                   path: ":id",
                   element: suspenseWrapper(<AppraisalDetail />),
+                },
+              ],
+            },
+            {
+              path: "daily-notes",
+              element: <Outlet />,
+              children: [
+                {
+                  index: true,
+                  element: suspenseWrapper(<DailyNote />),
+                },
+                {
+                  path: "create",
+                  element: suspenseWrapper(<CreateDailyNote />),
+                },
+                {
+                  path: ":id/edit",
+                  element: suspenseWrapper(<EditDailyNote />),
                 },
               ],
             },

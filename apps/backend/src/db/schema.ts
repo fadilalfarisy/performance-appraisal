@@ -207,7 +207,6 @@ export const criteriaSets = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     version: integer('version').notNull(),
     status: criteriaSetStatusEnum('status').default('DRAFT').notNull(),
-    effectiveDate: date('effective_date'),
     note: text('note'),
     createdBy: uuid('created_by').references(() => users.id),
     activatedBy: uuid('activated_by').references(() => users.id),
@@ -265,43 +264,97 @@ export const criteriaScaleDescriptions = pgTable(
   ],
 );
 
-// --- 4. Dynamic Input Metadata ---
+// --- 4. Criteria Form Fields (dynamic note form, versioned with the set) ---
 
-export const dynamicInputs = pgTable(
-  'dynamic_inputs',
+export const fieldInputTypeEnum = pgEnum('field_input_type', [
+  'TEXT',
+  'NUMBER',
+  'OPTION',
+  'MULTI_OPTION',
+  'BOOLEAN',
+  'DATE',
+]);
+
+export const criteriaFields = pgTable(
+  'criteria_fields',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    formId: varchar('form_id', { length: 255 }).notNull(),
-    field: varchar('field', { length: 255 }).notNull(),
+    criteriaSetId: uuid('criteria_set_id')
+      .references(() => criteriaSets.id, { onDelete: 'cascade' })
+      .notNull(),
+    criterionId: uuid('criterion_id')
+      .references(() => criteria.id, { onDelete: 'cascade' })
+      .notNull(),
+    fieldKey: varchar('field_key', { length: 100 }).notNull(),
     label: varchar('label', { length: 255 }).notNull(),
-    type: varchar('type', { length: 50 }).notNull(),
+    inputType: fieldInputTypeEnum('input_type').notNull(),
     required: boolean('required').default(false).notNull(),
     defaultValue: jsonb('default_value'),
     rules: jsonb('rules'),
+    options: jsonb('options'),
+    displayOrder: integer('display_order').default(0).notNull(),
     ...baseFields,
   },
   (table) => [
-    index('idx_dynamic_inputs_form_id').on(table.formId),
-    index('idx_dynamic_inputs_created_at_desc').on(table.createdAt.desc()),
+    uniqueIndex('uq_criteria_field_key').on(
+      table.criteriaSetId,
+      table.criterionId,
+      table.fieldKey,
+    ),
+    index('idx_criteria_fields_set').on(table.criteriaSetId),
   ],
 );
 
 // --- 5. Input Sources (Daily Notes) ---
 
-export const dailyNotes = pgTable('daily_notes', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  employeeId: uuid('employee_id')
-    .references(() => employees.id, { onDelete: 'cascade' })
-    .notNull(),
-  supervisorId: uuid('supervisor_id')
-    .references(() => employees.id)
-    .notNull(),
-  recordDate: date('record_date').notNull(),
-  score: jsonb('score'),
-  note: text('note'),
-  description: text('description').notNull(),
-  ...baseFields,
-});
+export const dailyNotes = pgTable(
+  'daily_notes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    employeeId: uuid('employee_id')
+      .references(() => employees.id, { onDelete: 'cascade' })
+      .notNull(),
+    departmentId: uuid('department_id')
+      .references(() => departments.id)
+      .notNull(),
+    criteriaSetId: uuid('criteria_set_id')
+      .references(() => criteriaSets.id)
+      .notNull(),
+    period: date('period').notNull(),
+    recordDate: date('record_date').notNull(),
+    createdBy: uuid('created_by').references(() => users.id),
+    deletedBy: uuid('deleted_by'),
+    ...baseFields,
+  },
+  (table) => [
+    uniqueIndex('uq_daily_note_employee_date')
+      .on(table.employeeId, table.recordDate)
+      .where(sql`deleted_at is null`),
+    index('idx_daily_notes_department_period').on(
+      table.departmentId,
+      table.period,
+    ),
+    index('idx_daily_notes_employee').on(table.employeeId),
+  ],
+);
+
+export const dailyNoteValues = pgTable(
+  'daily_note_values',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    noteId: uuid('note_id')
+      .references(() => dailyNotes.id, { onDelete: 'cascade' })
+      .notNull(),
+    fieldId: uuid('field_id')
+      .references(() => criteriaFields.id)
+      .notNull(),
+    value: jsonb('value'),
+    ...baseFields,
+  },
+  (table) => [
+    uniqueIndex('uq_daily_note_value_field').on(table.noteId, table.fieldId),
+  ],
+);
 
 // --- 6. Appraisals ---
 
@@ -484,6 +537,18 @@ export const criteriaRelations = relations(criteria, ({ one, many }) => ({
     references: [criteriaSets.id],
   }),
   scaleDescriptions: many(criteriaScaleDescriptions),
+  fields: many(criteriaFields),
+}));
+
+export const criteriaFieldsRelations = relations(criteriaFields, ({ one }) => ({
+  criteriaSet: one(criteriaSets, {
+    fields: [criteriaFields.criteriaSetId],
+    references: [criteriaSets.id],
+  }),
+  criterion: one(criteria, {
+    fields: [criteriaFields.criterionId],
+    references: [criteria.id],
+  }),
 }));
 
 export const criteriaScaleDescriptionsRelations = relations(
@@ -496,16 +561,35 @@ export const criteriaScaleDescriptionsRelations = relations(
   }),
 );
 
-export const dailyNotesRelations = relations(dailyNotes, ({ one }) => ({
+export const dailyNotesRelations = relations(dailyNotes, ({ one, many }) => ({
   employee: one(employees, {
     fields: [dailyNotes.employeeId],
     references: [employees.id],
   }),
-  supervisor: one(employees, {
-    fields: [dailyNotes.supervisorId],
-    references: [employees.id],
+  department: one(departments, {
+    fields: [dailyNotes.departmentId],
+    references: [departments.id],
   }),
+  criteriaSet: one(criteriaSets, {
+    fields: [dailyNotes.criteriaSetId],
+    references: [criteriaSets.id],
+  }),
+  values: many(dailyNoteValues),
 }));
+
+export const dailyNoteValuesRelations = relations(
+  dailyNoteValues,
+  ({ one }) => ({
+    note: one(dailyNotes, {
+      fields: [dailyNoteValues.noteId],
+      references: [dailyNotes.id],
+    }),
+    field: one(criteriaFields, {
+      fields: [dailyNoteValues.fieldId],
+      references: [criteriaFields.id],
+    }),
+  }),
+);
 
 export const appraisalsRelations = relations(appraisals, ({ one, many }) => ({
   department: one(departments, {

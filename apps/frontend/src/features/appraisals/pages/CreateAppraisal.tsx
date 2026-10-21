@@ -11,6 +11,7 @@ import {
   message,
 } from "antd";
 import type { TableColumnsType } from "antd";
+import { ArrowLeftOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { TitlePage } from "@/components";
 import { useGetDepartmentsQuery } from "@/features/departments";
@@ -85,7 +86,14 @@ export const CreateAppraisal = () => {
       <TitlePage
         title="Create Appraisal"
         description="Pick a department and month"
-      />
+      >
+        <Button
+          onClick={() => navigate("/dashboard/appraisals")}
+          icon={<ArrowLeftOutlined />}
+        >
+          Back
+        </Button>
+      </TitlePage>
       <Form form={form} layout="vertical" style={{ maxWidth: 520 }}>
         <Form.Item
           label="Department"

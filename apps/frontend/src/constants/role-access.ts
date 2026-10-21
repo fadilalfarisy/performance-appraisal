@@ -8,6 +8,7 @@ export const roles = {
   humanResource: [UserRole.ADMIN, UserRole.HR],
   headDepartment: [UserRole.ADMIN, UserRole.HEAD_DEPARTMENT],
   supervisor: [UserRole.ADMIN, UserRole.SUPERVISOR],
+  noteManagers: [UserRole.HEAD_DEPARTMENT, UserRole.SUPERVISOR],
 } as const satisfies Record<string, readonly UserRole[]>;
 
 export type RoleGroup = keyof typeof roles;

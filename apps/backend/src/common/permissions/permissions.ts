@@ -14,8 +14,8 @@ export const GLOBAL_SCOPE_ROLES: UserRole[] = [
 export type Permission =
   | 'department:manage'
   | 'position:manage'
-  | 'employee:write'
-  | 'contract:write'
+  | 'employee:manage'
+  | 'contract:manage'
   | 'user:manage'
   | 'criteria:manage'
   | 'appraisal:create'
@@ -30,8 +30,8 @@ export type Permission =
 export const PERMISSIONS: Record<Permission, UserRole[]> = {
   'department:manage': [UserRole.ADMIN],
   'position:manage': [UserRole.ADMIN],
-  'employee:write': [UserRole.ADMIN, UserRole.HR],
-  'contract:write': [UserRole.ADMIN, UserRole.HR],
+  'employee:manage': [UserRole.ADMIN, UserRole.HR],
+  'contract:manage': [UserRole.ADMIN, UserRole.HR],
   'user:manage': [UserRole.ADMIN],
   'criteria:manage': [UserRole.ADMIN, UserRole.HR],
   'appraisal:create': [UserRole.HR],

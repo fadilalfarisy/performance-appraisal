@@ -1,4 +1,6 @@
-import { Navigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { Button } from "antd";
+import { ArrowLeftOutlined } from "@ant-design/icons";
 import { TitlePage } from "@/components";
 import {
   useGetContractByIdQuery,
@@ -8,6 +10,7 @@ import { ContractForm } from "../components/ContractForm";
 
 export const UpdateContract = () => {
   const { employeeId, contractId } = useParams();
+  const navigate = useNavigate();
 
   const {
     data: initialValueContract,
@@ -25,7 +28,16 @@ export const UpdateContract = () => {
         <TitlePage
           title="Update Contract"
           description="Form to update contract"
-        />
+        >
+          <Button
+            onClick={() =>
+              navigate(`/dashboard/employee/${employeeId}?tab=contracts`)
+            }
+            icon={<ArrowLeftOutlined />}
+          >
+            Back
+          </Button>
+        </TitlePage>
         <ContractForm
           createForm={false}
           formFunction={useUpdateContractMutation}

@@ -1,8 +1,8 @@
 # Frontend Design: Employee Performance Appraisal System
 
-**Based on:** PRD v0.6, `DESIGN-BACKEND.md` v0.4, and the installed dependencies in `apps/frontend/package.json`
+**Based on:** PRD v0.6, `DESIGN-BACKEND.md` v0.5, and the installed dependencies in `apps/frontend/package.json`
 **Scope:** `apps/frontend` only (React 18, Vite 7, TypeScript 5.7, Redux Toolkit, Ant Design 5, `@ant-design/icons`, dayjs, react-router-dom 6).
-**Status:** Draft v0.5 (aligned with installed dependencies and PRD v0.6)
+**Status:** Draft v0.7 (adds the daily notes screen and criteria-editor form fields; appraisal list uses one tab per status; aligned with installed dependencies and PRD v0.6)
 
 ---
 
@@ -184,6 +184,7 @@ Global toasts use the Ant Design `App` context (`App.useApp()`), not static `mes
 | Save ratings, assessment import | `Appraisal` item tag |
 | Workflow transition, send back, reopen | `Appraisal` item and list tags (status and history change) |
 | Activate criteria set | `CriteriaSet` list, active set, and appraisal "create" previews |
+| Create, update, delete daily note | `DailyNotes` list tag |
 
 ## 6. Authentication and session
 
@@ -210,6 +211,9 @@ Global toasts use the Ant Design `App` context (`App.useApp()`), not static `mes
 | `/positions` | Positions | all (read), ADMIN write |
 | `/criteria` | Criteria sets (versions) | all (read), ADMIN and HR write |
 | `/criteria/:id` | Criteria set view or editor | all (read), ADMIN and HR edit DRAFT |
+| `/daily-notes` | Daily notes list | HEAD_DEPARTMENT, SUPERVISOR |
+| `/daily-notes/create` | New daily note (dynamic form) | HEAD_DEPARTMENT, SUPERVISOR |
+| `/daily-notes/:id/edit` | Edit a daily note | HEAD_DEPARTMENT, SUPERVISOR |
 | `/users` | User management | ADMIN |
 | `/audit-logs` | Audit trail | ADMIN, HR |
 | `/403`, `*` | Forbidden, Not found | |
@@ -251,8 +255,11 @@ Department scope: the user's departments come from `GET /auth/me`. If the backen
 | Employees, Contracts | ✓ | ✓ | ✓ (read) | ✓ (read) | ✓ (read) |
 | Departments, Positions | ✓ | ✓ (read) | ✓ (read) | ✓ (read) | ✓ (read) |
 | Criteria | ✓ | ✓ | ✓ (read) | ✓ (read) | ✓ (read) |
+| Daily notes | | | ✓ | | |
 | Users | ✓ | | | | |
 | Audit trail | ✓ | ✓ | | | |
+
+Daily notes are also shown to `SUPERVISOR` (owns their subordinates). They are hidden from ADMIN, HR, MANAGER, and GM, matching PRD 5.8.
 
 ## 8. Layout and visual conventions
 
@@ -320,21 +327,21 @@ Deactivated departments and positions are hidden in the selects of new records a
 
 ### 10.4 Criteria sets
 
-- `/criteria`: table of versions: version, status tag (ACTIVE, DRAFT, SUPERSEDED), effective date, created by, activated by and when, note. Button "New draft from active version" for ADMIN and HR.
+- `/criteria`: table of versions: version, status tag (ACTIVE, DRAFT, SUPERSEDED), created by, activated by and when, note. Button "New draft from active version" for ADMIN and HR.
 - `/criteria/:id` for ACTIVE or SUPERSEDED: read-only view of criteria, scales, and score descriptions.
 - `/criteria/:id` for DRAFT (ADMIN, HR): editor.
   - Table of criteria: code, name, description, scale min, scale max, weight, order (up and down buttons).
   - Expandable row per criterion: one text input per score level (from min to max) for the score description. The inputs follow the scale when min or max changes.
   - Live **weight total** indicator: green at exactly 100, red otherwise.
+  - **Form fields** (PRD 5.9): each criterion also owns a list of note-form fields — key, label, input type (`TEXT`, `NUMBER`, `OPTION`, `MULTI_OPTION`, `BOOLEAN`, `DATE`), required, order, options (for choice types), and rules (min/max, min/max length, pattern). They are versioned with the set and become the daily-note form (section 10.9).
   - "Save draft" and "Activate" buttons. Activate is disabled until the validation passes (total 100, `min < max`, all score descriptions filled, unique codes); the backend repeats the checks. Activation asks for confirmation and explains that new appraisals will use this version.
 
 ### 10.5 Appraisal list (home)
 
-- Filters: status, department, period range, search.
-- Columns: department, period, status tag, number of employees, criteria set version, source (manual or scheduled), last updated.
-- **"Needs my action" quick tab**, based on the role:
+- **Status tabs**: one tab per status (`DRAFT`, `PENDING`, `SUBMITTED`, `APPROVED`, `COMPLETE`). Each tab lists the appraisals currently in that status. There is no separate status filter.
+- The active tab is kept in the URL (`?tab=<STATUS>`) so refresh, back, and shared links keep the same view. When `?tab=` is missing or invalid, the tab defaults to the signed-in user's action status:
 
-| Role | Shows status |
+| Role | Default tab |
 |---|---|
 | HR | DRAFT |
 | HEAD_DEPARTMENT | PENDING |
@@ -342,6 +349,8 @@ Deactivated departments and positions are hidden in the selects of new records a
 | GENERAL_MANAGER | APPROVED |
 | ADMIN | COMPLETE (for possible reopening) |
 
+- Filters: department, period range, search.
+- Columns: department, period, status tag, number of employees, criteria set version, source (manual or scheduled), last updated.
 - HR sees a "Create appraisal" button. ADMIN sees "Run scheduler now" (`POST /scheduler/appraisals/run`) with a confirm dialog and the result summary.
 - Scope is applied by the backend; Head Department only receives their own departments.
 
@@ -399,6 +408,14 @@ Layout:
 - Table: time, user, role, action, entity, entity id.
 - Expandable row shows before and after values as read-only formatted JSON. Masked values appear as the backend returns them.
 - Export is P1 and uses the same download helper.
+
+### 10.9 Daily notes (HEAD_DEPARTMENT, SUPERVISOR)
+
+- `/daily-notes`: scoped list. Filters: employee (options from `GET /daily-notes/accessible-employees`) and a date range. Columns: employee, department, date, period, created at; row actions open (edit) and delete (confirm). Server-side pagination. The list only returns notes the caller's scope allows (a supervisor's own subordinates, or a head department's own departments).
+- `/daily-notes/create`: the **dynamic form** rendered from the active criteria set (`GET /criteria-sets/active`). Each criterion is a card (group); each field renders an input by type — `Input`, `InputNumber`, `Select` (single or multiple), `Switch`, or `DatePicker` — with required-ness taken from the field definition. The employee select is limited to accessible employees. Submitting sends `{ employeeId, recordDate, values: [{ fieldId, value }] }`. When there is no active set, the page shows an explanatory `Result`.
+- `/daily-notes/:id/edit`: the same form built from the note's **pinned** set version; employee and date are fixed, only values change. Editing replaces the note's values.
+- A duplicate employee + date shows the backend's 409 message. Out-of-scope ids return 404 and show the error page.
+- The **daily note sum** on the appraisal detail (PRD 5.4 / 5.9) is deferred.
 
 ## 11. Excel import and export
 

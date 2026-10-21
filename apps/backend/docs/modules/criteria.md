@@ -202,7 +202,7 @@ await this.dbService.transaction(async (tx) => {
 - **Kenapa dibuat seperti ini:** Menjaga "satu set aktif" (didukung unique index parsial di DB). Urutan `supersedeActive` dulu penting agar tidak melanggar index `uq_criteria_sets_active`.
 - **Dampaknya:** Kalau urutan dibalik, aktivasi bisa gagal karena dua baris ACTIVE sekaligus. Kalau validasi dilepas, set tidak sah bisa berlaku.
 - **Analogi:** Memberlakukan kurikulum baru: yang lama otomatis dicabut status berlakunya, dalam satu langkah.
-- **Istilah baru:** **Supersede** = menggantikan versi lama. `effectiveDate` dikirim `null` di sini (lihat bagian 7).
+- **Istilah baru:** **Supersede** = menggantikan versi lama.
 
 `toResponse` / `toInput` / `actor` / `findSetOrFail` → helper pemetaan & pelaku audit (pola sama dengan module lain).
 
@@ -215,7 +215,7 @@ await this.dbService.transaction(async (tx) => {
 - `createSet` / `updateSet` → insert/update set (selalu `notDeleted`).
 - `replaceCriteria` → hapus semua kriteria set lalu insert ulang (plus deskripsi skala).
 - `supersedeActive` → semua `ACTIVE` → `SUPERSEDED`.
-- `activate` → set status `ACTIVE`, `activatedBy`, `activatedAt`, `effectiveDate`.
+- `activate` → set status `ACTIVE`, `activatedBy`, `activatedAt`.
 
 ```ts
 async replaceCriteria(setId, list, executor = this.db) {
@@ -345,7 +345,6 @@ Skenario: **HR memperbarui bobot kriteria untuk periode berikutnya.**
 
 ## 7. Catatan Kualitas Kode
 
-- **`effectiveDate` selalu `null`.** `activate` memanggil `activate(id, userId, null, tx)` — parameter `effectiveDate` diisi `null` tetap. Padahal skema & respons menyediakan `effectiveDate`. *Perlu konfirmasi:* apakah tanggal berlaku memang belum diimplementasikan, atau sengaja tidak dipakai.
 - **`createDraft` menyalin kriteria tanpa validasi.** Bila set ACTIVE lama sudah lolos validasi, ini aman; tetapi bila ada data lama tak valid, draf mewarisinya hingga `PUT`/`activate`. Umumnya aman karena aktivasi memvalidasi ulang.
 - **Hanya satu kriteria "skor total 100" lewat toleransi 0.01.** Bagus untuk mengakomodasi desimal, tapi pastikan bobot di DTO (`@IsNumber`, `@Min(0)`) tidak memungkinkan nilai sangat kecil yang membingungkan.
 - **`replaceCriteria` hard-delete baris draf.** Wajar untuk draf, tapi baris kriteria historis dari set SUPERSEDED tidak pernah disentuh (baik, karena set superseded tidak diedit).
