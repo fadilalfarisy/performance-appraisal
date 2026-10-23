@@ -81,6 +81,11 @@ const ContractList = lazy(() =>
     default: module.ContractList,
   })),
 );
+const Template = lazy(() =>
+  import("@/features/templates").then((module) => ({
+    default: module.Template,
+  })),
+);
 
 const ErrorPage = lazy(() =>
   import("@/features/errors/GeneralError").then((module) => ({
@@ -294,6 +299,10 @@ export default createBrowserRouter(
                   element: suspenseWrapper(<UpdatePosition />),
                 },
               ],
+            },
+            {
+              path: "templates",
+              element: suspenseWrapper(<Template />),
             },
           ],
         },

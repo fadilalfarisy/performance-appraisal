@@ -9,10 +9,8 @@ export interface LoginResponse {
   username: string;
   role: UserRole | null;
   accessToken: string;
-  refreshToken: string;
 }
 
-export interface TokenPair {
+export interface RefreshResponse {
   accessToken: string;
-  refreshToken: string;
 }

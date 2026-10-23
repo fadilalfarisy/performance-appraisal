@@ -10,3 +10,8 @@ export const employeeStatusOption = [
     value: EmployeeStatus.INACTIVE,
   },
 ];
+
+export const employeeStatusColor: Record<string, string> = {
+  ACTIVE: "blue", // green
+  INACTIVE: "red", // gold
+};

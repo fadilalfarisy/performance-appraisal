@@ -4,7 +4,6 @@ import { useSignInMutation } from "@/features/auth/authApi";
 import { errorHandling } from "@/utils/errorUtils";
 import { useAppDispatch } from "@/app/hooks";
 import { setAuth } from "@/features/auth/authSlice";
-import { tokenStorage } from "@/features/auth/tokenStorage";
 
 const { Title, Paragraph } = Typography;
 
@@ -21,7 +20,6 @@ export const SignIn = () => {
   const onFinish = async (values: SignInForm) => {
     try {
       const { data } = await login(values).unwrap();
-      tokenStorage.setRefreshToken(data.refreshToken);
       dispatch(
         setAuth({
           logged: true,

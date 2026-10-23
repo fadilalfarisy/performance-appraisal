@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { Modal, Button, Alert, Upload, App } from "antd";
-import { InboxOutlined, DownloadOutlined } from "@ant-design/icons";
+import { InboxOutlined } from "@ant-design/icons";
 import type { UploadFile } from "antd";
 import { store } from "@/app/store";
-import { downloadFile } from "@/api/downloadFile";
 import { errorHandling } from "@/utils/errorUtils";
 import type { ImportFirstError, ImportResult } from "@appraisal/types";
 
@@ -12,7 +11,6 @@ const baseUrl = import.meta.env.VITE_HOST_API;
 type Props = {
   open: boolean;
   title?: string;
-  templatePath?: string;
   uploadEndpoint: string;
   onClose: () => void;
   onSuccess?: (result: ImportResult) => void;
@@ -21,7 +19,6 @@ type Props = {
 export const ImportModal = ({
   open,
   title = "Import",
-  templatePath,
   uploadEndpoint,
   onClose,
   onSuccess,
@@ -36,16 +33,6 @@ export const ImportModal = ({
     setFile(null);
     setFileList([]);
     setError(null);
-  };
-
-  const handleDownloadTemplate = async () => {
-    try {
-      if (templatePath) {
-        await downloadFile(templatePath, undefined, "template.xlsx");
-      }
-    } catch (err) {
-      errorHandling(err);
-    }
   };
 
   const handleUpload = async () => {
@@ -107,16 +94,6 @@ export const ImportModal = ({
         </Button>,
       ]}
     >
-      {templatePath && (
-        <Button
-          icon={<DownloadOutlined />}
-          onClick={handleDownloadTemplate}
-          style={{ marginBottom: 12 }}
-        >
-          Download template
-        </Button>
-      )}
-
       <Upload.Dragger
         accept=".xlsx"
         maxCount={1}

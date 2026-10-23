@@ -1,15 +1,18 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Spin } from "antd";
 import { useAppDispatch } from "@/app/hooks";
-import { setAccessToken, setSession } from "@/features/auth/authSlice";
-import { tokenStorage } from "@/features/auth/tokenStorage";
+import {
+  deleteAuth,
+  setAccessToken,
+  setSession,
+} from "@/features/auth/authSlice";
 import { useLazyMeQuery, useRefreshMutation } from "@/features/auth/authApi";
 import { isUserRole } from "@/constants/role-access";
 
 /**
- * Restores the session on app start: if a refresh token is present, exchange it
- * for an access token, load the current user, and seed the auth slice. Shows a
- * full-page spinner until the outcome is known.
+ * Restores the session on app start: exchange the HttpOnly refresh token
+ * cookie for an access token, load the current user, and seed the auth slice.
+ * Shows a full-page spinner until the outcome is known.
  */
 export const AppBootstrap = ({ children }: { children: ReactNode }) => {
   const dispatch = useAppDispatch();
@@ -21,15 +24,8 @@ export const AppBootstrap = ({ children }: { children: ReactNode }) => {
     let cancelled = false;
 
     (async () => {
-      const refreshToken = tokenStorage.getRefreshToken();
-      if (!refreshToken) {
-        setReady(true);
-        return;
-      }
-
       try {
-        const { data } = await refresh({ refreshToken }).unwrap();
-        tokenStorage.setRefreshToken(data.refreshToken);
+        const { data } = await refresh().unwrap();
         dispatch(setAccessToken(data.accessToken));
 
         const me = await loadMe().unwrap();
@@ -44,7 +40,7 @@ export const AppBootstrap = ({ children }: { children: ReactNode }) => {
           }),
         );
       } catch {
-        tokenStorage.clear();
+        if (!cancelled) dispatch(deleteAuth());
       } finally {
         if (!cancelled) setReady(true);
       }

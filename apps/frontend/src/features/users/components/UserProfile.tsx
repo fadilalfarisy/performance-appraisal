@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 import type { MenuProps } from "antd";
 import { deleteAuth } from "@/features/auth/authSlice";
 import { useLogoutMutation } from "@/features/auth/authApi";
-import { tokenStorage } from "@/features/auth/tokenStorage";
 import { apiSlice } from "@/api/apiSlice";
 import { errorHandling } from "@/utils/errorUtils";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
@@ -44,17 +43,13 @@ export const UserProfile = () => {
       icon: <LogoutOutlined />,
       danger: true,
       onClick: async () => {
-        const refreshToken = tokenStorage.getRefreshToken();
         try {
-          if (refreshToken) {
-            await logout({ refreshToken }).unwrap();
-          }
+          await logout().unwrap();
           message.success("Logout was success");
         } catch (error) {
           errorHandling(error);
         } finally {
           dispatch(deleteAuth());
-          tokenStorage.clear();
           dispatch(apiSlice.util.resetApiState());
           navigate("/");
         }
@@ -77,7 +72,7 @@ export const UserProfile = () => {
         onCancel={handleCancel}
         footer={null}
       >
-        <Descriptions layout="vertical" size={"small"} title="User Info">
+        <Descriptions layout="vertical" size={"small"} title="Profile">
           <Descriptions.Item label="Username">
             {auth.username}
           </Descriptions.Item>

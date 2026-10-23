@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { PlusOutlined } from "@ant-design/icons";
 import type { TableColumnsType } from "antd";
-import { Button, Input, Flex, Table, Select, Result } from "antd";
+import { Button, Input, Flex, Table, Result } from "antd";
 import { useNavigate } from "react-router-dom";
 import { TitlePage, ActionTable } from "@/components";
 import {
@@ -12,59 +12,21 @@ import type { PositionResponse } from "@appraisal/types";
 
 type DataType = PositionResponse;
 
-type SearchType = {
-  username: string;
-  role: string;
-};
-
-const InitialSearch: SearchType = {
-  username: "",
-  role: "",
-};
-
 export const Position = () => {
   const navigate = useNavigate();
 
-  const [searchCategory, setSearchCategory] = useState("username");
-  const [, setQuerySearch] = useState<SearchType>(InitialSearch);
+  const [search, setSearch] = useState("");
 
   const { data, isSuccess, isError } = useGetPositionsQuery();
   const [deletePosition] = useDeletePositionMutation();
 
-  const handleChangeSearch = (value: string) => {
-    switch (value) {
-      case "username":
-        setSearchCategory("username");
-        break;
-      case "role":
-        setSearchCategory("role");
-        break;
-      default:
-        setSearchCategory("username");
-    }
-  };
-  const onSearch = (value: string) => {
-    switch (searchCategory) {
-      case "username":
-        setQuerySearch({ username: value, role: "" });
-        break;
-      case "role":
-        setQuerySearch({ username: "", role: value });
-        break;
-      default:
-        setQuerySearch({ username: value, role: "" });
-    }
-  };
-
-  const selectBefore = (
-    <Select
-      defaultValue="username"
-      onChange={handleChangeSearch}
-      style={{ width: 120 }}
-    >
-      <Select.Option value="username">Username</Select.Option>
-      <Select.Option value="role">Role</Select.Option>
-    </Select>
+  const keyword = search.trim().toLowerCase();
+  const positions = (data?.data ?? []).filter(
+    (position) =>
+      !keyword ||
+      position.code.toLowerCase().includes(keyword) ||
+      position.name.toLowerCase().includes(keyword) ||
+      String(position.level).includes(keyword),
   );
 
   const columns: TableColumnsType<DataType> = [
@@ -131,17 +93,17 @@ export const Position = () => {
         </TitlePage>
         <Flex gap="middle" style={{ marginBottom: "24px" }}>
           <Input.Search
-            placeholder="Search"
+            placeholder="Search by code, name, or level"
             allowClear
-            onSearch={onSearch}
+            onSearch={setSearch}
+            onClear={() => setSearch("")}
             enterButton
-            addonBefore={selectBefore}
             style={{ maxWidth: 500 }}
           />
         </Flex>
         <Table<DataType>
           columns={columns}
-          dataSource={data?.data}
+          dataSource={positions}
           scroll={{ x: "max-content" }}
           rowKey="id"
         />

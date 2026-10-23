@@ -14,7 +14,6 @@ import {
   PlusOutlined,
   UploadOutlined,
   DownloadOutlined,
-  FileExcelOutlined,
 } from "@ant-design/icons";
 import { TitlePage, ActionTable, ImportModal } from "@/components";
 import { useAppSelector, useAppDispatch } from "@/app/hooks";
@@ -62,18 +61,6 @@ export const ContractList = () => {
   const handleExport = async () => {
     try {
       await downloadFile("/contracts/export", filters, "contracts.xlsx");
-    } catch (error) {
-      errorHandling(error);
-    }
-  };
-
-  const handleTemplate = async () => {
-    try {
-      await downloadFile(
-        "/contracts/import-template",
-        undefined,
-        "contracts-template.xlsx",
-      );
     } catch (error) {
       errorHandling(error);
     }
@@ -128,15 +115,7 @@ export const ContractList = () => {
   return (
     <>
       <TitlePage title="Contracts" description="Employee contracts">
-        <Space>
-          {canWrite && (
-            <Button
-              icon={<FileExcelOutlined />}
-              onClick={handleTemplate}
-            >
-              Template
-            </Button>
-          )}
+        <Space wrap>
           {canWrite && (
             <Button icon={<UploadOutlined />} onClick={() => setImportOpen(true)}>
               Import
@@ -163,6 +142,7 @@ export const ContractList = () => {
           allowClear
           onSearch={setSearch}
           style={{ width: 260 }}
+          enterButton
         />
         <Select
           allowClear
@@ -185,7 +165,6 @@ export const ContractList = () => {
       <ImportModal
         open={importOpen}
         title="Import contracts"
-        templatePath="/contracts/import-template"
         uploadEndpoint="/contracts/import"
         onClose={() => setImportOpen(false)}
         onSuccess={() => dispatch(apiSlice.util.invalidateTags(["Contracts"]))}

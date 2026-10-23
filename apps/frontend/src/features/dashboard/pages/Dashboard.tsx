@@ -57,7 +57,7 @@ export const Dashboard = () => {
               />
             </Flex>
           </Col>
-          <Col xs={24} sm={16}>
+          <Col xs={24} sm={8}>
             <Descriptions size="small" column={2}>
               {isSuccess &&
                 summary.data.employees.byDepartment.map((item) => (

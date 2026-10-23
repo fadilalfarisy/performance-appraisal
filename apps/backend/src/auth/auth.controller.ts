@@ -6,9 +6,11 @@ import {
   HttpStatus,
   Post,
   Req,
+  Res,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -18,7 +20,11 @@ import {
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthService, type RequestMeta } from './auth.service';
 import { SignInDto } from './dto/signin.dto';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
+import {
+  clearRefreshTokenCookie,
+  readRefreshTokenCookie,
+  setRefreshTokenCookie,
+} from './auth-cookie';
 import { Public } from '../common/decorators/public.decorator';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 
@@ -34,8 +40,17 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login a user' })
   @ApiResponse({ status: 200, description: 'User successfully logged in.' })
-  signIn(@Body() signInDto: SignInDto, @Req() req: Request) {
-    return this.authService.login(signInDto, this.meta(req));
+  async signIn(
+    @Body() signInDto: SignInDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.login(signInDto, this.meta(req));
+    const { refreshToken, ...data } = result.data;
+
+    setRefreshTokenCookie(res, refreshToken);
+
+    return { message: result.message, data };
   }
 
   @Post('refresh')
@@ -43,16 +58,52 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Rotate a refresh token' })
-  refresh(@Body() dto: RefreshTokenDto, @Req() req: Request) {
-    return this.authService.refresh(dto.refreshToken, this.meta(req));
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refreshToken = readRefreshTokenCookie(req);
+
+    if (!refreshToken) {
+      throw new UnauthorizedException({
+        message: 'Invalid refresh token',
+        errorCode: 'AUTH_INVALID_REFRESH_TOKEN',
+      });
+    }
+
+    try {
+      const result = await this.authService.refresh(
+        refreshToken,
+        this.meta(req),
+      );
+      const { refreshToken: newRefreshToken, ...data } = result.data;
+
+      setRefreshTokenCookie(res, newRefreshToken);
+
+      return { message: result.message, data };
+    } catch (error) {
+      clearRefreshTokenCookie(res);
+      throw error;
+    }
   }
 
   @Post('logout')
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Revoke a refresh token' })
-  logout(@Body() dto: RefreshTokenDto) {
-    return this.authService.logout(dto.refreshToken);
+  async logout(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refreshToken = readRefreshTokenCookie(req);
+
+    clearRefreshTokenCookie(res);
+
+    if (!refreshToken) {
+      return { message: 'Logout successful', data: null };
+    }
+
+    return this.authService.logout(refreshToken);
   }
 
   @Get('me')

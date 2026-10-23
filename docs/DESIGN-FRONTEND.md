@@ -2,7 +2,7 @@
 
 **Based on:** PRD v0.6, `DESIGN-BACKEND.md` v0.5, and the installed dependencies in `apps/frontend/package.json`
 **Scope:** `apps/frontend` only (React 18, Vite 7, TypeScript 5.7, Redux Toolkit, Ant Design 5, `@ant-design/icons`, dayjs, react-router-dom 6).
-**Status:** Draft v0.7 (adds the daily notes screen and criteria-editor form fields; appraisal list uses one tab per status; aligned with installed dependencies and PRD v0.6)
+**Status:** Draft v0.8 (adds the Templates screen under Master Data; templates are downloaded there instead of from the employee and contract toolbars; previous: daily notes screen and criteria-editor form fields, appraisal list tabs, aligned with installed dependencies and PRD v0.6)
 
 ---
 
@@ -209,6 +209,7 @@ Global toasts use the Ant Design `App` context (`App.useApp()`), not static `mes
 | `/contracts` | Contracts | all (read), ADMIN and HR write |
 | `/departments` | Departments | all (read), ADMIN write |
 | `/positions` | Positions | all (read), ADMIN write |
+| `/templates` | Templates (download import templates) | ADMIN |
 | `/criteria` | Criteria sets (versions) | all (read), ADMIN and HR write |
 | `/criteria/:id` | Criteria set view or editor | all (read), ADMIN and HR edit DRAFT |
 | `/daily-notes` | Daily notes list | HEAD_DEPARTMENT, SUPERVISOR |
@@ -254,6 +255,7 @@ Department scope: the user's departments come from `GET /auth/me`. If the backen
 | Appraisals | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Employees, Contracts | ✓ | ✓ | ✓ (read) | ✓ (read) | ✓ (read) |
 | Departments, Positions | ✓ | ✓ (read) | ✓ (read) | ✓ (read) | ✓ (read) |
+| Templates (under Master Data) | ✓ | | | | |
 | Criteria | ✓ | ✓ | ✓ (read) | ✓ (read) | ✓ (read) |
 | Daily notes | | | ✓ | | |
 | Users | ✓ | | | | |
@@ -311,10 +313,11 @@ Used by employees, contracts, departments, positions, users, appraisals, audit l
 
 | Screen | Notes |
 |---|---|
-| Employees | Filters: department, position, status, search. Form: employee number, name, gender, birth date, address, department, position, join date, status, superior (searchable select). Employee detail shows tabs: Information (the form) and Contracts (that employee's contracts: type, start date, end date; edit and delete for ADMIN and HR). Toolbar: Import, Export, Download template (ADMIN, HR only) |
+| Employees | Filters: department, position, status, search. Form: employee number, name, gender, birth date, address, department, position, join date, status, superior (searchable select). Employee detail shows tabs: Information (the form) and Contracts (that employee's contracts: type, start date, end date; edit and delete for ADMIN and HR). Toolbar: Import, Export (ADMIN, HR only) |
 | Contracts | Filters: employee, type, end-date range. Columns: employee, type, start date, end date. Row actions: view (opens the employee detail on its Contracts tab, every role), edit (direct to that contract's form) and delete (ADMIN, HR). Form shows a clear error when the backend rejects overlapping contracts. Toolbar as above |
 | Departments | Code, name, head (employee select), active flag. Write for ADMIN only |
 | Positions | Code, name, level, active flag. Write for ADMIN only |
+| Templates | `/templates` under Master Data, ADMIN only. Table of every import template: title, description, and a Download Template action. Currently employees and contracts. |
 
 Deactivated departments and positions are hidden in the selects of new records and shown (marked "inactive") on existing ones.
 
@@ -431,22 +434,24 @@ Used by all exports and template downloads.
 
 ### 11.2 `ImportModal` (one reusable component)
 
-Props: title, template download path, upload endpoint, accepted columns hint, optional extra context (e.g. the appraisal id).
+Props: title, upload endpoint, accepted columns hint, optional extra context (e.g. the appraisal id).
 
 Flow:
-1. **Download template** button (required by the PRD for every import module).
-2. `Upload.Dragger`, accepts only `.xlsx`, single file, size checked against `VITE_IMPORT_MAX_FILE_SIZE_MB` before upload. `beforeUpload` returns `false` and the file is posted as `multipart/form-data` on confirm.
-3. While uploading, buttons are disabled and a progress state is shown.
-4. **Success:** summary `created / updated / skipped` and refresh of the list.
-5. **Failure (422):** the whole file was rejected. Show an error alert with the **first error only**: row number, column, message. Text: "The file was not imported. Fix this error and upload again." Nothing was saved.
-6. Other errors (size or row limit, wrong header) show the backend message.
+1. `Upload.Dragger`, accepts only `.xlsx`, single file, size checked against `VITE_IMPORT_MAX_FILE_SIZE_MB` before upload. `beforeUpload` returns `false` and the file is posted as `multipart/form-data` on confirm.
+2. While uploading, buttons are disabled and a progress state is shown.
+3. **Success:** summary `created / updated / skipped` and refresh of the list.
+4. **Failure (422):** the whole file was rejected. Show an error alert with the **first error only**: row number, column, message. Text: "The file was not imported. Fix this error and upload again." Nothing was saved.
+5. Other errors (size or row limit, wrong header) show the backend message.
+
+Templates are not downloaded from this modal. Every import template is listed on the Templates screen (section 10.2), which is the only place a template is downloaded.
 
 Use cases:
 
 | Place | Import | Export / template |
 |---|---|---|
-| Employees page | Import employees (ADMIN, HR) | Export employees (current filters), template |
-| Contracts page | Import contracts (ADMIN, HR) | Export contracts (current filters), template |
+| Employees page | Import employees (ADMIN, HR) | Export employees (current filters) |
+| Contracts page | Import contracts (ADMIN, HR) | Export contracts (current filters) |
+| Templates page (Master Data, ADMIN) | — | Download employees and contracts import templates |
 | Appraisal detail | Import ratings (Head Department, PENDING only) | Export assessment template, export result |
 
 Assessment flow in the UI: Head Department downloads the **assessment template**, fills ratings in Excel, and uploads it in `ImportModal`. On success, the appraisal is reloaded and imported cells are visible in the table. If the table has unsaved edits, the user must save or discard first, because imported ratings overwrite cells.

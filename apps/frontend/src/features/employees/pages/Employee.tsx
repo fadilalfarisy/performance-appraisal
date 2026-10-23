@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { PlusOutlined, DownloadOutlined, UploadOutlined } from "@ant-design/icons";
 import type { TableColumnsType } from "antd";
-import { Button, Table, Result, Space } from "antd";
+import { Button, Table, Result, Space, Tag } from "antd";
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
@@ -19,6 +19,7 @@ import { useAppSelector, useAppDispatch } from "@/app/hooks";
 import { apiSlice } from "@/api/apiSlice";
 import { downloadFile } from "@/api/downloadFile";
 import type { EmployeeResponse } from "@appraisal/types";
+import { employeeStatusColor } from "@/constants/option/employee-status";
 
 dayjs.extend(isBetween);
 
@@ -146,6 +147,9 @@ export const Employee = () => {
     {
       title: "Status",
       dataIndex: "status",
+      render: (value) => (
+        <Tag color={employeeStatusColor[value] ?? "default"}>{value}</Tag>
+      ),
     },
     {
       title: "End Contract",
@@ -185,18 +189,6 @@ export const Employee = () => {
           {hasAccess(roles.humanResource, auth.role) && (
             <Space>
               <Button
-                onClick={() =>
-                  downloadFile(
-                    "/employees/import-template",
-                    undefined,
-                    "employees-template.xlsx",
-                  )
-                }
-                icon={<DownloadOutlined />}
-              >
-                Template
-              </Button>
-              <Button
                 onClick={() => setImportOpen(true)}
                 icon={<UploadOutlined />}
               >
@@ -228,7 +220,6 @@ export const Employee = () => {
         <ImportModal
           open={importOpen}
           title="Import employees"
-          templatePath="/employees/import-template"
           uploadEndpoint="/employees/import"
           onClose={() => setImportOpen(false)}
           onSuccess={() => dispatch(apiSlice.util.invalidateTags(["Employees"]))}

@@ -71,6 +71,11 @@ export const menuItem: MenuItem[] = [
         label: "Positions",
         roles: roles.administrator,
       },
+      {
+        key: "/dashboard/templates",
+        label: "Template",
+        roles: roles.administrator,
+      },
     ],
   },
   {

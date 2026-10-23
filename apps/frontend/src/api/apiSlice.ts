@@ -5,9 +5,8 @@ import {
   FetchArgs,
   FetchBaseQueryError,
 } from "@reduxjs/toolkit/query/react";
-import type { ApiResponse, TokenPair } from "@appraisal/types";
+import type { ApiResponse, RefreshResponse } from "@appraisal/types";
 import { deleteAuth, setAccessToken } from "@/features/auth/authSlice";
-import { tokenStorage } from "@/features/auth/tokenStorage";
 
 interface AuthStateLike {
   auth?: { accessToken?: string };
@@ -15,6 +14,7 @@ interface AuthStateLike {
 
 const baseQuery = fetchBaseQuery({
   baseUrl: import.meta.env.VITE_HOST_API,
+  credentials: "include",
   prepareHeaders: (headers, { getState }) => {
     const token = (getState() as AuthStateLike).auth?.accessToken;
     if (token) headers.set("Authorization", `Bearer ${token}`);
@@ -35,22 +35,21 @@ const refreshAccessToken = async (
     BaseQueryFn<unknown, unknown, FetchBaseQueryError>
   >[2],
 ): Promise<string | null> => {
-  const refreshToken = tokenStorage.getRefreshToken();
-  if (!refreshToken) return null;
-
   const result = await baseQuery(
-    { url: "/auth/refresh", method: "POST", body: { refreshToken } },
+    { url: "/auth/refresh", method: "POST" },
     api,
     extraOptions,
   );
 
-  const data = (result.data as ApiResponse<TokenPair> | undefined)?.data;
+  const data = (result.data as ApiResponse<RefreshResponse> | undefined)?.data;
   if (!data?.accessToken) return null;
 
-  tokenStorage.setRefreshToken(data.refreshToken);
   api.dispatch(setAccessToken(data.accessToken));
   return data.accessToken;
 };
+
+const isRefreshRequest = (args: string | FetchArgs): boolean =>
+  (typeof args === "string" ? args : args.url) === "/auth/refresh";
 
 const baseQueryWithReauth: BaseQueryFn<
   string | FetchArgs,
@@ -59,7 +58,7 @@ const baseQueryWithReauth: BaseQueryFn<
 > = async (args, api, extraOptions) => {
   let result = await baseQuery(args, api, extraOptions);
 
-  if (result.error && result.error.status === 401) {
+  if (!isRefreshRequest(args) && result.error && result.error.status === 401) {
     refreshPromise =
       refreshPromise ??
       refreshAccessToken(api, extraOptions).finally(() => {
@@ -71,7 +70,6 @@ const baseQueryWithReauth: BaseQueryFn<
     if (accessToken) {
       result = await baseQuery(args, api, extraOptions);
     } else {
-      tokenStorage.clear();
       api.dispatch(deleteAuth());
     }
   }
