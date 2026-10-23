@@ -56,11 +56,12 @@ export const EditDailyNote = () => {
         description={`Criteria set v${note.criteriaSetVersion ?? "-"}`}
       />
       <NoteForm
-        criteria={setData.data.criteria}
+        fields={setData.data.fields}
         employeeOptions={employeeOptions}
         initialEmployeeId={note.employeeId}
         initialRecordDate={note.recordDate}
         initialFieldValues={initialFieldValues}
+        initialCriteriaSetId={note.criteriaSetId}
         lockKeyFields
         loading={isSaving}
         submitLabel="Save changes"

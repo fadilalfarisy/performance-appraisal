@@ -118,18 +118,23 @@ export class DailyNotesService {
     const recordDate = dto.recordDate.slice(0, 10);
     const period = `${recordDate.slice(0, 7)}-01`;
 
-    const active = await this.criteriaService.findActive();
-    const set = active.data;
-    if (!set) {
+    const set = (await this.criteriaService.findOne(dto.criteriaSetId)).data;
+    if (set.status === 'DRAFT') {
       throw new BusinessLogicException(
-        'No active criteria set, so the note form is unavailable',
-        'DAILY_NOTE_NO_ACTIVE_SET',
+        'A DRAFT criteria set cannot be used for a daily note',
+        'DAILY_NOTE_CRITERIA_SET_DRAFT',
       );
     }
-    validateNoteValues(
-      set.criteria.flatMap((criterion) => criterion.fields),
-      dto.values,
-    );
+    if (
+      set.departmentId !== null &&
+      set.departmentId !== employee.departmentId
+    ) {
+      throw new BusinessLogicException(
+        'The criteria set is not available for this employee department',
+        'DAILY_NOTE_CRITERIA_SET_NOT_AVAILABLE',
+      );
+    }
+    validateNoteValues(set.fields, dto.values);
 
     const created = await this.dbService.transaction(async (tx) => {
       const note = await this.repository.createNote(
@@ -188,10 +193,7 @@ export class DailyNotesService {
     this.assertNoteInScope(scope, note);
 
     const set = await this.criteriaService.findOne(note.criteriaSetId);
-    validateNoteValues(
-      set.data.criteria.flatMap((criterion) => criterion.fields),
-      dto.values,
-    );
+    validateNoteValues(set.data.fields, dto.values);
 
     await this.dbService.transaction(async (tx) => {
       await this.repository.replaceValues(

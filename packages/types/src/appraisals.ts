@@ -4,6 +4,7 @@ import type {
   AppraisalAction,
   AppraisalSource,
   AppraisalStatus,
+  CriteriaSetStatus,
 } from './enums';
 
 export interface EligibleEmployeeResponse {
@@ -22,6 +23,7 @@ export interface EligibleEmployeeResponse {
 export interface PreviewAppraisalRequest {
   departmentId: string;
   period: string;
+  criteriaSetId: string;
 }
 
 export interface PreviewAppraisalResponse {
@@ -29,12 +31,14 @@ export interface PreviewAppraisalResponse {
   period: string;
   criteriaSetId: string;
   criteriaSetVersion: number;
+  criteriaSetStatus: CriteriaSetStatus;
   employees: EligibleEmployeeResponse[];
 }
 
 export interface CreateAppraisalRequest {
   departmentId: string;
   period: string;
+  criteriaSetId: string;
   employeeIds: string[];
 }
 
@@ -99,6 +103,7 @@ export interface AppraisalResponse {
   period: string;
   criteriaSetId: string;
   criteriaSetVersion: number;
+  criteriaSetStatus: CriteriaSetStatus;
   status: AppraisalStatus;
   source: AppraisalSource;
   createdBy: string | null;

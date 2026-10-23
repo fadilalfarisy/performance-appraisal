@@ -1,7 +1,11 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { App, Result, Spin } from "antd";
+import { Alert, App, Spin } from "antd";
 import { TitlePage } from "@/components";
-import { useGetActiveCriteriaSetQuery } from "@/features/criteria";
+import {
+  useGetAvailableCriteriaSetsQuery,
+  useGetCriteriaSetByIdQuery,
+} from "@/features/criteria";
 import {
   useCreateDailyNoteMutation,
   useGetAccessibleEmployeesQuery,
@@ -13,33 +17,68 @@ export const CreateDailyNote = () => {
   const navigate = useNavigate();
   const { message } = App.useApp();
 
-  const { data: active, isSuccess } = useGetActiveCriteriaSetQuery();
-  const { data: employees } = useGetAccessibleEmployeesQuery();
+  const [employeeId, setEmployeeId] = useState<string | undefined>();
+  const [criteriaSetId, setCriteriaSetId] = useState<string | undefined>();
+
+  const { data: employees, isSuccess: employeesLoaded } =
+    useGetAccessibleEmployeesQuery();
+  const selectedEmployee = employees?.data?.find(
+    (employee) => employee.id === employeeId,
+  );
+  const departmentId = selectedEmployee?.departmentId ?? undefined;
+
+  const { data: available, isSuccess: availableLoaded } =
+    useGetAvailableCriteriaSetsQuery(departmentId, {
+      skip: !departmentId,
+    });
+  const { data: criteriaSet, isFetching: criteriaLoading } =
+    useGetCriteriaSetByIdQuery(criteriaSetId, { skip: !criteriaSetId });
   const [createNote, { isLoading }] = useCreateDailyNoteMutation();
 
-  if (!isSuccess) return <Spin />;
+  if (!employeesLoaded) return <Spin />;
 
-  const criteriaSet = active?.data;
-  if (!criteriaSet) {
-    return (
-      <Result
-        status="info"
-        title="No active criteria set"
-        subTitle="Ask HR or Admin to activate a criteria set before recording notes."
-      />
-    );
-  }
+  const criteriaSetOptions = (available?.data ?? []).map((set) => ({
+    value: set.id,
+    label: `v${set.version} — ${set.status} — ${set.departmentName ?? "Global"}`,
+  }));
+
+  const noCriteriaSets =
+    Boolean(employeeId) &&
+    availableLoaded &&
+    (available?.data?.length ?? 0) === 0;
 
   return (
     <>
       <TitlePage
         title="New daily note"
-        description={`Form generated from criteria set v${criteriaSet.version}`}
+        description={
+          criteriaSet
+            ? `Form generated from criteria set v${criteriaSet.data.version}`
+            : "Choose an employee and criteria set"
+        }
       />
+
+      {noCriteriaSets && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="No criteria set is available for this department"
+          description="Ask HR or Admin to activate a criteria set for the department, or use a global set."
+        />
+      )}
+
       <NoteForm
-        criteria={criteriaSet.criteria}
+        fields={criteriaSetId ? (criteriaSet?.data.fields ?? []) : []}
         employeeOptions={employees?.data ?? []}
-        loading={isLoading}
+        initialCriteriaSetId={criteriaSetId}
+        criteriaSetOptions={criteriaSetOptions}
+        onEmployeeChange={(value) => {
+          setEmployeeId(value);
+          setCriteriaSetId(undefined);
+        }}
+        onCriteriaSetChange={setCriteriaSetId}
+        loading={isLoading || criteriaLoading}
         submitLabel="Save note"
         onSubmit={async (payload) => {
           try {

@@ -1,5 +1,14 @@
-import { FieldInputType, type CriterionInput } from '@appraisal/types';
-import { validateCriteriaSet } from './criteria.validation';
+import {
+  FieldInputType,
+  type CriterionFieldInput,
+  type CriterionInput,
+  type CriterionResponse,
+} from '@appraisal/types';
+import {
+  validateActiveCriteriaUpdate,
+  validateCriteriaSet,
+  validateFields,
+} from './criteria.validation';
 
 function criterion(overrides: Partial<CriterionInput> = {}): CriterionInput {
   return {
@@ -54,65 +63,124 @@ describe('validateCriteriaSet', () => {
       ]),
     ).toThrow(/Duplicate criterion code/);
   });
+});
 
-  describe('form fields', () => {
-    it('accepts a valid field definition', () => {
-      expect(() =>
-        validateCriteriaSet([
-          criterion({
-            fields: [
-              {
-                fieldKey: 'tasks',
-                label: 'Tasks completed',
-                inputType: FieldInputType.NUMBER,
-                rules: { min: 0, max: 20 },
-              },
-            ],
-          }),
-        ]),
-      ).not.toThrow();
-    });
+function field(overrides: Partial<CriterionFieldInput> = {}): CriterionFieldInput {
+  return {
+    fieldKey: 'tasks',
+    label: 'Tasks completed',
+    inputType: FieldInputType.TEXT,
+    ...overrides,
+  };
+}
 
-    it('rejects duplicate field keys', () => {
-      expect(() =>
-        validateCriteriaSet([
-          criterion({
-            fields: [
-              { fieldKey: 'x', label: 'X', inputType: FieldInputType.TEXT },
-              { fieldKey: 'x', label: 'X2', inputType: FieldInputType.TEXT },
-            ],
-          }),
-        ]),
-      ).toThrow(/Duplicate field key/);
-    });
+describe('validateFields', () => {
+  it('accepts a valid field definition', () => {
+    expect(() =>
+      validateFields([
+        field({
+          inputType: FieldInputType.NUMBER,
+          rules: { min: 0, max: 20 },
+        }),
+      ]),
+    ).not.toThrow();
+  });
 
-    it('requires options for option fields', () => {
-      expect(() =>
-        validateCriteriaSet([
-          criterion({
-            fields: [
-              { fieldKey: 'pick', label: 'Pick', inputType: FieldInputType.OPTION },
-            ],
-          }),
-        ]),
-      ).toThrow(/at least one option/);
-    });
+  it('rejects duplicate field keys across the set', () => {
+    expect(() =>
+      validateFields([
+        field({ fieldKey: 'x', label: 'X' }),
+        field({ fieldKey: 'x', label: 'X2' }),
+      ]),
+    ).toThrow(/Duplicate field key/);
+  });
 
-    it('rejects a default value that does not match the type', () => {
-      expect(() =>
-        validateCriteriaSet([
-          criterion({
-            fields: [
-              {
-                fieldKey: 'count',
-                label: 'Count',
-                inputType: FieldInputType.NUMBER,
-                defaultValue: 'not a number',
-              },
-            ],
-          }),
-        ]),
-      ).toThrow(/default value/);
-    });
+  it('requires options for option fields', () => {
+    expect(() =>
+      validateFields([
+        field({ fieldKey: 'pick', label: 'Pick', inputType: FieldInputType.OPTION }),
+      ]),
+    ).toThrow(/at least one option/);
+  });
+
+  it('rejects a default value that does not match the type', () => {
+    expect(() =>
+      validateFields([
+        field({
+          fieldKey: 'count',
+          label: 'Count',
+          inputType: FieldInputType.NUMBER,
+          defaultValue: 'not a number',
+        }),
+      ]),
+    ).toThrow(/default value/);
+  });
+});
+
+function existingCriterion(
+  overrides: Partial<CriterionResponse> = {},
+): CriterionResponse {
+  return {
+    id: 'criterion-1',
+    code: 'QUALITY',
+    name: 'Quality',
+    description: null,
+    scaleMin: 1,
+    scaleMax: 5,
+    weight: 100,
+    displayOrder: 0,
+    scaleDescriptions: [1, 2, 3, 4, 5].map((score) => ({
+      score,
+      description: `Level ${score}`,
+    })),
+    ...overrides,
+  };
+}
+
+describe('validateActiveCriteriaUpdate', () => {
+  it('accepts content changes while keeping weight and structure', () => {
+    expect(() =>
+      validateActiveCriteriaUpdate([existingCriterion()], [
+        criterion({
+          id: 'criterion-1',
+          code: 'QUALITY_V2',
+          name: 'Quality v2',
+          scaleMax: 6,
+          scaleDescriptions: [1, 2, 3, 4, 5, 6].map((score) => ({
+            score,
+            description: `Level ${score}`,
+          })),
+        }),
+      ]),
+    ).not.toThrow();
+  });
+
+  it('rejects a weight change', () => {
+    expect(() =>
+      validateActiveCriteriaUpdate([existingCriterion()], [
+        criterion({ id: 'criterion-1', weight: 90 }),
+      ]),
+    ).toThrow(/Weights cannot be changed/);
+  });
+
+  it('rejects adding or removing criteria', () => {
+    expect(() =>
+      validateActiveCriteriaUpdate([existingCriterion()], []),
+    ).toThrow(/criterion list/);
+
+    expect(() =>
+      validateActiveCriteriaUpdate([existingCriterion()], [
+        criterion({ id: 'criterion-1', weight: 50 }),
+        criterion({ id: 'criterion-2', code: 'OTHER', weight: 50 }),
+      ]),
+    ).toThrow(/criterion list/);
+  });
+
+  it('rejects a criterion that does not belong to the set', () => {
+    expect(() =>
+      validateActiveCriteriaUpdate([existingCriterion()], [
+        criterion({ id: 'criterion-other' }),
+      ]),
+    ).toThrow(/does not belong/);
   });
 });

@@ -85,6 +85,11 @@ export const DailyNote = () => {
       render: (value) => value || "-",
     },
     {
+      title: "Criteria",
+      dataIndex: "criteriaSetVersion",
+      render: (value) => (value ? `v${value}` : "-"),
+    },
+    {
       title: "Date",
       dataIndex: "recordDate",
       render: (value) => formatDate(value),

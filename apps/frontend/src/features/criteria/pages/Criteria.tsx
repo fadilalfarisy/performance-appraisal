@@ -1,10 +1,21 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PlusOutlined, HistoryOutlined } from "@ant-design/icons";
 import type { TableColumnsType } from "antd";
-import { Button, Table, Tag, Space, Tooltip, message } from "antd";
+import {
+  Button,
+  Table,
+  Tag,
+  Space,
+  Tooltip,
+  message,
+  Modal,
+  Select,
+} from "antd";
 import { TitlePage } from "@/components";
 import { hasAccess, roles } from "@/constants/role-access";
 import { useAppSelector } from "@/app/hooks";
+import { useGetDepartmentsQuery } from "@/features/departments";
 import {
   useCreateCriteriaSetMutation,
   useGetCriteriaSetsQuery,
@@ -15,7 +26,7 @@ import type { CriteriaSetResponse } from "@appraisal/types";
 const STATUS_COLOR: Record<string, string> = {
   DRAFT: "default",
   ACTIVE: "green",
-  SUPERSEDED: "orange",
+  ARCHIVED: "orange",
 };
 
 export const Criteria = () => {
@@ -23,16 +34,24 @@ export const Criteria = () => {
   const navigate = useNavigate();
 
   const { data, isSuccess } = useGetCriteriaSetsQuery();
+  const { data: departments } = useGetDepartmentsQuery();
   const [createCriteriaSet, { isLoading: isCreating }] =
     useCreateCriteriaSetMutation();
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [departmentId, setDepartmentId] = useState<string | undefined>();
 
   const canManage = hasAccess(roles.humanResource, auth.role);
   const sets = data?.data ?? [];
 
   const handleCreate = async () => {
     try {
-      const { data: created } = await createCriteriaSet(undefined).unwrap();
+      const { data: created } = await createCriteriaSet({
+        departmentId,
+      }).unwrap();
       message.success("Draft criteria set created");
+      setCreateOpen(false);
+      setDepartmentId(undefined);
       navigate(`/dashboard/criteria/${created.id}`);
     } catch (error) {
       errorHandling(error);
@@ -40,6 +59,11 @@ export const Criteria = () => {
   };
 
   const columns: TableColumnsType<CriteriaSetResponse> = [
+    {
+      title: "Department",
+      dataIndex: "departmentName",
+      render: (value) => value || "Global",
+    },
     {
       title: "Version",
       dataIndex: "version",
@@ -87,15 +111,18 @@ export const Criteria = () => {
   if (isSuccess) {
     return (
       <>
-        <TitlePage title="Criteria Sets" description="Versioned criteria">
+        <TitlePage
+          title="Criteria Sets"
+          description="Versioned criteria per department"
+        >
           {canManage && (
             <Button
               type="primary"
               loading={isCreating}
-              onClick={handleCreate}
+              onClick={() => setCreateOpen(true)}
               icon={<PlusOutlined />}
             >
-              New draft from active
+              New draft
             </Button>
           )}
         </TitlePage>
@@ -107,6 +134,35 @@ export const Criteria = () => {
           rowKey="id"
           pagination={false}
         />
+
+        <Modal
+          title="New criteria draft"
+          open={createOpen}
+          onCancel={() => {
+            setCreateOpen(false);
+            setDepartmentId(undefined);
+          }}
+          onOk={handleCreate}
+          confirmLoading={isCreating}
+          okText="Create draft"
+        >
+          <Select
+            allowClear
+            showSearch
+            optionFilterProp="label"
+            placeholder="Global (all departments)"
+            style={{ width: "100%" }}
+            value={departmentId}
+            onChange={setDepartmentId}
+            options={(departments?.data ?? []).map((department) => ({
+              value: department.id,
+              label: department.name,
+            }))}
+          />
+          <div style={{ marginTop: 8, color: "#8c8c8c" }}>
+            Leave empty to create a global legacy set.
+          </div>
+        </Modal>
       </>
     );
   }

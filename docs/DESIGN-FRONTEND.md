@@ -210,8 +210,8 @@ Global toasts use the Ant Design `App` context (`App.useApp()`), not static `mes
 | `/departments` | Departments | all (read), ADMIN write |
 | `/positions` | Positions | all (read), ADMIN write |
 | `/templates` | Templates (download import templates) | ADMIN |
-| `/criteria` | Criteria sets (versions) | all (read), ADMIN and HR write |
-| `/criteria/:id` | Criteria set view or editor | all (read), ADMIN and HR edit DRAFT |
+| `/criteria` | Criteria sets (versions per department) | all (read), ADMIN and HR create/activate |
+| `/criteria/:id` | Criteria set view or editor | all (read), ADMIN and HR edit DRAFT, ADMIN edit ACTIVE |
 | `/daily-notes` | Daily notes list | HEAD_DEPARTMENT, SUPERVISOR |
 | `/daily-notes/create` | New daily note (dynamic form) | HEAD_DEPARTMENT, SUPERVISOR |
 | `/daily-notes/:id/edit` | Edit a daily note | HEAD_DEPARTMENT, SUPERVISOR |
@@ -231,7 +231,8 @@ The route table holds `path`, `element` (lazy loaded with `React.lazy`), `roles`
 Pure functions, unit tested with a table that mirrors PRD section 5.8:
 
 - `canAccessRoute(role, route)`
-- `canWriteMaster(role, entity)`: employee and contract → ADMIN, HR; department and position → ADMIN; criteria → ADMIN, HR
+- `canWriteMaster(role, entity)`: employee and contract → ADMIN, HR; department and position → ADMIN; `DRAFT` criteria → ADMIN, HR
+- `canEditActiveCriteria(role)`: `ACTIVE` criteria content → ADMIN only
 - `getAvailableActions(user, appraisal)`: returns which of these the user may do now:
   `moveToPending`, `editRatings`, `submit`, `approve`, `complete`, `sendBack(targets[])`, `reopen`, `editEmployeeList`, `softDelete`, `importRatings`
 
@@ -330,14 +331,19 @@ Deactivated departments and positions are hidden in the selects of new records a
 
 ### 10.4 Criteria sets
 
-- `/criteria`: table of versions: version, status tag (ACTIVE, DRAFT, SUPERSEDED), created by, activated by and when, note. Button "New draft from active version" for ADMIN and HR.
-- `/criteria/:id` for ACTIVE or SUPERSEDED: read-only view of criteria, scales, and score descriptions.
-- `/criteria/:id` for DRAFT (ADMIN, HR): editor.
+- `/criteria`: table of versions: department (or "Global"), version, status tag (`ACTIVE`, `DRAFT`, `ARCHIVED`), criteria count, activated at, note. The "New draft" button for ADMIN and HR opens a modal to choose a department or leave it empty for a global legacy set.
+- `/criteria/:id` for `ARCHIVED`: read-only tabs for criteria (code, name, scale, weight, order) and form fields (key, label, type, required, order).
+- `/criteria/:id` for `ACTIVE`: read-only for every role except ADMIN. ADMIN gets the partial editor:
+  - Code, name, description, scale min/max, score descriptions, and form fields are editable.
+  - Weight inputs are disabled, the delete-criterion action is hidden, and "Add criterion" is hidden.
+  - "Save changes" writes the content update; there is no Activate button.
+- `/criteria/:id` for `DRAFT` (ADMIN, HR): full editor.
+  - The editor has two tabs: **Criteria** (code, name, scale, weight, description, and score descriptions) and **Form fields** (the set's flat list of note-form fields).
   - Table of criteria: code, name, description, scale min, scale max, weight, order (up and down buttons).
   - Expandable row per criterion: one text input per score level (from min to max) for the score description. The inputs follow the scale when min or max changes.
   - Live **weight total** indicator: green at exactly 100, red otherwise.
-  - **Form fields** (PRD 5.9): each criterion also owns a list of note-form fields — key, label, input type (`TEXT`, `NUMBER`, `OPTION`, `MULTI_OPTION`, `BOOLEAN`, `DATE`), required, order, options (for choice types), and rules (min/max, min/max length, pattern). They are versioned with the set and become the daily-note form (section 10.9).
-  - "Save draft" and "Activate" buttons. Activate is disabled until the validation passes (total 100, `min < max`, all score descriptions filled, unique codes); the backend repeats the checks. Activation asks for confirmation and explains that new appraisals will use this version.
+  - **Form fields** (PRD 5.9): the set's flat list of note-form fields — key, label, input type (`TEXT`, `NUMBER`, `OPTION`, `MULTI_OPTION`, `BOOLEAN`, `DATE`), required, order, options (for choice types), and rules (min/max, min/max length, pattern). They live in the **Form fields** tab, are versioned with the set, and become the daily-note form (section 10.9). Fields are not grouped by criterion.
+  - "Save draft" and "Activate" buttons. Activate is disabled until the validation passes (total 100, `min < max`, all score descriptions filled, unique codes); the backend repeats the checks. Activation asks for confirmation and explains that it archives the current active set for the same department.
 
 ### 10.5 Appraisal list (home)
 
@@ -359,13 +365,13 @@ Deactivated departments and positions are hidden in the selects of new records a
 
 ### 10.6 Create appraisal wizard (HR) `/appraisals/new`
 
-1. **Department and month:** active department select and month picker.
-2. **Preview:** `POST /appraisals/preview` returns eligible employees (contract ending in that month). Table with checkboxes (all selected by default). "Add employee" opens a search of active employees of the same department that are not in the list.
+1. **Department, month, and criteria set:** active department select, month picker, and a criteria set select loaded from `GET /criteria-sets/available?departmentId=` (department-specific plus global, `ACTIVE` first).
+2. **Preview:** `POST /appraisals/preview` returns eligible employees (contract ending in that month) for the selected criteria set. Table with checkboxes (all selected by default). "Add employee" opens a search of active employees of the same department that are not in the list.
 3. **Confirm:** summary (department, period, number of employees, criteria set version) and a Create button. On success, go to the appraisal detail page in DRAFT.
 
 Edge cases shown clearly:
 - 409 because an appraisal already exists for that department and month.
-- No active criteria set (link to `/criteria`).
+- No criteria set available for the department (warning with a link to `/criteria`).
 - Preview returns no employees (Create is disabled with an explanation).
 
 ### 10.7 Appraisal detail `/appraisals/:id`
@@ -414,9 +420,10 @@ Layout:
 
 ### 10.9 Daily notes (HEAD_DEPARTMENT, SUPERVISOR)
 
-- `/daily-notes`: scoped list. Filters: employee (options from `GET /daily-notes/accessible-employees`) and a date range. Columns: employee, department, date, period, created at; row actions open (edit) and delete (confirm). Server-side pagination. The list only returns notes the caller's scope allows (a supervisor's own subordinates, or a head department's own departments).
-- `/daily-notes/create`: the **dynamic form** rendered from the active criteria set (`GET /criteria-sets/active`). Each criterion is a card (group); each field renders an input by type — `Input`, `InputNumber`, `Select` (single or multiple), `Switch`, or `DatePicker` — with required-ness taken from the field definition. The employee select is limited to accessible employees. Submitting sends `{ employeeId, recordDate, values: [{ fieldId, value }] }`. When there is no active set, the page shows an explanatory `Result`.
+- `/daily-notes`: scoped list. Filters: employee (options from `GET /daily-notes/accessible-employees`) and a date range. Columns: employee, department, criteria version, date, period, created at; row actions open (edit) and delete (confirm). Server-side pagination. The list only returns notes the caller's scope allows (a supervisor's own subordinates, or a head department's own departments).
+- `/daily-notes/create`: choose the employee and date first, then a criteria set from `GET /criteria-sets/available?departmentId=` for the selected employee's department. Once a set is selected, the **dynamic form** renders from that set (`GET /criteria-sets/:id`). The set's fields render as one flat "Daily note fields" card, without per-criterion grouping. Each field renders an input by type — `Input`, `InputNumber`, `Select` (single or multiple), `Switch`, or `DatePicker` — with required-ness taken from the field definition. The employee select is limited to accessible employees. Submitting sends `{ employeeId, recordDate, criteriaSetId, values: [{ fieldId, value }] }`. Changing the employee clears the criteria selection; changing the criteria set reloads the fields.
 - `/daily-notes/:id/edit`: the same form built from the note's **pinned** set version; employee and date are fixed, only values change. Editing replaces the note's values.
+- When the selected department has no available criteria set, the page shows a warning and the fields stay empty.
 - A duplicate employee + date shows the backend's 409 message. Out-of-scope ids return 404 and show the error page.
 - The **daily note sum** on the appraisal detail (PRD 5.4 / 5.9) is deferred.
 

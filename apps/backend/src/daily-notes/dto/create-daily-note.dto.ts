@@ -37,6 +37,11 @@ export class CreateDailyNoteDto implements CreateDailyNoteRequest {
   @IsNotEmpty()
   recordDate!: string;
 
+  @ApiProperty({ example: 'criteria-set-uuid' })
+  @IsUUID()
+  @IsNotEmpty()
+  criteriaSetId!: string;
+
   @ApiProperty({ type: [DailyNoteValueDto] })
   @IsArray()
   @ValidateNested({ each: true })

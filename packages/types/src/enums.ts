@@ -31,7 +31,7 @@ export enum CriteriaType {
 export enum CriteriaSetStatus {
   DRAFT = 'DRAFT',
   ACTIVE = 'ACTIVE',
-  SUPERSEDED = 'SUPERSEDED',
+  ARCHIVED = 'ARCHIVED',
 }
 
 export enum FieldInputType {

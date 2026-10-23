@@ -32,7 +32,7 @@ Check each app's `package.json` for exact script names if a command fails.
 - Only Head Department edits ratings, only in `PENDING`, only for their own department.
 - Every send back and every reopen requires a comment.
 - One non-deleted appraisal per department per period (month).
-- Criteria are versioned as a whole set. An active or superseded set is never edited or deleted. Weights total exactly 100.
+- Criteria are versioned as a whole set per department, with a global fallback set (`department_id` NULL). Statuses are `DRAFT`, `ACTIVE`, `ARCHIVED`; one active set per department group. Never delete a set. DRAFT is editable by ADMIN and HR. ACTIVE is editable only by ADMIN and only for code, name, description, scale, score descriptions, and form fields; weights and the criterion list are locked. ARCHIVED is read-only. Weights total exactly 100.
 - Master data and appraisals are never hard deleted (soft delete only).
 - Every write, status change, import, and export creates an audit entry. Audit rows are never updated or deleted by the app; sensitive values (passwords, tokens) are masked.
 - Excel imports: validate the whole file first, reject the whole file on any error, report only the first error, commit in one transaction.

@@ -3,6 +3,7 @@ import type {
   ApiResponse,
   CreateCriteriaSetRequest,
   CriteriaSetResponse,
+  CriteriaSetSummary,
   UpdateCriteriaSetRequest,
 } from "@appraisal/types";
 
@@ -12,11 +13,24 @@ export const criteriaApi = apiSlice.injectEndpoints({
       query: () => `/criteria-sets`,
       providesTags: ["Criteria"],
     }),
+    getAvailableCriteriaSets: builder.query<
+      ApiResponse<CriteriaSetSummary[]>,
+      string | undefined
+    >({
+      query: (departmentId) => ({
+        url: `/criteria-sets/available`,
+        params: { departmentId },
+      }),
+      providesTags: ["Criteria"],
+    }),
     getActiveCriteriaSet: builder.query<
       ApiResponse<CriteriaSetResponse | null>,
-      void
+      string | undefined
     >({
-      query: () => `/criteria-sets/active`,
+      query: (departmentId) => ({
+        url: `/criteria-sets/active`,
+        params: { departmentId },
+      }),
       providesTags: ["Criteria"],
     }),
     getCriteriaSetById: builder.query<
@@ -64,6 +78,7 @@ export const criteriaApi = apiSlice.injectEndpoints({
 
 export const {
   useGetCriteriaSetsQuery,
+  useGetAvailableCriteriaSetsQuery,
   useGetActiveCriteriaSetQuery,
   useGetCriteriaSetByIdQuery,
   useCreateCriteriaSetMutation,

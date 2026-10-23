@@ -23,7 +23,7 @@ Dokumentasi ini menjelaskan kode proyek **per module**, ditulis untuk pembaca pe
 | 10 | **EmployeesModule** | Data karyawan lengkap (daftar/filter/scope, CRUD, impor & ekspor Excel). | [`employees.md`](./employees.md) |
 | 11 | **ContractsModule** | Kontrak kerja dengan aturan anti-tumpang-tindih dan impor/ekspor Excel. | [`contracts.md`](./contracts.md) |
 | 12 | **DailyNotesModule** | Catatan harian karyawan oleh supervisor (dengan pemeriksaan kepemilikan). | [`daily-notes.md`](./daily-notes.md) |
-| 13 | **CriteriaModule** | Versi set kriteria penilaian (DRAFT/ACTIVE/SUPERSEDED) dengan validasi bobot total 100. | [`criteria.md`](./criteria.md) |
+| 13 | **CriteriaModule** | Versi set kriteria penilaian per department (DRAFT/ACTIVE/ARCHIVED) dengan validasi bobot total 100. | [`criteria.md`](./criteria.md) |
 | 14 | **AppraisalsModule** | Inti workflow penilaian: peserta, rating, perhitungan skor, transisi status, dan scheduler bulanan. | [`appraisals.md`](./appraisals.md) |
 | 15 | **AuditModule** | Jejak audit append-only untuk semua perubahan, dengan penyamaran nilai sensitif. | [`audit.md`](./audit.md) |
 | 16 | **ImportsModule** | Pipeline impor Excel generik: validasi seluruh file dulu, commit dalam satu transaksi. | [`imports.md`](./imports.md) |

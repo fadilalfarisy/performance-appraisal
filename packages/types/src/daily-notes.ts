@@ -14,6 +14,7 @@ export interface DailyNoteValueResponse {
 export interface CreateDailyNoteRequest {
   employeeId: string;
   recordDate: string;
+  criteriaSetId: string;
   values: DailyNoteValueInput[];
 }
 

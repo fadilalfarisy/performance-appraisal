@@ -10,6 +10,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   Min,
   ValidateNested,
@@ -80,6 +81,11 @@ export class FieldRulesDto implements FieldRules {
 }
 
 export class CriterionFieldDto implements CriterionFieldInput {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
   @ApiProperty({ example: 'tasks_completed' })
   @IsString()
   @IsNotEmpty()
@@ -126,6 +132,11 @@ export class CriterionFieldDto implements CriterionFieldInput {
 }
 
 export class CriterionDto implements CriterionInput {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
   @ApiProperty({ example: 'QUALITY' })
   @IsString()
   @IsNotEmpty()
@@ -166,16 +177,16 @@ export class CriterionDto implements CriterionInput {
   @ValidateNested({ each: true })
   @Type(() => CriteriaScaleDescriptionDto)
   scaleDescriptions!: CriteriaScaleDescriptionDto[];
-
-  @ApiPropertyOptional({ type: [CriterionFieldDto] })
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CriterionFieldDto)
-  fields?: CriterionFieldDto[];
 }
 
 export class CreateCriteriaSetDto implements CreateCriteriaSetRequest {
+  @ApiPropertyOptional({
+    description: 'Department owner. Omit for a global legacy set.',
+  })
+  @IsOptional()
+  @IsUUID()
+  departmentId?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -187,4 +198,11 @@ export class CreateCriteriaSetDto implements CreateCriteriaSetRequest {
   @ValidateNested({ each: true })
   @Type(() => CriterionDto)
   criteria?: CriterionDto[];
+
+  @ApiPropertyOptional({ type: [CriterionFieldDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CriterionFieldDto)
+  fields?: CriterionFieldDto[];
 }

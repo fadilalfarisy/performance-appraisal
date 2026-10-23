@@ -21,6 +21,7 @@ export interface FieldRules {
 }
 
 export interface CriterionFieldInput {
+  id?: string;
   fieldKey: string;
   label: string;
   inputType: FieldInputType;
@@ -32,6 +33,7 @@ export interface CriterionFieldInput {
 }
 
 export interface CriterionInput {
+  id?: string;
   code: string;
   name: string;
   description?: string;
@@ -40,17 +42,19 @@ export interface CriterionInput {
   weight: number;
   displayOrder?: number;
   scaleDescriptions: CriteriaScaleDescriptionInput[];
-  fields?: CriterionFieldInput[];
 }
 
 export interface CreateCriteriaSetRequest {
+  departmentId?: string | null;
   note?: string;
   criteria?: CriterionInput[];
+  fields?: CriterionFieldInput[];
 }
 
 export interface UpdateCriteriaSetRequest {
   note?: string;
   criteria?: CriterionInput[];
+  fields?: CriterionFieldInput[];
 }
 
 export interface CriteriaScaleDescriptionResponse {
@@ -60,7 +64,6 @@ export interface CriteriaScaleDescriptionResponse {
 
 export interface CriterionFieldResponse extends CriterionFieldInput {
   id: string;
-  criterionId: string;
 }
 
 export interface CriterionResponse {
@@ -73,11 +76,12 @@ export interface CriterionResponse {
   weight: number;
   displayOrder: number;
   scaleDescriptions: CriteriaScaleDescriptionResponse[];
-  fields: CriterionFieldResponse[];
 }
 
 export interface CriteriaSetResponse {
   id: string;
+  departmentId: string | null;
+  departmentName: string | null;
   version: number;
   status: CriteriaSetStatus;
   note: string | null;
@@ -85,4 +89,16 @@ export interface CriteriaSetResponse {
   activatedBy: string | null;
   activatedAt: string | null;
   criteria: CriterionResponse[];
+  fields: CriterionFieldResponse[];
+}
+
+export interface CriteriaSetSummary {
+  id: string;
+  departmentId: string | null;
+  departmentName: string | null;
+  version: number;
+  status: CriteriaSetStatus;
+  note: string | null;
+  activatedAt: string | null;
+  criteriaCount: number;
 }

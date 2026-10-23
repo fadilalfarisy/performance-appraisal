@@ -11,4 +11,9 @@ export class PreviewAppraisalDto {
   @IsDateString()
   @IsNotEmpty()
   period!: string;
+
+  @ApiProperty({ example: 'criteria-set-uuid' })
+  @IsUUID()
+  @IsNotEmpty()
+  criteriaSetId!: string;
 }

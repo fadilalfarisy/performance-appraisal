@@ -47,7 +47,10 @@ export class AppraisalsService {
   // ── Preview / creation ─────────────────────────────────────────────────────
 
   async preview(dto: PreviewAppraisalDto) {
-    const activeSet = await this.requireActiveSet();
+    const criteriaSet = await this.requireCriteriaSet(
+      dto.criteriaSetId,
+      dto.departmentId,
+    );
     const start = periodStart(dto.period);
     const eligible = await this.repository.findEligible(
       dto.departmentId,
@@ -57,14 +60,18 @@ export class AppraisalsService {
     return ok({
       departmentId: dto.departmentId,
       period: start,
-      criteriaSetId: activeSet.id,
-      criteriaSetVersion: activeSet.version,
+      criteriaSetId: criteriaSet.id,
+      criteriaSetVersion: criteriaSet.version,
+      criteriaSetStatus: criteriaSet.status,
       employees: eligible,
     });
   }
 
   async create(dto: CreateAppraisalDto): Promise<ApiResponse<AppraisalResponse>> {
-    const activeSet = await this.requireActiveSet();
+    const criteriaSet = await this.requireCriteriaSet(
+      dto.criteriaSetId,
+      dto.departmentId,
+    );
     const start = periodStart(dto.period);
     const eligible = await this.repository.findEligible(
       dto.departmentId,
@@ -88,7 +95,7 @@ export class AppraisalsService {
         {
           departmentId: dto.departmentId,
           period: start,
-          criteriaSetId: activeSet.id,
+          criteriaSetId: criteriaSet.id,
           source: 'MANUAL',
           createdBy: this.requestContext.getUser()?.userId ?? null,
         },
@@ -383,14 +390,6 @@ export class AppraisalsService {
   // ── Scheduler ──────────────────────────────────────────────────────────────
 
   async runScheduler(targetPeriod?: string) {
-    const activeSet = (await this.criteriaService.findActive()).data;
-    if (!activeSet) {
-      throw new BusinessLogicException(
-        'No active criteria set',
-        'APPRAISAL_NO_ACTIVE_CRITERIA_SET',
-      );
-    }
-
     const period = periodStart(targetPeriod ?? addMonths(currentPeriod(), 1));
     const end = periodEnd(period);
 
@@ -411,6 +410,13 @@ export class AppraisalsService {
 
       for (const department of departments) {
         try {
+          const criteriaSet = (
+            await this.criteriaService.findActive(department.id)
+          ).data;
+          if (!criteriaSet) {
+            skipped += 1;
+            continue;
+          }
           const eligible = await this.repository.findEligible(
             department.id,
             period,
@@ -424,7 +430,7 @@ export class AppraisalsService {
             {
               departmentId: department.id,
               period,
-              criteriaSetId: activeSet.id,
+              criteriaSetId: criteriaSet.id,
               source: 'SCHEDULER',
               createdBy: null,
             },
@@ -464,15 +470,21 @@ export class AppraisalsService {
 
   // ── Private helpers ────────────────────────────────────────────────────────
 
-  private async requireActiveSet(): Promise<CriterionSetLike> {
-    const activeSet = (await this.criteriaService.findActive()).data;
-    if (!activeSet) {
+  private async requireCriteriaSet(setId: string, departmentId: string) {
+    const set = (await this.criteriaService.findOne(setId)).data;
+    if (set.status === 'DRAFT') {
       throw new BusinessLogicException(
-        'No active criteria set',
-        'APPRAISAL_NO_ACTIVE_CRITERIA_SET',
+        'A DRAFT criteria set cannot be used for an appraisal',
+        'APPRAISAL_CRITERIA_SET_DRAFT',
       );
     }
-    return activeSet;
+    if (set.departmentId !== null && set.departmentId !== departmentId) {
+      throw new BusinessLogicException(
+        'The criteria set is not available for this department',
+        'APPRAISAL_CRITERIA_SET_NOT_AVAILABLE',
+      );
+    }
+    return set;
   }
 
   private async criteriaForSet(setId: string): Promise<CriterionResponse[]> {
@@ -584,6 +596,8 @@ export class AppraisalsService {
       departmentId: string;
       period: string;
       criteriaSetId: string;
+      criteriaSetVersion: number | null;
+      criteriaSetStatus: string | null;
       status: string;
       source: string;
       createdBy: string | null;
@@ -639,9 +653,9 @@ export class AppraisalsService {
       departmentName,
       period: appraisal.period,
       criteriaSetId: appraisal.criteriaSetId,
-      criteriaSetVersion:
-        (appraisal as unknown as { criteriaSetVersion?: number })
-          .criteriaSetVersion ?? 0,
+      criteriaSetVersion: appraisal.criteriaSetVersion ?? 0,
+      criteriaSetStatus: (appraisal.criteriaSetStatus ??
+        'ARCHIVED') as AppraisalResponse['criteriaSetStatus'],
       status: appraisal.status as AppraisalResponse['status'],
       source: appraisal.source as AppraisalResponse['source'],
       createdBy: appraisal.createdBy,
@@ -664,9 +678,4 @@ export class AppraisalsService {
       requestId: this.requestContext.getRequestId() ?? null,
     };
   }
-}
-
-interface CriterionSetLike {
-  id: string;
-  version: number;
 }

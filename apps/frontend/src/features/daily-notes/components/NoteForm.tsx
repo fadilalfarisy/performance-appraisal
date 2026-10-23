@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import {
   Button,
   Card,
@@ -9,32 +10,38 @@ import {
   Select,
   Space,
   Switch,
-  Typography,
 } from "antd";
 import dayjs from "dayjs";
 import {
   FieldInputType,
   type AccessibleEmployeeResponse,
   type CriterionFieldResponse,
-  type CriterionResponse,
   type DailyNoteValueInput,
   type FieldValue,
 } from "@appraisal/types";
 
-const { Text } = Typography;
-
 type Payload = {
   employeeId: string;
   recordDate: string;
+  criteriaSetId: string;
   values: DailyNoteValueInput[];
 };
 
+type CriteriaSetOption = {
+  value: string;
+  label: string;
+};
+
 type Props = {
-  criteria: CriterionResponse[];
+  fields: CriterionFieldResponse[];
   employeeOptions: AccessibleEmployeeResponse[];
   initialEmployeeId?: string;
   initialRecordDate?: string;
   initialFieldValues?: Record<string, FieldValue>;
+  initialCriteriaSetId?: string;
+  criteriaSetOptions?: CriteriaSetOption[];
+  onCriteriaSetChange?: (value: string) => void;
+  onEmployeeChange?: (value: string) => void;
   lockKeyFields?: boolean;
   loading?: boolean;
   submitLabel: string;
@@ -88,37 +95,48 @@ const FieldInput = ({ field }: { field: CriterionFieldResponse }) => {
 };
 
 export const NoteForm = ({
-  criteria,
+  fields,
   employeeOptions,
   initialEmployeeId,
   initialRecordDate,
   initialFieldValues,
+  initialCriteriaSetId,
+  criteriaSetOptions,
+  onCriteriaSetChange,
+  onEmployeeChange,
   lockKeyFields = false,
   loading = false,
   submitLabel,
   onSubmit,
 }: Props) => {
   const [form] = Form.useForm();
-  const groups = criteria.filter((criterion) => criterion.fields.length > 0);
-  const fields = groups.flatMap((criterion) => criterion.fields);
-
-  if (fields.length === 0) {
-    return (
-      <Empty description="The active criteria set has no note fields yet" />
-    );
-  }
+  const selectedCriteriaSetId = Form.useWatch("criteriaSetId", form);
+  const fieldsKey = fields.map((field) => field.id).join(",");
+  const fieldsRef = useRef(fields);
+  const initialFieldValuesRef = useRef(initialFieldValues);
+  const lastFieldsKey = useRef<string | null>(null);
+  fieldsRef.current = fields;
+  initialFieldValuesRef.current = initialFieldValues;
 
   const initialValues: Record<string, unknown> = {
     employeeId: initialEmployeeId,
     recordDate: initialRecordDate ? dayjs(initialRecordDate) : undefined,
+    criteriaSetId: initialCriteriaSetId,
   };
-  for (const field of fields) {
-    const provided = initialFieldValues?.[field.id];
-    const value =
-      provided ?? field.defaultValue ?? undefined;
-    initialValues[field.id] =
-      field.inputType === FieldInputType.DATE ? toDayjs(value) : value;
-  }
+
+  useEffect(() => {
+    if (lastFieldsKey.current === fieldsKey) return;
+    lastFieldsKey.current = fieldsKey;
+
+    const values: Record<string, unknown> = {};
+    for (const field of fieldsRef.current) {
+      const provided = initialFieldValuesRef.current?.[field.id];
+      const value = provided ?? field.defaultValue ?? undefined;
+      values[field.id] =
+        field.inputType === FieldInputType.DATE ? toDayjs(value) : value;
+    }
+    form.setFieldsValue(values);
+  }, [fieldsKey, form]);
 
   const handleFinish = (values: Record<string, unknown>) => {
     const payloadValues: DailyNoteValueInput[] = fields.map((field) => {
@@ -136,9 +154,13 @@ export const NoteForm = ({
     onSubmit({
       employeeId: values.employeeId as string,
       recordDate: dayjs(values.recordDate as string).format("YYYY-MM-DD"),
+      criteriaSetId:
+        (values.criteriaSetId as string) ?? initialCriteriaSetId ?? "",
       values: payloadValues,
     });
   };
+
+  const needsCriteriaSet = Boolean(criteriaSetOptions);
 
   return (
     <Form
@@ -146,6 +168,12 @@ export const NoteForm = ({
       layout="vertical"
       initialValues={initialValues}
       onFinish={handleFinish}
+      onValuesChange={(changed) => {
+        if (changed.employeeId !== undefined) {
+          form.setFieldValue("criteriaSetId", undefined);
+          onEmployeeChange?.(changed.employeeId as string);
+        }
+      }}
       style={{ marginTop: 16 }}
     >
       <Space wrap size="large">
@@ -164,18 +192,36 @@ export const NoteForm = ({
         <Form.Item label="Date" name="recordDate" rules={[{ required: true }]}>
           <DatePicker disabled={lockKeyFields} style={{ width: 200 }} />
         </Form.Item>
+        {criteriaSetOptions && (
+          <Form.Item
+            label="Criteria set"
+            name="criteriaSetId"
+            rules={[{ required: true }]}
+          >
+            <Select
+              showSearch
+              optionFilterProp="label"
+              placeholder="Select criteria set"
+              disabled={lockKeyFields}
+              style={{ width: 360 }}
+              options={criteriaSetOptions}
+              onChange={(value) => onCriteriaSetChange?.(value)}
+            />
+          </Form.Item>
+        )}
       </Space>
 
-      {groups.map((criterion) => (
-        <Card
-          key={criterion.id}
-          title={criterion.name}
-          style={{ marginBottom: 16 }}
-        >
-          {criterion.description ? (
-            <Text type="secondary">{criterion.description}</Text>
-          ) : null}
-          {criterion.fields.map((field) => (
+      {fields.length === 0 ? (
+        <Empty
+          description={
+            needsCriteriaSet && !selectedCriteriaSetId
+              ? "Select a criteria set to load the form fields."
+              : "The selected criteria set has no note fields yet."
+          }
+        />
+      ) : (
+        <Card title="Daily note fields" style={{ marginBottom: 16 }}>
+          {fields.map((field) => (
             <Form.Item
               key={field.id}
               label={field.label}
@@ -189,9 +235,14 @@ export const NoteForm = ({
             </Form.Item>
           ))}
         </Card>
-      ))}
+      )}
 
-      <Button type="primary" htmlType="submit" loading={loading}>
+      <Button
+        type="primary"
+        htmlType="submit"
+        loading={loading}
+        disabled={needsCriteriaSet && !selectedCriteriaSetId}
+      >
         {submitLabel}
       </Button>
     </Form>

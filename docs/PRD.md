@@ -1,6 +1,7 @@
 # PRD: Employee Performance Appraisal System
 
-**Status:** Draft v0.6
+**Status:** Draft v0.7
+**Changes from v0.6:** Criteria sets are now scoped per department with `DRAFT`, `ACTIVE`, and `ARCHIVED` statuses (one active set per department, plus an optional global set used as fallback). HR selects the criteria set when creating an appraisal; Supervisor and Head Department select it when recording a daily note. Active criteria may be edited only by ADMIN and only for code, name, description, scale, score descriptions, and form fields; weights and the criterion list are locked.
 **Changes from v0.5:** Removes the contract status field (5.1). A contract is active between its start and end dates, and no two contracts for the same employee may overlap in time; appraisal eligibility (5.4) uses the contract end date only.
 **Changes from v0.4:** Adds Daily Activity Notes (5.9): a per-day dynamic form generated from the criteria set, filled by HEAD DEPARTMENT and by the new SUPERVISOR role; the numeric sum appears on the appraisal as informational data. Adds the SUPERVISOR role (4) and its permissions (5.8).
 
@@ -87,19 +88,24 @@ Acceptance criteria:
 
 Criteria define what employees are rated on. The initial set has five criteria: Quality of Work, Quantity of Work, Discipline, Responsibility, and Running of Instructions. The set can change later.
 
-- Criteria are versioned **as a set**. Any change (adding, editing, reordering, changing weights) creates a new version of the whole set. Nothing is deleted or overwritten.
+- Criteria are versioned **as a set per department**. Each department has its own version chain. A set with no department is a global legacy set and acts as a fallback for departments that do not have their own set.
+- Each set has one of three statuses: `DRAFT`, `ACTIVE`, or `ARCHIVED`. A department may have at most one `ACTIVE` set. Activating a draft moves the previous active set of the same department to `ARCHIVED`.
 - Each criterion has: code, name, description, rating scale (minimum and maximum, not fixed to 1-5), weight, display order.
 - Each score level in a criterion's scale has a description that guides the assessor (e.g. 5 = "Consistently exceeds expectations").
-- The criteria set also defines the daily activity note form: each criterion is a group, and the fields in that group come from reusable form-field definitions (see 5.9). These definitions are versioned with the criteria set.
+- The criteria set also defines the daily activity note form: the form fields belong to the criteria set (not to an individual criterion) and come from reusable form-field definitions (see 5.9). These definitions are versioned with the criteria set.
 - The weights of all criteria in a set must total **100%**. A set that does not total 100% can be saved as a draft but cannot be activated.
-- Only one set is active at a time. New appraisals use the latest active set.
-- Retiring a criterion creates a new set version without it; the old version stays in history.
-- Each appraisal keeps a snapshot reference to the criteria set version it was created with, so past results never change.
+- A `DRAFT` set can be edited freely by ADMIN and HR, including weights, the criterion list, and form fields.
+- An `ACTIVE` set can be edited only by ADMIN, and only its code, name, description, scale, score descriptions, and form fields. Its weights and criterion list (adding or removing criteria) are locked. An `ARCHIVED` set is read-only.
+- Retiring a criterion from an `ACTIVE` set requires a new draft and activation; the old version stays in history as `ARCHIVED`.
+- HR selects the criteria set to use when creating an appraisal. Supervisor and Head Department select the criteria set to use when recording a daily note. Only non-draft sets available to the department (department-specific or global) can be selected.
+- Each appraisal and each daily note keeps a snapshot reference to the criteria set version it used, so past results never change.
 
 Acceptance criteria:
-- Activating a new set marks the previous set as superseded.
+- Activating a new set marks the previous active set of the same department as `ARCHIVED`.
 - The system shows the version history of the criteria set with who changed it and when.
-- Changing the active set does not affect existing appraisals.
+- Changing the active set does not affect existing appraisals or daily notes.
+- Editing an `ACTIVE` set cannot change its weights or add/remove criteria.
+- A department with no active set cannot create new appraisals until HR selects a global set or activates a department set.
 
 ### 5.4 Performance Appraisal (P0)
 
@@ -110,13 +116,14 @@ The appraisal is presented as a **table**: rows are employees, columns are crite
 - The appraisal covers employees whose contract ends within the period month.
 
 **Creating an appraisal: manual**
-1. HR chooses a department and a period date.
+1. HR chooses a department, a period date, and the criteria set to use (an `ACTIVE` or `ARCHIVED` set available to that department, or a global set).
 2. The system shows the list of eligible employees for that department.
 3. HR can add or remove employees (same department, active only) and confirms.
-4. The appraisal is created with status DRAFT.
+4. The appraisal is created with status DRAFT and pins the selected criteria set.
 
 **Creating appraisals: automatic (scheduler)**
 - A scheduled job runs on **day 1 of every month** and creates a DRAFT appraisal for **every department** that has eligible employees.
+- The job uses the latest `ACTIVE` criteria set of the department. If the department has none, it uses the global `ACTIVE` set. If neither exists, the department is skipped.
 - The job targets contracts ending in the **following month**. The look-ahead is configurable.
 - The job never creates duplicates: if an appraisal already exists for the department and period, it is skipped.
 - Contracts without an end date (permanent) are not included.
@@ -127,7 +134,7 @@ The appraisal is presented as a **table**: rows are employees, columns are crite
 - An employee cannot appear in more than one open (not COMPLETE) appraisal for the same period.
 
 **Table behavior**
-- Columns are generated from the active criteria set when the appraisal is created.
+- Columns are generated from the criteria set selected when the appraisal is created.
 - Each cell holds a rating within that criterion's scale. The score guide for each level is shown to the assessor.
 - Optional comment per employee row (P1: comment per cell).
 - Total score per employee is calculated automatically: each rating is normalized (`rating / maximum of that criterion's scale`), multiplied by the criterion weight, and summed to a score out of 100.
@@ -243,8 +250,11 @@ C = create, R = read, U = update, D = delete (soft), A = perform status transiti
 | Department, position | CRUX | R | R (own dept) | R (scope) | R | R |
 | Employee, contract | CRUX | CRUX | R (own dept) | R (scope) | R | R (own subordinates) |
 | User management | CRU | - | - | - | - | - |
-| Criteria set management | CRU | CRU | R | R | R | R |
-| Note form fields (dynamic form) | CRU | CRU | - | - | - | - |
+| Criteria set versioning (create draft, activate) | CRU | CRU | R | R | R | R |
+| Edit DRAFT criteria content (criteria, weights, fields) | CRU | CRU | - | - | - | - |
+| Edit ACTIVE criteria content (code, name, description, scale, score descriptions, fields) | U | - | - | - | - | - |
+| Note form fields (DRAFT) | CRU | CRU | - | - | - | - |
+| Note form fields (ACTIVE) | U | - | - | - | - | - |
 | Create appraisal, edit employee list, soft delete (DRAFT) | - | CRU | - | - | - | - |
 | DRAFT → PENDING | - | A | - | - | - | - |
 | Give / edit ratings (PENDING) | - | - | U (own dept) | - | - | - |
@@ -275,10 +285,12 @@ Supervisors and Head Department record what an employee did each day. The note f
 - Notes are never physically deleted (soft delete), and every create, edit, and delete is audited.
 
 **Dynamic form**
-- The form is generated from the **active criteria set** in effect when a note is created. Each criterion is a **group**; the fields in a group come from reusable form-field definitions, each with a label, a field key, an input type, a required flag, a default value, and validation rules.
+- The form is generated from the criteria set selected by the Supervisor or Head Department when a note is created. The list contains non-draft sets available to the employee's department (department-specific or global).
+- The form fields belong to the criteria set itself, so they are presented as a single flat form without per-criterion grouping.
 - Supported input types include text, number, option (single and multiple choice), boolean, and date. The list is extensible; adding a type does not require changing existing forms.
-- Editing the active criteria set changes the form for **new** notes only. Existing notes keep the values they were captured with.
-- The form-field definitions are managed with the criteria set by Admin and HR (see 5.3 and 5.8).
+- Editing a criteria set changes the form for **new** notes only. Existing notes keep the criteria set and values they were captured with.
+- The selected criteria set is pinned to the note; editing the note uses the same set.
+- `DRAFT` form-field definitions are managed by Admin and HR. `ACTIVE` form-field definitions are managed by Admin only (see 5.3 and 5.8).
 
 **Sum on the appraisal**
 - The **daily note sum** for an employee over a period is the sum of all numeric field values across that employee's notes in that department and month. Fields that are not numeric contribute 0.
@@ -293,7 +305,7 @@ Supervisors and Head Department record what an employee did each day. The note f
 Acceptance criteria:
 - A second note for the same employee and the same day is rejected.
 - A user who is not linked to an employee, or who is not the employee's superior, cannot create a note for that employee.
-- The form shows one group per criterion of the active set, with the fields defined for it.
+- The form shows the fields defined on the selected set, without per-criterion grouping.
 - Values that break a field's rules (for example an out-of-range number or a missing required field) are rejected.
 - The appraisal shows the correct sum for the period, and changing notes updates it.
 - Notes written before a criteria-set change still show their original values and still count toward the sum.
@@ -315,7 +327,7 @@ Acceptance criteria:
 3. **Assessment:** Head Department fills the table (or downloads the template, fills it in Excel, and imports it back) and submits.
 4. **Approval:** Manager approves or sends back with a comment → General Manager completes or sends back with a comment.
 5. **Reporting:** HR exports appraisal results; HR or Admin reviews the audit trail when needed.
-6. **Daily activity:** Supervisor or Head Department records a note for each employee every day using the form generated from the active criteria set; the values accumulate and appear as the daily note sum on the department's appraisal.
+6. **Daily activity:** Supervisor or Head Department records a note for each employee every day using the form generated from the selected criteria set; the values accumulate and appear as the daily note sum on the department's appraisal.
 
 ## 8. Dependencies, Assumptions, and Risks
 
@@ -332,7 +344,7 @@ Acceptance criteria:
 | Users edit wrong department data | Server-side department scoping and audit trail |
 | Scheduler creates duplicates or misses departments | One appraisal per department per period enforced by the database; scheduler runs are audited |
 | Manual database purge of audit records is done by mistake or abused | Application has no delete rights on the audit table; purge follows a documented procedure and is recorded |
-| Daily notes are entered against the wrong criteria version | Existing notes keep the values captured with their criteria version; the form for new notes follows the active set |
+| Daily notes are entered against the wrong criteria version | Existing notes keep the values captured with their criteria version; the form for new notes follows the selected set |
 
 ## 9. Release Plan (proposed)
 

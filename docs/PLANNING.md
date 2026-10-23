@@ -47,10 +47,10 @@ Approach: full PRD alignment (PRD fields, not just behavior), done in stages so 
 
 ## Phase 3 — Criteria versioning
 
-- [x] Add schema and repository for `criteria_sets`, `criteria`, `criteria_scale_descriptions` (unique version, one-ACTIVE partial unique index, `scale_min < scale_max` and `weight > 0` checks, unique `(set, code)` and `(criterion, score)`).
-- [x] Create DRAFT set (version = max + 1, copies the active set) and DRAFT-only editing rules.
-- [x] Activation: weights total 100, `scale_min < scale_max`, every score level described, unique codes; supersede the previous set and activate in one transaction (audited).
-- [x] Version history (`GET /criteria-sets`) and ACTIVE/SUPERSEDED edits blocked (422 `CRITERIA_SET_NOT_EDITABLE`).
+- [x] Add schema and repository for `criteria_sets`, `criteria`, `criteria_scale_descriptions` (unique version per department group, one-ACTIVE partial unique index per group, `scale_min < scale_max` and `weight > 0` checks, unique `(set, code)` and `(criterion, score)`).
+- [x] Create DRAFT set (version = max + 1 per department, copies the group's active set) with DRAFT/ACTIVE/ARCHIVED editing rules.
+- [x] Activation: weights total 100, `scale_min < scale_max`, every score level described, unique codes; archive the previous set in the same department group and activate in one transaction (audited).
+- [x] Version history (`GET /criteria-sets`) and department-scoped ACTIVE/ARCHIVED statuses; ACTIVE edits are limited to ADMIN content fields.
 
 ## Phase 4 — Appraisals
 

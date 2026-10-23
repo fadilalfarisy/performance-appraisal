@@ -1,4 +1,8 @@
-import type { CriterionInput } from '@appraisal/types';
+import type {
+  CriterionFieldInput,
+  CriterionInput,
+  CriterionResponse,
+} from '@appraisal/types';
 import { BusinessLogicException } from '../common/exceptions/custom.exceptions';
 import {
   isValueEmpty,
@@ -42,8 +46,6 @@ export function validateCriteriaSet(list: CriterionInput[]): void {
       }
     }
 
-    validateCriterionFields(criterion);
-
     total += criterion.weight;
   }
 
@@ -55,12 +57,58 @@ export function validateCriteriaSet(list: CriterionInput[]): void {
   }
 }
 
-function validateCriterionFields(criterion: CriterionInput): void {
+/**
+ * An ACTIVE set keeps its weights and its criterion list. Only content that
+ * cannot change the score structure may be updated.
+ */
+export function validateActiveCriteriaUpdate(
+  existing: CriterionResponse[],
+  incoming: CriterionInput[],
+): void {
+  if (incoming.length !== existing.length) {
+    throw new BusinessLogicException(
+      'The criterion list of an ACTIVE set is locked',
+      'CRITERIA_SET_STRUCTURE_LOCKED',
+    );
+  }
+
+  const existingById = new Map(existing.map((criterion) => [criterion.id, criterion]));
+  const seen = new Set<string>();
+
+  for (const criterion of incoming) {
+    if (!criterion.id || seen.has(criterion.id)) {
+      throw new BusinessLogicException(
+        'The criterion list of an ACTIVE set is locked',
+        'CRITERIA_SET_STRUCTURE_LOCKED',
+      );
+    }
+    const current = existingById.get(criterion.id);
+    if (!current) {
+      throw new BusinessLogicException(
+        `Criterion ${criterion.id} does not belong to this set`,
+        'CRITERIA_SET_STRUCTURE_LOCKED',
+      );
+    }
+    seen.add(criterion.id);
+
+    if (Math.abs(Number(criterion.weight) - Number(current.weight)) > 0.001) {
+      throw new BusinessLogicException(
+        'Weights cannot be changed on an ACTIVE criteria set',
+        'CRITERIA_WEIGHT_LOCKED',
+      );
+    }
+  }
+
+  validateCriteriaSet(incoming);
+}
+
+/** Validates the dynamic note form fields owned by a criteria set. */
+export function validateFields(fields: CriterionFieldInput[]): void {
   const keys = new Set<string>();
-  for (const field of criterion.fields ?? []) {
+  for (const field of fields) {
     if (keys.has(field.fieldKey)) {
       throw new BusinessLogicException(
-        `Duplicate field key ${field.fieldKey} in criterion ${criterion.code}`,
+        `Duplicate field key ${field.fieldKey} in this criteria set`,
         'CRITERIA_FIELD_DUPLICATE_KEY',
       );
     }

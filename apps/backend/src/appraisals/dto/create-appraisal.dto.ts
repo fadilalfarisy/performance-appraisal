@@ -19,6 +19,11 @@ export class CreateAppraisalDto implements CreateAppraisalRequest {
   @IsNotEmpty()
   period!: string;
 
+  @ApiProperty({ example: 'criteria-set-uuid' })
+  @IsUUID()
+  @IsNotEmpty()
+  criteriaSetId!: string;
+
   @ApiProperty({ type: [String] })
   @IsArray()
   @ArrayNotEmpty()

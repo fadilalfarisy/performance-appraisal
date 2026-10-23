@@ -198,13 +198,14 @@ export const contracts = pgTable(
 export const criteriaSetStatusEnum = pgEnum('criteria_set_status', [
   'DRAFT',
   'ACTIVE',
-  'SUPERSEDED',
+  'ARCHIVED',
 ]);
 
 export const criteriaSets = pgTable(
   'criteria_sets',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    departmentId: uuid('department_id').references(() => departments.id),
     version: integer('version').notNull(),
     status: criteriaSetStatusEnum('status').default('DRAFT').notNull(),
     note: text('note'),
@@ -214,10 +215,16 @@ export const criteriaSets = pgTable(
     ...baseFields,
   },
   (table) => [
-    uniqueIndex('uq_criteria_sets_version').on(table.version),
-    uniqueIndex('uq_criteria_sets_active')
-      .on(table.status)
+    uniqueIndex('uq_criteria_sets_department_version').on(
+      sql`coalesce(${table.departmentId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
+      table.version,
+    ),
+    uniqueIndex('uq_criteria_sets_department_active')
+      .on(
+        sql`coalesce(${table.departmentId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
+      )
       .where(sql`status = 'ACTIVE'`),
+    index('idx_criteria_sets_department').on(table.departmentId),
   ],
 );
 
@@ -282,9 +289,6 @@ export const criteriaFields = pgTable(
     criteriaSetId: uuid('criteria_set_id')
       .references(() => criteriaSets.id, { onDelete: 'cascade' })
       .notNull(),
-    criterionId: uuid('criterion_id')
-      .references(() => criteria.id, { onDelete: 'cascade' })
-      .notNull(),
     fieldKey: varchar('field_key', { length: 100 }).notNull(),
     label: varchar('label', { length: 255 }).notNull(),
     inputType: fieldInputTypeEnum('input_type').notNull(),
@@ -296,11 +300,9 @@ export const criteriaFields = pgTable(
     ...baseFields,
   },
   (table) => [
-    uniqueIndex('uq_criteria_field_key').on(
-      table.criteriaSetId,
-      table.criterionId,
-      table.fieldKey,
-    ),
+    uniqueIndex('uq_criteria_field_key')
+      .on(table.criteriaSetId, table.fieldKey)
+      .where(sql`is_deleted = false`),
     index('idx_criteria_fields_set').on(table.criteriaSetId),
   ],
 );
@@ -527,8 +529,13 @@ export const contractsRelations = relations(contracts, ({ one }) => ({
   }),
 }));
 
-export const criteriaSetsRelations = relations(criteriaSets, ({ many }) => ({
+export const criteriaSetsRelations = relations(criteriaSets, ({ one, many }) => ({
+  department: one(departments, {
+    fields: [criteriaSets.departmentId],
+    references: [departments.id],
+  }),
   criteria: many(criteria),
+  fields: many(criteriaFields),
 }));
 
 export const criteriaRelations = relations(criteria, ({ one, many }) => ({
@@ -537,17 +544,12 @@ export const criteriaRelations = relations(criteria, ({ one, many }) => ({
     references: [criteriaSets.id],
   }),
   scaleDescriptions: many(criteriaScaleDescriptions),
-  fields: many(criteriaFields),
 }));
 
 export const criteriaFieldsRelations = relations(criteriaFields, ({ one }) => ({
   criteriaSet: one(criteriaSets, {
     fields: [criteriaFields.criteriaSetId],
     references: [criteriaSets.id],
-  }),
-  criterion: one(criteria, {
-    fields: [criteriaFields.criterionId],
-    references: [criteria.id],
   }),
 }));
 

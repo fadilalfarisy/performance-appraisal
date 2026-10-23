@@ -22,13 +22,13 @@
 
 ## 1. Ringkasan Module
 
-**CriteriaModule** mengelola **versi set kriteria penilaian**. Satu set berisi beberapa kriteria (mis. Kualitas, Kuantitas, Disiplin) yang total bobotnya harus tepat 100. Set memiliki siklus status: `DRAFT → ACTIVE → SUPERSEDED`. Hanya set `DRAFT` yang boleh diedit; saat sebuah set di-aktifkan, set `ACTIVE` lama otomatis menjadi `SUPERSEDED`. Set lama tidak pernah diubah atau dihapus.
+**CriteriaModule** mengelola **versi set kriteria penilaian per department**. Satu set berisi beberapa kriteria (mis. Kualitas, Kuantitas, Disiplin) yang total bobotnya harus tepat 100. Set memiliki siklus status: `DRAFT → ACTIVE → ARCHIVED`. Set `ACTIVE` dikelola per department (set global dengan `department_id` NULL menjadi fallback). `DRAFT` dapat diedit ADMIN/HR; `ACTIVE` hanya dapat diedit ADMIN dan hanya untuk code, name, description, scale, score description, dan form fields (bobot dan daftar kriteria terkunci); `ARCHIVED` hanya-baca. Set tidak pernah dihapus.
 
 Analogi: ini seperti **kurikulum sekolah yang diberlakukan per tahun ajaran**. Kurikulum 2023 yang sedang berlaku tidak boleh diubah-ubah. Kalau mau perubahan, buat draf kurikulum baru (2024), susun sampai rapi, baru "diberlakukan" — dan kurikulum lama otomatis berstatus "tidak berlaku lagi".
 
 **Istilah baru:**
 - **Versioning** = sistem penyimpanan versi; versi lama tetap tersimpan utuh.
-- **DRAFT/ACTIVE/SUPERSEDED** = status draf, sedang berlaku, dan sudah digantikan.
+- **DRAFT/ACTIVE/ARCHIVED** = status draf, sedang berlaku, dan sudah diarsipkan.
 - **Bobot (weight)** = kontribusi tiap kriteria; totalnya harus 100.
 
 ---
@@ -62,7 +62,7 @@ Versi teks:
 ```
 Create draft: Controller → Service (version+1, copy active) → Repo → DB → audit
 Update:       Controller → Service (cek DRAFT) → validateCriteriaSet → Repo.replace → audit
-Activate:     Controller → Service (cek DRAFT, validasi) → supersedeActive + activate → audit
+Activate:     Controller → Service (cek DRAFT, validasi) → archiveActive + activate → audit
 ```
 
 ---
@@ -103,12 +103,13 @@ export class CriteriaController {
 
 - **Fungsinya:**
   - `GET /criteria-sets` → daftar semua versi (terbaru dulu).
-  - `GET /criteria-sets/active` → set yang sedang berlaku (bisa `null`).
+  - `GET /criteria-sets/active?departmentId=` → set yang sedang berlaku untuk department (fallback global, bisa `null`).
+  - `GET /criteria-sets/available?departmentId=` → ringkasan set non-draft untuk department + global.
   - `POST` → membuat draf baru (menyalin set aktif bila `criteria` tidak dikirim).
-  - `PUT /:id` → mengedit draf.
+  - `PUT /:id` → mengedit draf (ADMIN/HR) atau konten set ACTIVE (ADMIN).
   - `POST /:id/activate` → mengaktifkan draf.
 - **Kenapa dibuat seperti ini:**
-  - **Tidak ada endpoint DELETE.** Sesuai aturan "set yang aktif/superseded tidak pernah dihapus". Yang bisa dihapus hanyalah isi kriteria di dalam draf (via PUT).
+  - **Tidak ada endpoint DELETE.** Sesuai aturan "set tidak pernah dihapus". Yang bisa dihapus hanyalah isi kriteria di dalam draf (via PUT).
   - `POST /:id/activate` memakai POST karena ini **aksi** (mengubah status), bukan sekadar mengganti resource.
 - **Dampaknya:** Menghapus `@Roles(ADMIN, HR)` → siapa pun yang login bisa mengubah kurikulum. Menambah endpoint DELETE berpotensi melanggar aturan versioning.
 - **Analogi:** Panitia kurikulum: hanya anggota berwenang yang boleh menyusun/memberlakukan; tidak ada tombol "hapus kurikulum".
@@ -125,7 +126,7 @@ async findAll() {
   return ok(sets.map((set) => this.toResponse(set, criteriaBySet[set.id] ?? [])));
 }
 async findActive() {
-  const set = await this.criteriaRepository.findActiveSet();
+  const set = await this.criteriaRepository.findActiveSet(departmentId, tx);
   if (!set) return ok(null);
   ...
 }
@@ -146,7 +147,7 @@ const created = await this.dbService.transaction(async (tx) => {
 
   let list = dto.criteria;
   if (!list) {                        // bila tak dikirim, salin dari set ACTIVE
-    const active = await this.criteriaRepository.findActiveSet(tx);
+    const active = await this.criteriaRepository.findActiveSet(departmentId, tx);
     if (active) {
       const bySet = await this.criteriaRepository.criteriaBySetIds([active.id], tx);
       list = (bySet[active.id] ?? []).map((c) => this.toInput(c));
@@ -169,7 +170,8 @@ return this.findOne(created.id);
 
 ```ts
 const set = await this.findSetOrFail(id);
-if (set.status !== 'DRAFT') throw new BusinessLogicException('Only DRAFT criteria sets can be edited', 'CRITERIA_SET_NOT_EDITABLE');
+if (set.status === 'ARCHIVED') throw new BusinessLogicException('ARCHIVED criteria sets are read-only', 'CRITERIA_SET_ARCHIVED');
+if (set.status === 'ACTIVE' && role !== 'ADMIN') throw new ForbiddenException('Only ADMIN can edit an ACTIVE criteria set');
 if (dto.criteria !== undefined) validateCriteriaSet(dto.criteria);
 await this.dbService.transaction(async (tx) => {
   if (dto.note !== undefined) await this.criteriaRepository.updateSet(id, { note: dto.note }, tx);
@@ -178,10 +180,10 @@ await this.dbService.transaction(async (tx) => {
 });
 ```
 
-- **Fungsinya:** Hanya mengizinkan edit bila status `DRAFT`. Bila kriteria dikirim, divalidasi dulu (`validateCriteriaSet`), lalu diganti (replace).
-- **Kenapa dibuat seperti ini:** Menegakkan aturan domain: set ACTIVE/SUPERSEDED tidak boleh diubah. Validasi sebelum menulis mencegah set tidak sah.
-- **Dampaknya:** Bila cek status dihapus, kurikulum yang sedang berlaku bisa diubah — melanggar aturan dan membingungkan nilai yang sudah ada.
-- **Analogi:** Kurikulum yang sudah diberlakukan di-"kunci"; hanya draf yang bisa diedit.
+- **Fungsinya:** `DRAFT` boleh diedit penuh oleh ADMIN/HR. `ACTIVE` hanya boleh diedit ADMIN dan hanya untuk code, name, description, scale, score description, dan form fields; bobot serta daftar kriteria terkunci. `ARCHIVED` ditolak.
+- **Kenapa dibuat seperti ini:** Menegakkan aturan domain: struktur skor (bobot dan daftar kriteria) tidak boleh berubah setelah berlaku, tetapi teks, skala, dan form fields masih bisa diperbaiki.
+- **Dampaknya:** Bila cek status dihapus, kurikulum yang sedang berlaku bisa diubah seenaknya — melanggar aturan dan membingungkan nilai yang sudah ada.
+- **Analogi:** Kurikulum yang sudah diberlakukan hanya boleh diperbaiki teks/skalanya; bobot dan daftar mata pelajarannya terkunci. Perubahan struktur harus lewat draf baru.
 
 `activate`:
 
@@ -192,17 +194,17 @@ const list = (bySet[id] ?? []).map((c) => this.toInput(c));
 if (list.length === 0) throw new BusinessLogicException('A criteria set needs at least one criterion', 'CRITERIA_SET_EMPTY');
 validateCriteriaSet(list);
 await this.dbService.transaction(async (tx) => {
-  await this.criteriaRepository.supersedeActive(tx);   // semua ACTIVE → SUPERSEDED
-  await this.criteriaRepository.activate(id, this.requestContext.getUser()?.userId ?? null, null, tx);
+  await this.criteriaRepository.archiveActive(set.departmentId, tx); // ACTIVE grup yang sama → ARCHIVED
+  await this.criteriaRepository.activate(id, this.requestContext.getUser()?.userId ?? null, tx);
   await this.audit.record(tx, { action: 'CRITERIA_SET_ACTIVATED', ..., after: { status: 'ACTIVE' }, ... });
 });
 ```
 
-- **Fungsinya:** Mengaktifkan draf: set ACTIVE lama di-`SUPERSEDED`, lalu draf menjadi `ACTIVE` (mencatat `activatedBy`/`activatedAt`). Sebelumnya, isi set divalidasi (tidak boleh kosong; bobot total 100, dsb).
-- **Kenapa dibuat seperti ini:** Menjaga "satu set aktif" (didukung unique index parsial di DB). Urutan `supersedeActive` dulu penting agar tidak melanggar index `uq_criteria_sets_active`.
+- **Fungsinya:** Mengaktifkan draf: set `ACTIVE` lama pada department yang sama di-`ARCHIVED`, lalu draf menjadi `ACTIVE` (mencatat `activatedBy`/`activatedAt`). Sebelumnya, isi set divalidasi (tidak boleh kosong; bobot total 100, dsb).
+- **Kenapa dibuat seperti ini:** Menjaga "satu set aktif per department group" (didukung unique index parsial di DB). Urutan `archiveActive` dulu penting agar tidak melanggar index `uq_criteria_sets_department_active`.
 - **Dampaknya:** Kalau urutan dibalik, aktivasi bisa gagal karena dua baris ACTIVE sekaligus. Kalau validasi dilepas, set tidak sah bisa berlaku.
 - **Analogi:** Memberlakukan kurikulum baru: yang lama otomatis dicabut status berlakunya, dalam satu langkah.
-- **Istilah baru:** **Supersede** = menggantikan versi lama.
+- **Istilah baru:** **Archive** = mengarsipkan versi lama (status `ARCHIVED`) saat versi baru diaktifkan.
 
 `toResponse` / `toInput` / `actor` / `findSetOrFail` → helper pemetaan & pelaku audit (pola sama dengan module lain).
 
@@ -210,11 +212,11 @@ await this.dbService.transaction(async (tx) => {
 
 - `getMaxVersion` → `coalesce(max(version), 0)` (0 bila belum ada set).
 - `findAllSets` → semua set, `notDeleted`, urut `version` desc.
-- `findSetById` / `findActiveSet` → satu set (aktif difilter `status = 'ACTIVE'`).
+- `findSetById` / `findActiveSet(departmentId)` → satu set (aktif difilter `status = 'ACTIVE'`, fallback global).
 - `criteriaBySetIds(setIds)` → mengambil kriteria + `scaleDescriptions` secara batch, dikelompokkan per set, diurutkan `displayOrder`.
 - `createSet` / `updateSet` → insert/update set (selalu `notDeleted`).
 - `replaceCriteria` → hapus semua kriteria set lalu insert ulang (plus deskripsi skala).
-- `supersedeActive` → semua `ACTIVE` → `SUPERSEDED`.
+- `archiveActive` → `ACTIVE` pada department group yang sama → `ARCHIVED`.
 - `activate` → set status `ACTIVE`, `activatedBy`, `activatedAt`.
 
 ```ts
@@ -232,7 +234,7 @@ async replaceCriteria(setId, list, executor = this.db) {
 - **Dampaknya:** Kalau `replaceCriteria` dipanggil di set ACTIVE, riwayat kriteria hilang. Karena validasi status ada di service, ini terlindungi.
 - **Analogi:** Menyusun ulang seluruh daftar kriteria draf dari awal, mengganti halaman lama.
 
-> Perhatian: `replaceCriteria` memakai `delete` (hard delete) untuk baris kriteria draf. Ini bukan "set" yang aktif/superseded, jadi tidak melanggar aturan "set aktif tidak diubah/dihapus". Namun baris kriteria juga punya `isDeleted` (dari `baseFields`); menghapus permanen baris draf wajar, tetapi perlu diingat untuk audit historis.
+> Perhatian: `replaceCriteria` memakai `delete` (hard delete) untuk baris kriteria draf. Ini bukan set `ACTIVE`/`ARCHIVED`, jadi tidak melanggar aturan "set tidak dihapus". Untuk set `ACTIVE`, update dilakukan in-place dan field yang sudah dipakai daily note di-soft-delete.
 
 ### `criteria.validation.ts` — Validasi Set
 
@@ -308,7 +310,7 @@ Skenario: **HR memperbarui bobot kriteria untuk periode berikutnya.**
 
 1. HR `POST /api/criteria-sets` (tanpa `criteria`) → service menghitung `version = max + 1`, **menyalin** kriteria dari set ACTIVE, membuat set `DRAFT`, audit `CRITERIA_SET_CREATED`.
 2. HR `PUT /api/criteria-sets/<id>` dengan `criteria` baru → service memastikan status `DRAFT`, memanggil `validateCriteriaSet` (kode unik, skala valid, semua skor punya deskripsi, total bobot 100), lalu `replaceCriteria` (hapus+insert) dan audit `CRITERIA_SET_UPDATED`.
-3. HR `POST /api/criteria-sets/<id>/activate` → service memastikan masih `DRAFT` & tidak kosong, validasi ulang, lalu dalam transaksi: `supersedeActive` (ACTIVE lama → SUPERSEDED) + `activate` (draf → ACTIVE, catat `activatedBy`/`activatedAt`), audit `CRITERIA_SET_ACTIVATED`.
+3. HR/Admin `POST /api/criteria-sets/<id>/activate` → service memastikan masih `DRAFT` & tidak kosong, validasi ulang, lalu dalam transaksi: `archiveActive` (ACTIVE lama pada department yang sama → ARCHIVED) + `activate` (draf → ACTIVE, catat `activatedBy`/`activatedAt`), audit `CRITERIA_SET_ACTIVATED`.
 4. Set baru kini berlaku; appraisal baru akan memakai set ACTIVE ini (via `criteriaSetId`).
 
 ---
@@ -329,7 +331,7 @@ Skenario: **HR memperbarui bobot kriteria untuk periode berikutnya.**
 
 ## 6. Kesalahan Umum & Tips Pemula
 
-1. **Mencoba mengedit set ACTIVE/SUPERSEDED.** Ditolak `CRITERIA_SET_NOT_EDITABLE`.
+1. **Mencoba mengedit set `ACTIVE` sebagai non-ADMIN atau set `ARCHIVED`.** Ditolak (403/422); set arsip memakai kode `CRITERIA_SET_ARCHIVED`.
 2. **Bobot tidak total 100.** Ditolak `CRITERIA_WEIGHTS_NOT_100`.
 3. **Lupa deskripsi untuk salah satu skor** (mis. skala 1–5 hanya diisi 1,2,3). Ditolak `CRITERIA_SCALE_DESCRIPTION_MISSING`.
 4. **Kode kriteria duplikat.** Ditolak `CRITERIA_DUPLICATE_CODE`.
@@ -347,7 +349,7 @@ Skenario: **HR memperbarui bobot kriteria untuk periode berikutnya.**
 
 - **`createDraft` menyalin kriteria tanpa validasi.** Bila set ACTIVE lama sudah lolos validasi, ini aman; tetapi bila ada data lama tak valid, draf mewarisinya hingga `PUT`/`activate`. Umumnya aman karena aktivasi memvalidasi ulang.
 - **Hanya satu kriteria "skor total 100" lewat toleransi 0.01.** Bagus untuk mengakomodasi desimal, tapi pastikan bobot di DTO (`@IsNumber`, `@Min(0)`) tidak memungkinkan nilai sangat kecil yang membingungkan.
-- **`replaceCriteria` hard-delete baris draf.** Wajar untuk draf, tapi baris kriteria historis dari set SUPERSEDED tidak pernah disentuh (baik, karena set superseded tidak diedit).
+- **`replaceCriteria` hard-delete baris draf.** Wajar untuk draf. Baris kriteria historis pada set `ARCHIVED` tidak pernah disentuh; set `ACTIVE` diupdate in-place dan field yang dipakai daily note di-soft-delete.
 - **Tidak ada masalah keamanan kritis.** Pola versioning + validasi murni + audit konsisten dan sesuai aturan AGENTS.md.
 
 ---
@@ -355,8 +357,8 @@ Skenario: **HR memperbarui bobot kriteria untuk periode berikutnya.**
 ## 8. Rangkuman & Cek Pemahaman
 
 **Poin kunci:**
-1. CriteriaModule mengelola set kriteria ber-versi dengan status DRAFT/ACTIVE/SUPERSEDED.
-2. Hanya DRAFT yang boleh diedit; aktivasi menggantikan set aktive lama (supersede).
+1. CriteriaModule mengelola set kriteria ber-versi per department dengan status DRAFT/ACTIVE/ARCHIVED.
+2. `DRAFT` dapat diedit penuh; `ACTIVE` hanya boleh diubah ADMIN untuk konten non-bobot; `ARCHIVED` hanya-baca. Aktivasi mengarsipkan set aktif lama pada department yang sama.
 3. `validateCriteriaSet` (pure function) menegakkan: kode unik, `scaleMin < scaleMax`, semua skor punya deskripsi, bobot total 100.
 4. Tidak ada endpoint delete set — hanya edit isi draf.
 5. Setiap perubahan dibungkus transaksi + audit.
@@ -367,7 +369,7 @@ Skenario: **HR memperbarui bobot kriteria untuk periode berikutnya.**
    → Agar kurikulum yang sedang berlaku tidak berubah di tengah jalan; perubahan harus lewat draf versi baru sehingga penilaian tetap konsisten & dapat dilacak.
 
 2. *Apa yang dilakukan `activate` terhadap set ACTIVE sebelumnya?*
-   → Menjadikannya `SUPERSEDED` (tidak berlaku lagi), lalu draf menjadi satu-satunya set `ACTIVE`.
+   → Menjadikannya `ARCHIVED` (tidak berlaku lagi), lalu draf menjadi satu-satunya set `ACTIVE` untuk department tersebut.
 
 3. *Kenapa validasi dipisah ke fungsi murni `validateCriteriaSet`?*
    → Agar bisa diuji tanpa NestJS dan dipakai ulang (seed/importer), sekaligus memisahkan aturan murni dari efek samping.

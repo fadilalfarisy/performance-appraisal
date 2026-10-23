@@ -2,7 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsArray, IsOptional, IsString, ValidateNested } from 'class-validator';
 import type { UpdateCriteriaSetRequest } from '@appraisal/types';
-import { CriterionDto } from './create-criteria-set.dto';
+import { CriterionDto, CriterionFieldDto } from './create-criteria-set.dto';
 
 export class UpdateCriteriaSetDto implements UpdateCriteriaSetRequest {
   @ApiPropertyOptional()
@@ -16,4 +16,11 @@ export class UpdateCriteriaSetDto implements UpdateCriteriaSetRequest {
   @ValidateNested({ each: true })
   @Type(() => CriterionDto)
   criteria?: CriterionDto[];
+
+  @ApiPropertyOptional({ type: [CriterionFieldDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CriterionFieldDto)
+  fields?: CriterionFieldDto[];
 }

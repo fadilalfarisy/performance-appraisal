@@ -8,6 +8,8 @@ import {
   Table,
   Space,
   Result,
+  Alert,
+  Tag,
   message,
 } from "antd";
 import type { TableColumnsType } from "antd";
@@ -15,6 +17,7 @@ import { ArrowLeftOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { TitlePage } from "@/components";
 import { useGetDepartmentsQuery } from "@/features/departments";
+import { useGetAvailableCriteriaSetsQuery } from "@/features/criteria";
 import {
   useCreateAppraisalMutation,
   usePreviewAppraisalMutation,
@@ -29,6 +32,13 @@ export const CreateAppraisal = () => {
   const navigate = useNavigate();
   const [form] = Form.useForm();
   const { data: departments } = useGetDepartmentsQuery();
+
+  const departmentId = Form.useWatch("departmentId", form);
+  const { data: availableSets } = useGetAvailableCriteriaSetsQuery(
+    departmentId,
+    { skip: !departmentId },
+  );
+
   const [preview, { isLoading: isPreviewing }] = usePreviewAppraisalMutation();
   const [createAppraisal, { isLoading: isCreating }] =
     useCreateAppraisalMutation();
@@ -38,6 +48,11 @@ export const CreateAppraisal = () => {
   );
   const [selected, setSelected] = useState<string[]>([]);
 
+  const resetPreview = () => {
+    setPreviewData(null);
+    setSelected([]);
+  };
+
   const handlePreview = async () => {
     const values = await form.validateFields();
     try {
@@ -45,6 +60,7 @@ export const CreateAppraisal = () => {
       const { data } = await preview({
         departmentId: values.departmentId,
         period,
+        criteriaSetId: values.criteriaSetId,
       }).unwrap();
       setPreviewData(data);
       setSelected(data.employees.map((employee) => employee.id));
@@ -60,6 +76,7 @@ export const CreateAppraisal = () => {
       const { data } = await createAppraisal({
         departmentId: values.departmentId,
         period,
+        criteriaSetId: values.criteriaSetId,
         employeeIds: selected,
       }).unwrap();
       message.success("Appraisal created");
@@ -81,11 +98,19 @@ export const CreateAppraisal = () => {
     },
   ];
 
+  const criteriaSetOptions = (availableSets?.data ?? []).map((set) => ({
+    value: set.id,
+    label: `v${set.version} — ${set.status} — ${set.departmentName ?? "Global"}`,
+  }));
+
+  const noCriteriaSets =
+    Boolean(departmentId) && (availableSets?.data?.length ?? 0) === 0;
+
   return (
     <>
       <TitlePage
         title="Create Appraisal"
-        description="Pick a department and month"
+        description="Pick a department, month, and criteria set"
       >
         <Button
           onClick={() => navigate("/dashboard/appraisals")}
@@ -94,6 +119,17 @@ export const CreateAppraisal = () => {
           Back
         </Button>
       </TitlePage>
+
+      {noCriteriaSets && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="No criteria set is available for this department"
+          description="Activate a department criteria set or a global set before creating an appraisal."
+        />
+      )}
+
       <Form form={form} layout="vertical" style={{ maxWidth: 520 }}>
         <Form.Item
           label="Department"
@@ -104,6 +140,10 @@ export const CreateAppraisal = () => {
             showSearch
             optionFilterProp="label"
             placeholder="Select department"
+            onChange={() => {
+              form.setFieldValue("criteriaSetId", undefined);
+              resetPreview();
+            }}
             options={(departments?.data ?? []).map((d) => ({
               value: d.id,
               label: d.name,
@@ -111,17 +151,46 @@ export const CreateAppraisal = () => {
           />
         </Form.Item>
         <Form.Item label="Month" name="period" rules={[{ required: true }]}>
-          <DatePicker picker="month" style={{ width: "100%" }} />
+          <DatePicker
+            picker="month"
+            style={{ width: "100%" }}
+            onChange={resetPreview}
+          />
+        </Form.Item>
+        <Form.Item
+          label="Criteria set"
+          name="criteriaSetId"
+          rules={[{ required: true }]}
+        >
+          <Select
+            showSearch
+            optionFilterProp="label"
+            placeholder={
+              departmentId
+                ? "Select criteria set"
+                : "Select a department first"
+            }
+            disabled={!departmentId}
+            onChange={resetPreview}
+            options={criteriaSetOptions}
+          />
         </Form.Item>
         <Button
           type="primary"
           onClick={handlePreview}
           loading={isPreviewing}
-          disabled={Boolean(previewData)}
+          disabled={Boolean(previewData) || noCriteriaSets}
         >
           Preview eligible employees
         </Button>
       </Form>
+
+      {previewData && (
+        <Space style={{ marginTop: 16 }}>
+          <Tag color="blue">Criteria v{previewData.criteriaSetVersion}</Tag>
+          <Tag>{previewData.criteriaSetStatus}</Tag>
+        </Space>
+      )}
 
       {previewData && previewData.employees.length === 0 && (
         <Result

@@ -133,7 +133,7 @@ export class AppraisalsController {
 `preview` / `create`:
 
 ```ts
-const activeSet = await this.requireActiveSet();
+const criteriaSet = await this.requireCriteriaSet(dto.criteriaSetId, dto.departmentId);
 const start = periodStart(dto.period);
 const eligible = await this.repository.findEligible(dto.departmentId, start, periodEnd(dto.period));
 
@@ -143,7 +143,7 @@ const chosen = dto.employeeIds.map((id) => byId.get(id)).filter((row): row is El
 if (chosen.length !== dto.employeeIds.length) throw new BusinessLogicException('Some employees are not eligible...', 'APPRAISAL_INELIGIBLE_EMPLOYEE');
 
 const created = await this.dbService.transaction(async (tx) => {
-  const appraisal = await this.repository.createAppraisal({ departmentId, period: start, criteriaSetId: activeSet.id, source: 'MANUAL', createdBy: userId }, tx);
+  const appraisal = await this.repository.createAppraisal({ departmentId, period: start, criteriaSetId: criteriaSet.id, source: 'MANUAL', createdBy: userId }, tx);
   if (!appraisal) throw new ConflictException({ message: 'An appraisal already exists for this department and period', errorCode: 'APPRAISAL_ALREADY_EXISTS' });
   await this.repository.insertEmployees(chosen.map((e) => this.toSnapshot(appraisal.id, e)), tx);
   await this.audit.record(tx, { action: 'APPRAISAL_CREATED', entity: 'appraisal', entityId: appraisal.id, after: { departmentId, period: start, employees: chosen.length }, ...this.actor() });
@@ -309,9 +309,6 @@ for (const employee of employees) {
 `runScheduler` (job bulanan):
 
 ```ts
-const activeSet = (await this.criteriaService.findActive()).data;
-if (!activeSet) throw new BusinessLogicException('No active criteria set', 'APPRAISAL_NO_ACTIVE_CRITERIA_SET');
-
 const period = periodStart(targetPeriod ?? addMonths(currentPeriod(), 1));
 const end = periodEnd(period);
 
@@ -323,9 +320,11 @@ return this.dbService.transaction(async (tx) => {
   const departments = await this.repository.findActiveDepartments(tx);
   for (const department of departments) {
     try {
+      const criteriaSet = (await this.criteriaService.findActive(department.id)).data;
+      if (!criteriaSet) { skipped += 1; continue; }
       const eligible = await this.repository.findEligible(department.id, period, end);
       if (eligible.length === 0) { skipped += 1; continue; }
-      const appraisal = await this.repository.createAppraisal({ departmentId: department.id, period, criteriaSetId: activeSet.id, source: 'SCHEDULER', createdBy: null }, tx);
+      const appraisal = await this.repository.createAppraisal({ departmentId: department.id, period, criteriaSetId: criteriaSet.id, source: 'SCHEDULER', createdBy: null }, tx);
       if (!appraisal) { skipped += 1; continue; }
       await this.repository.insertEmployees(eligible.map((e) => this.toSnapshot(appraisal.id, e)), tx);
       await this.audit.record(tx, { actorType: 'SYSTEM', action: 'APPRAISAL_CREATED', ..., after: { source: 'SCHEDULER', departmentId: department.id, period } });
@@ -339,10 +338,10 @@ return this.dbService.transaction(async (tx) => {
 
 - **Fungsinya:** Membuat appraisal otomatis untuk setiap departemen aktif pada suatu periode (default: bulan berikutnya). Dilindungi **advisory lock** (`pg_try_advisory_xact_lock(73001)`) sehingga aman dijalankan berulang/paralel — **idempotent** (bentrok unik → `skipped`). Semua dalam satu transaksi.
 - **Kenapa dibuat seperti ini:** Sesuai AGENTS.md: job terjadwal harus idempotent & dilindungi advisory lock. Kegagalan satu departemen dihitung (`failed`) agar tidak menghentikan yang lain.
-- **Dampaknya:** Bila lock dihapus, dua instance server bisa membuat appraisal ganda (meski unique index tetap mencegah duplikat). Bila tak ada set aktif, seluruh job gagal.
+- **Dampaknya:** Bila lock dihapus, dua instance server bisa membuat appraisal ganda (meski unique index tetap mencegah duplikat). Departemen tanpa set `ACTIVE` (department maupun global) akan di-skip.
 - **Analogi:** Petugas yang memegang kunci gudang (agar tak bentrok dengan petugas lain), lalu menyiapkan formulir penilaian untuk tiap divisi; yang sudah ada dilewati, yang gagal dicatat.
 
-`toSnapshot` / `toResponse` / `actor` / `requireActiveSet` / `criteriaForSet` / `findDraft` / `currentScope` / `assertScope` → helper.
+`toSnapshot` / `toResponse` / `actor` / `requireCriteriaSet` / `criteriaForSet` / `findDraft` / `currentScope` / `assertScope` → helper.
 
 ### `appraisal.transitions.ts` — Aturan Alur
 

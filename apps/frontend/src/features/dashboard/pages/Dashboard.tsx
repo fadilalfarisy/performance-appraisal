@@ -26,7 +26,7 @@ const STATUS_COLOR: Record<string, string> = {
 export const Dashboard = () => {
   const { data: summary, isSuccess } = useGetDashboardSummaryQuery();
   const { data: activeCriteriaSet, isSuccess: criteriaSuccess } =
-    useGetActiveCriteriaSetQuery();
+    useGetActiveCriteriaSetQuery(undefined);
 
   return (
     <>
@@ -85,7 +85,7 @@ export const Dashboard = () => {
             ))}
           </Row>
         ) : (
-          <Empty description="No active criteria set" />
+          <Empty description="No global active criteria set" />
         )}
       </Card>
     </>

@@ -1,5 +1,16 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, gte, inArray, lte, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  getTableColumns,
+  gte,
+  inArray,
+  lte,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import { DB_CONNECTION } from '../db/db.constants';
 import type { Database, DbExecutor } from '../db/db.type';
 import {
@@ -18,6 +29,10 @@ import type { AppraisalStatus } from '@appraisal/types';
 import type { AppraisalQueryDto } from './dto/appraisal-query.dto';
 
 export type AppraisalRow = typeof appraisals.$inferSelect;
+export type AppraisalDetailRow = AppraisalRow & {
+  criteriaSetVersion: number | null;
+  criteriaSetStatus: string | null;
+};
 export type AppraisalEmployeeRow = typeof appraisalEmployees.$inferSelect;
 
 @Injectable()
@@ -106,10 +121,15 @@ export class AppraisalsRepository {
   async findAppraisal(
     id: string,
     executor: DbExecutor = this.db,
-  ): Promise<AppraisalRow | null> {
+  ): Promise<AppraisalDetailRow | null> {
     const [row] = await executor
-      .select()
+      .select({
+        ...getTableColumns(appraisals),
+        criteriaSetVersion: criteriaSets.version,
+        criteriaSetStatus: criteriaSets.status,
+      })
       .from(appraisals)
+      .leftJoin(criteriaSets, eq(appraisals.criteriaSetId, criteriaSets.id))
       .where(and(eq(appraisals.id, id), notDeleted(appraisals)))
       .limit(1);
     return row ?? null;
@@ -161,6 +181,7 @@ export class AppraisalsRepository {
         period: appraisals.period,
         criteriaSetId: appraisals.criteriaSetId,
         criteriaSetVersion: criteriaSets.version,
+        criteriaSetStatus: criteriaSets.status,
         status: appraisals.status,
         source: appraisals.source,
         createdBy: appraisals.createdBy,

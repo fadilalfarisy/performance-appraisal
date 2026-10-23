@@ -175,7 +175,7 @@ A `.env.example` with every variable is committed. Real `.env` files are never c
 
 Roles: `ADMIN`, `HR`, `HEAD_DEPARTMENT`, `SUPERVISOR`, `MANAGER`, `GENERAL_MANAGER`.
 Appraisal status: `DRAFT`, `PENDING`, `SUBMITTED`, `APPROVED`, `COMPLETE`.
-Criteria set status: `DRAFT`, `ACTIVE`, `SUPERSEDED`.
+Criteria set status: `DRAFT`, `ACTIVE`, `ARCHIVED`.
 
 ### 7.1 Overview
 
@@ -189,6 +189,8 @@ erDiagram
   departments ||--o{ user_departments : scope
   users ||--o{ refresh_tokens : owns
   criteria_sets ||--o{ criteria : contains
+  departments ||--o{ criteria_sets : owns
+  criteria_sets ||--o{ criteria_fields : defines
   criteria ||--o{ criteria_scale_descriptions : describes
   departments ||--o{ appraisals : "one per period"
   criteria_sets ||--o{ appraisals : "snapshot of version"
@@ -263,12 +265,16 @@ Constraints:
 | Column | Type | Notes |
 |---|---|---|
 | id | uuid PK | |
-| version | int unique | increasing |
-| status | enum | |
+| department_id | uuid FK `departments` | nullable; `NULL` = global legacy set |
+| version | int | increasing per department group |
+| status | enum | `DRAFT`, `ACTIVE`, `ARCHIVED` |
 | note | text | change reason |
 | created_by, created_at, activated_by, activated_at | | who changed it and when |
 
-Constraint: partial unique index on `(status)` where `status = 'ACTIVE'` → only one active set.
+Constraints:
+- Unique `(coalesce(department_id, '00000000-0000-0000-0000-000000000000'::uuid), version)`.
+- Partial unique index on `(coalesce(department_id, '00000000-0000-0000-0000-000000000000'::uuid))` where `status = 'ACTIVE'` → one active set per department group; the `NULL` group is the global set.
+- Index on `(department_id)`.
 
 **criteria**: `id`, `criteria_set_id` FK, `code`, `name`, `description`, `scale_min` int, `scale_max` int, `weight` numeric(5,2), `display_order`. Unique `(criteria_set_id, code)`. Check `scale_min < scale_max` and `weight > 0`.
 
@@ -280,8 +286,7 @@ Constraint: partial unique index on `(status)` where `status = 'ACTIVE'` → onl
 |---|---|---|
 | id | uuid PK | |
 | criteria_set_id | uuid FK `criteria_sets` | cascade on delete |
-| criterion_id | uuid FK `criteria` | the group this field belongs to; cascade on delete |
-| field_key | varchar(100) | key inside the criterion |
+| field_key | varchar(100) | key inside the set |
 | label | varchar(255) | |
 | input_type | enum `field_input_type` | `TEXT`, `NUMBER`, `OPTION`, `MULTI_OPTION`, `BOOLEAN`, `DATE` |
 | required | boolean | |
@@ -290,7 +295,7 @@ Constraint: partial unique index on `(status)` where `status = 'ACTIVE'` → onl
 | options | jsonb | `[{ value, label }]` for `OPTION` / `MULTI_OPTION` |
 | display_order | int | |
 
-Unique `(criteria_set_id, criterion_id, field_key)`. Index `(criteria_set_id)`.
+Unique `(criteria_set_id, field_key)` where `is_deleted = false`. Index `(criteria_set_id)`. Fields belong to the set as a whole; they are not grouped by criterion. The index is partial so a soft-deleted field key can be reused.
 
 **appraisals**
 
@@ -460,8 +465,8 @@ An employee is eligible for `(department, period)` when:
 
 | Endpoint | Behavior |
 |---|---|
-| `POST /appraisals/preview` | Body: `departmentId`, `period`. Returns eligible employees; writes nothing |
-| `POST /appraisals` | Body: `departmentId`, `period`, `employeeIds`. In one transaction: check active criteria set exists, check unique (department, period), check each employee is active and in the department, take snapshots, insert appraisal (DRAFT, `source = MANUAL`) and rows |
+| `POST /appraisals/preview` | Body: `departmentId`, `period`, `criteriaSetId`. Verifies the selected set is not `DRAFT` and belongs to the department (or is global), then returns eligible employees; writes nothing |
+| `POST /appraisals` | Body: `departmentId`, `period`, `criteriaSetId`, `employeeIds`. In one transaction: verify the selected criteria set is available, check unique (department, period), check each employee is active and in the department, take snapshots, insert appraisal (DRAFT, `source = MANUAL`, pinned `criteria_set_id`) and rows |
 | `PUT /appraisals/:id/employees` | DRAFT only. Add or remove employees; added employees get a fresh snapshot |
 
 Concurrent creation for the same department and period is resolved by the partial unique index (second request gets 409).
@@ -472,8 +477,8 @@ Concurrent creation for the same department and period is resolved by the partia
 - Target period = first day of (today + `APPRAISAL_LOOKAHEAD_MONTHS` months).
 - Run steps:
   1. Try `pg_try_advisory_lock(key)`. If not acquired, another instance is running; exit.
-  2. Load the active criteria set. If none, log an error and stop.
-  3. For every active department, run the eligibility query. Skip if the result is empty.
+  2. For every active department, load the department's latest `ACTIVE` criteria set. If it has none, use the global `ACTIVE` set. If neither exists, skip the department.
+  3. Run the eligibility query for that department. Skip if the result is empty.
   4. In one transaction per department: insert the appraisal (`source = SCHEDULER`, `created_by = NULL`) with `ON CONFLICT DO NOTHING` on the partial unique index, then insert rows with snapshots. If the insert is a no-op, skip.
   5. Write one audit entry per created appraisal (actor `SYSTEM`) and one summary entry for the run (created, skipped, failed).
   6. Release the lock.
@@ -495,13 +500,16 @@ total = Σ over criteria ( rating / scale_max × weight )     // weights total 1
 
 ## 11. Criteria set versioning
 
-1. `POST /criteria-sets` creates a new **DRAFT** set, copying the active set (version = max + 1).
-2. `PUT /criteria-sets/:id` edits a DRAFT set: add, edit, remove, reorder criteria, change weights, scales, and score descriptions. Only DRAFT sets are editable.
-3. `POST /criteria-sets/:id/activate` validates, then in one transaction marks the current ACTIVE set `SUPERSEDED` and the new set `ACTIVE`.
+1. `POST /criteria-sets` creates a new **DRAFT** set for a department (or a global legacy set when `departmentId` is omitted). The version is `max + 1` inside that department group, and the draft copies that group's active set (falling back to the global active set).
+2. `PUT /criteria-sets/:id`:
+   - `DRAFT`: ADMIN and HR can edit everything — add, edit, remove, reorder criteria, change weights, scales, score descriptions, and fields.
+   - `ACTIVE`: ADMIN only. Code, name, description, scale, score descriptions, and form fields can change. Weights and the criterion list (adding or removing criteria) are locked. Fields can be added, edited, or removed; a field referenced by a daily note is soft-deleted, an unreferenced field is hard-deleted.
+   - `ARCHIVED`: read-only.
+3. `POST /criteria-sets/:id/activate` validates, then in one transaction marks the current ACTIVE set of the **same department group** `ARCHIVED` and the new set `ACTIVE`. The global active set is not touched when a department set is activated.
 
-Validation at activation: weights total exactly 100; every criterion has `scale_min < scale_max`; every score level in the scale has a description; codes are unique inside the set.
+Validation at activation: weights total exactly 100; every criterion has `scale_min < scale_max`; every score level in the scale has a description; codes are unique inside the set. An `ACTIVE` update repeats the content checks and rejects a weight change (`CRITERIA_WEIGHT_LOCKED`) or a criterion-list change (`CRITERIA_SET_STRUCTURE_LOCKED`).
 
-An active or superseded set is never edited or deleted. Appraisals reference their `criteria_set_id`, so past results do not change. Version history is `GET /criteria-sets` (who, when, note).
+`GET /criteria-sets/available?departmentId=` returns non-draft summaries for that department plus the global legacy set, ordered with `ACTIVE` first. Appraisals and daily notes keep a pinned `criteria_set_id`, so past results do not change. Version history is `GET /criteria-sets` (who, when, note).
 
 ## 12. Audit trail
 
@@ -590,7 +598,7 @@ Full contract is generated by Swagger. Conventions above apply to every endpoint
 | Departments, positions | `GET /departments`, `/positions` (all roles, scoped); `POST, PUT, PATCH status` | ADMIN write |
 | Employees | `GET /employees`, `GET /employees/:id`; `POST`, `PUT`, `PATCH status`; `POST /employees/import`; export and template | ADMIN, HR write; others read in scope |
 | Contracts | Same shape as employees | ADMIN, HR write; others read in scope |
-| Criteria sets | `GET /criteria-sets`, `GET /criteria-sets/active`, `POST`, `PUT /:id`, `POST /:id/activate` | ADMIN, HR write; others read |
+| Criteria sets | `GET /criteria-sets`, `GET /criteria-sets/available?departmentId=`, `GET /criteria-sets/active?departmentId=`, `POST`, `PUT /:id`, `POST /:id/activate` | ADMIN, HR create/activate; ACTIVE content edit ADMIN only; others read |
 | Appraisals | `GET /appraisals`, `GET /appraisals/:id`, `POST /appraisals/preview`, `POST /appraisals`, `PUT /:id/employees`, `DELETE /:id` (soft), `PUT /:id/ratings`, `POST /:id/transition`, `GET /:id/history` | per workflow rules |
 | Appraisal files | `GET /:id/assessment-template`, `POST /:id/assessment-import`, `GET /:id/export-result` | per matrix 5.8 |
 | Audit | `GET /audit-logs` (filters: user, entity, action, date range); export (P1) | ADMIN, HR |
@@ -620,7 +628,7 @@ Full contract is generated by Swagger. Conventions above apply to every endpoint
 |---|---|
 | Unit | Score calculation, transition rules table (all allowed and all forbidden combinations), eligibility rules, criteria set validation, audit masking, each importer's validation order |
 | Integration / e2e (Supertest + real PostgreSQL via docker-compose) | Table-driven permission test over the PRD matrix; full workflow DRAFT → COMPLETE with send-backs and reopen; scope isolation between two departments; criteria activation; scheduler idempotency (run twice, one appraisal); concurrent transitions; every import fails whole on first error and leaves no data; audit entry exists for every write |
-| Database | Constraints actually reject bad data: duplicate appraisal per department and period, overlapping active contracts, two active criteria sets, `UPDATE`/`DELETE` on `audit_logs` as `app_user` |
+| Database | Constraints actually reject bad data: duplicate appraisal per department and period, overlapping contracts, two active criteria sets in one department group, `UPDATE`/`DELETE` on `audit_logs` as `app_user` |
 
 Priority order when time is short: workflow, permissions and scope, imports, scheduler, scoring.
 
@@ -665,19 +673,20 @@ Every PRD v0.6 requirement maps to a part of this design. When the PRD version c
 
 ## 20. Daily activity notes (PRD 5.9)
 
-Supervisors and Head Department record what an employee did each day. The form is generated from the criteria set.
+Supervisors and Head Department record what an employee did each day. The form is generated from the criteria set they select.
 
 **Dynamic form (versioned with the set)**
 
-- Field definitions (`criteria_fields`, section 7.2) belong to a criteria set and are edited with it: each criterion is a group, and its fields carry a key, label, input type, required flag, default value, options (for choice types), and validation rules.
+- Field definitions (`criteria_fields`, section 7.2) belong to a criteria set and are edited with it. Fields carry a key, label, input type, required flag, default value, options (for choice types), and validation rules. They are a flat list on the set, not grouped by criterion.
 - Supported input types: `TEXT`, `NUMBER`, `OPTION`, `MULTI_OPTION`, `BOOLEAN`, `DATE`. The list is extensible.
-- Validation at activation (`criteria.validation.ts`) checks field keys are unique inside a criterion, choice types carry options, and defaults match the type.
-- A note pins the set version it was created under. Editing the set and activating a new version changes the form for **new** notes only; existing notes keep their fields and values.
+- Validation at activation (`criteria.validation.ts`) checks field keys are unique inside the set, choice types carry options, and defaults match the type. `DRAFT` fields are managed by ADMIN/HR; `ACTIVE` fields are managed by ADMIN only.
+- A note pins the set version it was created under. Editing a set changes the form for **new** notes only; existing notes keep their fields and values.
 
 **Record**
 
 - One note per employee per day: partial unique index `(employee_id, record_date) where deleted_at is null`. A duplicate create returns 409 `DAILY_NOTE_ALREADY_EXISTS`.
 - The note stores `department_id` and `period` (month) derived from the employee and `record_date`; the client never sends them.
+- The caller selects a non-draft criteria set available to the employee's department (department-specific or global). The selected `criteria_set_id` is pinned to the note.
 - The answers live in `daily_note_values` (one row per field). Create/update validate every value against the pinned set's field definitions (`daily-note.validation.ts`): unknown field, missing required field, wrong type, or a value outside the rules all return 422.
 - There is no approval step. Edit replaces the note's values (old rows are soft-deleted). Notes are soft-deleted, and every create/edit/delete is audited (`DAILY_NOTE_CREATED` / `DAILY_NOTE_UPDATED` / `DAILY_NOTE_DELETED`), written in the same transaction as the change.
 
@@ -698,7 +707,7 @@ Supervisors and Head Department record what an employee did each day. The form i
 | `GET /daily-notes` | Scoped, paginated list. Filters: `employeeId`, `departmentId`, `dateFrom`, `dateTo` |
 | `GET /daily-notes/accessible-employees` | Employees the caller may record for (own subordinates / own department); drives the form select |
 | `GET /daily-notes/:id` | One note with its values (scoped) |
-| `POST /daily-notes` | Create (201). Body `{ employeeId, recordDate, values: [{ fieldId, value }] }` |
+| `POST /daily-notes` | Create (201). Body `{ employeeId, recordDate, criteriaSetId, values: [{ fieldId, value }] }` |
 | `PATCH /daily-notes/:id` | Replace values. `employeeId` and `recordDate` are immutable |
 | `DELETE /daily-notes/:id` | Soft delete (204) |
 
