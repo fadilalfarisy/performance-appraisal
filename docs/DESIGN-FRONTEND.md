@@ -1,8 +1,8 @@
 # Frontend Design: Employee Performance Appraisal System
 
-**Based on:** PRD v0.6, `DESIGN-BACKEND.md` v0.5, and the installed dependencies in `apps/frontend/package.json`
+**Based on:** PRD v0.8, `DESIGN-BACKEND.md` v0.6, and the installed dependencies in `apps/frontend/package.json`
 **Scope:** `apps/frontend` only (React 18, Vite 7, TypeScript 5.7, Redux Toolkit, Ant Design 5, `@ant-design/icons`, dayjs, react-router-dom 6).
-**Status:** Draft v0.8 (adds the Templates screen under Master Data; templates are downloaded there instead of from the employee and contract toolbars; previous: daily notes screen and criteria-editor form fields, appraisal list tabs, aligned with installed dependencies and PRD v0.6)
+**Status:** Draft v0.9 (ADMIN sees every menu, button, and appraisal action; aligned with PRD v0.8. Previous: Templates screen under Master Data, daily notes screen, criteria-editor form fields, appraisal list tabs)
 
 ---
 
@@ -212,9 +212,9 @@ Global toasts use the Ant Design `App` context (`App.useApp()`), not static `mes
 | `/templates` | Templates (download import templates) | ADMIN |
 | `/criteria` | Criteria sets (versions per department) | all (read), ADMIN and HR create/activate |
 | `/criteria/:id` | Criteria set view or editor | all (read), ADMIN and HR edit DRAFT, ADMIN edit ACTIVE |
-| `/daily-notes` | Daily notes list | HEAD_DEPARTMENT, SUPERVISOR |
-| `/daily-notes/create` | New daily note (dynamic form) | HEAD_DEPARTMENT, SUPERVISOR |
-| `/daily-notes/:id/edit` | Edit a daily note | HEAD_DEPARTMENT, SUPERVISOR |
+| `/daily-notes` | Daily notes list | ADMIN, HEAD_DEPARTMENT, SUPERVISOR |
+| `/daily-notes/create` | New daily note (dynamic form) | ADMIN, HEAD_DEPARTMENT, SUPERVISOR |
+| `/daily-notes/:id/edit` | Edit a daily note | ADMIN, HEAD_DEPARTMENT, SUPERVISOR |
 | `/users` | User management | ADMIN |
 | `/audit-logs` | Audit trail | ADMIN, HR |
 | `/403`, `*` | Forbidden, Not found | |
@@ -227,6 +227,8 @@ The route table holds `path`, `element` (lazy loaded with `React.lazy`), `roles`
 - `RequireRole`: shows the 403 page when the role is not allowed.
 
 ### 7.3 Permission module (`shared/permissions`)
+
+ADMIN is a full-access role: `hasAccess` always returns true for ADMIN, the side menu shows every item to ADMIN, and `getAvailableActions` returns every status-appropriate appraisal action for ADMIN.
 
 Pure functions, unit tested with a table that mirrors PRD section 5.8:
 
@@ -262,7 +264,7 @@ Department scope: the user's departments come from `GET /auth/me`. If the backen
 | Users | ✓ | | | | |
 | Audit trail | ✓ | ✓ | | | |
 
-Daily notes are also shown to `SUPERVISOR` (owns their subordinates). They are hidden from ADMIN, HR, MANAGER, and GM, matching PRD 5.8.
+Daily notes are also shown to `SUPERVISOR` (owns their subordinates) and to ADMIN, which has full access. They are hidden from HR, MANAGER, and GM, matching PRD 5.8.
 
 ## 8. Layout and visual conventions
 
@@ -314,8 +316,8 @@ Used by employees, contracts, departments, positions, users, appraisals, audit l
 
 | Screen | Notes |
 |---|---|
-| Employees | Filters: department, position, status, search. Form: employee number, name, gender, birth date, address, department, position, join date, status, superior (searchable select). Employee detail shows tabs: Information (the form) and Contracts (that employee's contracts: type, start date, end date; edit and delete for ADMIN and HR). Toolbar: Import, Export (ADMIN, HR only) |
-| Contracts | Filters: employee, type, end-date range. Columns: employee, type, start date, end date. Row actions: view (opens the employee detail on its Contracts tab, every role), edit (direct to that contract's form) and delete (ADMIN, HR). Form shows a clear error when the backend rejects overlapping contracts. Toolbar as above |
+| Employees | Filters (inline, no drawer): department, position, status, search, contract start date range (first contract), and contract end date range (latest contract). Columns: employee number, name, department, position, status, start contract (earliest contract start date), end contract (latest contract end date). Form: employee number, name, gender, birth date, address, department, position, join date, status, supervisor (searchable select). On create, an optional **Contracts** list lets ADMIN and HR add and remove contract rows (type, start date, end date) that are saved together with the employee. Employee detail shows tabs: Information (the form) and Contracts (that employee's contracts: type, start date, end date; edit and delete for ADMIN and HR). Toolbar: Import, Export (ADMIN, HR only) |
+| Contracts | Filters: search, type, start date range, end date range (inline, no drawer). Columns: employee, type, start date, end date. Row actions: view (opens the employee detail on its Contracts tab, every role), edit (direct to that contract's form) and delete (ADMIN, HR). Form shows a clear error when the backend rejects overlapping contracts. Toolbar as above |
 | Departments | Code, name, head (employee select), active flag. Write for ADMIN only |
 | Positions | Code, name, level, active flag. Write for ADMIN only |
 | Templates | `/templates` under Master Data, ADMIN only. Table of every import template: title, description, and a Download Template action. Currently employees and contracts. |
@@ -332,7 +334,7 @@ Deactivated departments and positions are hidden in the selects of new records a
 ### 10.4 Criteria sets
 
 - `/criteria`: table of versions: department (or "Global"), version, status tag (`ACTIVE`, `DRAFT`, `ARCHIVED`), criteria count, activated at, note. The "New draft" button for ADMIN and HR opens a modal to choose a department or leave it empty for a global legacy set.
-- `/criteria/:id` for `ARCHIVED`: read-only tabs for criteria (code, name, scale, weight, order) and form fields (key, label, type, required, order).
+- `/criteria/:id` for `ARCHIVED`: read-only tabs for criteria (code, name, scale, weight, order) and form fields (key, label, description, type, required, order).
 - `/criteria/:id` for `ACTIVE`: read-only for every role except ADMIN. ADMIN gets the partial editor:
   - Code, name, description, scale min/max, score descriptions, and form fields are editable.
   - Weight inputs are disabled, the delete-criterion action is hidden, and "Add criterion" is hidden.
@@ -342,7 +344,7 @@ Deactivated departments and positions are hidden in the selects of new records a
   - Table of criteria: code, name, description, scale min, scale max, weight, order (up and down buttons).
   - Expandable row per criterion: one text input per score level (from min to max) for the score description. The inputs follow the scale when min or max changes.
   - Live **weight total** indicator: green at exactly 100, red otherwise.
-  - **Form fields** (PRD 5.9): the set's flat list of note-form fields — key, label, input type (`TEXT`, `NUMBER`, `OPTION`, `MULTI_OPTION`, `BOOLEAN`, `DATE`), required, order, options (for choice types), and rules (min/max, min/max length, pattern). They live in the **Form fields** tab, are versioned with the set, and become the daily-note form (section 10.9). Fields are not grouped by criterion.
+  - **Form fields** (PRD 5.9): the set's flat list of note-form fields — key, label, description (optional help text entered under the label), input type (`TEXT`, `NUMBER`, `OPTION`, `MULTI_OPTION`, `BOOLEAN`, `DATE`), required, order, options (for choice types), and rules (min/max, min/max length, pattern). Keys and labels must be unique inside the set; duplicates are rejected by the backend. They live in the **Form fields** tab, are versioned with the set, and become the daily-note form (section 10.9). Fields are not grouped by criterion.
   - "Save draft" and "Activate" buttons. Activate is disabled until the validation passes (total 100, `min < max`, all score descriptions filled, unique codes); the backend repeats the checks. Activation asks for confirmation and explains that it archives the current active set for the same department.
 
 ### 10.5 Appraisal list (home)
@@ -395,7 +397,7 @@ Layout:
 ```
 
 - Header shows department, period, criteria set version, status tag, and the five-step `Steps` component for the current status.
-- The **action bar** is built from `getAvailableActions` (section 7.3). Buttons that do not apply are not shown.
+- The **action bar** is built from `getAvailableActions` (section 7.3). Buttons that do not apply are not shown. ADMIN sees every status-appropriate action.
 - **Status history:** Ant Design `Timeline` with from → to status, actor, time, and comment (send backs and reopen are highlighted).
 - Rejection comments are also shown in a banner at the top when the latest history entry is a send back to the current status, so the assessor sees why the appraisal returned.
 
@@ -418,10 +420,10 @@ Layout:
 - Expandable row shows before and after values as read-only formatted JSON. Masked values appear as the backend returns them.
 - Export is P1 and uses the same download helper.
 
-### 10.9 Daily notes (HEAD_DEPARTMENT, SUPERVISOR)
+### 10.9 Daily notes (ADMIN, HEAD_DEPARTMENT, SUPERVISOR)
 
-- `/daily-notes`: scoped list. Filters: employee (options from `GET /daily-notes/accessible-employees`) and a date range. Columns: employee, department, criteria version, date, period, created at; row actions open (edit) and delete (confirm). Server-side pagination. The list only returns notes the caller's scope allows (a supervisor's own subordinates, or a head department's own departments).
-- `/daily-notes/create`: choose the employee and date first, then a criteria set from `GET /criteria-sets/available?departmentId=` for the selected employee's department. Once a set is selected, the **dynamic form** renders from that set (`GET /criteria-sets/:id`). The set's fields render as one flat "Daily note fields" card, without per-criterion grouping. Each field renders an input by type — `Input`, `InputNumber`, `Select` (single or multiple), `Switch`, or `DatePicker` — with required-ness taken from the field definition. The employee select is limited to accessible employees. Submitting sends `{ employeeId, recordDate, criteriaSetId, values: [{ fieldId, value }] }`. Changing the employee clears the criteria selection; changing the criteria set reloads the fields.
+- `/daily-notes`: scoped list. Filters: employee (options from `GET /daily-notes/accessible-employees`) and a date range. Columns: employee, department, criteria version, date, period, created at; row actions open (edit) and delete (confirm). Server-side pagination. The list only returns notes the caller's scope allows (a supervisor's own subordinates, a head department's own departments, or every department for ADMIN).
+- `/daily-notes/create`: choose the employee and date first, then a criteria set from `GET /criteria-sets/available?departmentId=` for the selected employee's department. Once a set is selected, the **dynamic form** renders from that set (`GET /criteria-sets/:id`). The set's fields render as one flat "Daily note fields" card, without per-criterion grouping. Each field renders an input by type — `Input`, `InputNumber`, `Select` (single or multiple), `Switch`, or `DatePicker` — with required-ness taken from the field definition. When the field has a description, it is shown in smaller grey text under the field label. The employee select is limited to accessible employees. Submitting sends `{ employeeId, recordDate, criteriaSetId, values: [{ fieldId, value }] }`. Changing the employee clears the criteria selection; changing the criteria set reloads the fields.
 - `/daily-notes/:id/edit`: the same form built from the note's **pinned** set version; employee and date are fixed, only values change. Editing replaces the note's values.
 - When the selected department has no available criteria set, the page shows a warning and the fields stay empty.
 - A duplicate employee + date shows the backend's 409 message. Out-of-scope ids return 404 and show the error page.

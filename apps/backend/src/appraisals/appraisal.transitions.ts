@@ -85,6 +85,6 @@ export function findTransition(
     (rule) =>
       rule.from === from &&
       rule.to.includes(to) &&
-      rule.roles.includes(role as UserRole),
+      (role === UserRole.ADMIN || rule.roles.includes(role as UserRole)),
   );
 }

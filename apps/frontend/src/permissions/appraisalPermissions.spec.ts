@@ -31,6 +31,23 @@ describe("getAvailableActions", () => {
     ).toHaveLength(0);
   });
 
+  it("Admin gets every action for each status", () => {
+    const expected: Record<AppraisalStatus, string[]> = {
+      [AppraisalStatus.DRAFT]: ["editEmployeeList", "softDelete", "moveToPending"],
+      [AppraisalStatus.PENDING]: ["editRatings", "importRatings", "submit", "sendBack"],
+      [AppraisalStatus.SUBMITTED]: ["approve", "sendBack"],
+      [AppraisalStatus.APPROVED]: ["complete", "sendBack"],
+      [AppraisalStatus.COMPLETE]: ["reopen"],
+    };
+
+    for (const status of Object.values(AppraisalStatus)) {
+      const names = getAvailableActions(UserRole.ADMIN, status).map(
+        (a) => a.action,
+      );
+      expect(names).toEqual(expected[status]);
+    }
+  });
+
   it("only Admin can reopen COMPLETE", () => {
     expect(
       getAvailableActions(UserRole.ADMIN, AppraisalStatus.COMPLETE).map(

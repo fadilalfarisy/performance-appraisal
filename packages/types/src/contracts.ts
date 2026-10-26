@@ -15,6 +15,10 @@ export type UpdateContractRequest = Partial<
 export interface ContractQuery extends PaginationQuery {
   employeeId?: string;
   contractType?: ContractType;
+  startDateFrom?: string;
+  startDateTo?: string;
+  endDateFrom?: string;
+  endDateTo?: string;
 }
 
 export interface ContractResponse {

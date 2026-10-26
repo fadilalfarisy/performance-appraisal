@@ -24,6 +24,7 @@ export interface CriterionFieldInput {
   id?: string;
   fieldKey: string;
   label: string;
+  description?: string;
   inputType: FieldInputType;
   required?: boolean;
   defaultValue?: FieldValue;

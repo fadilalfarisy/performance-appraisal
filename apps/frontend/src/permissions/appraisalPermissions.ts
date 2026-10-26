@@ -50,6 +50,55 @@ export function getAvailableActions(
 ): AvailableAction[] {
   const actions: AvailableAction[] = [];
 
+  if (role === UserRole.ADMIN) {
+    if (status === AppraisalStatus.DRAFT) {
+      return [
+        action("editEmployeeList"),
+        action("softDelete", { danger: true }),
+        action("moveToPending"),
+      ];
+    }
+    if (status === AppraisalStatus.PENDING) {
+      return [
+        action("editRatings"),
+        action("importRatings"),
+        action("submit"),
+        action("sendBack", {
+          targets: [AppraisalStatus.DRAFT],
+          commentRequired: true,
+          danger: true,
+        }),
+      ];
+    }
+    if (status === AppraisalStatus.SUBMITTED) {
+      return [
+        action("approve"),
+        action("sendBack", {
+          targets: [AppraisalStatus.PENDING, AppraisalStatus.DRAFT],
+          commentRequired: true,
+          danger: true,
+        }),
+      ];
+    }
+    if (status === AppraisalStatus.APPROVED) {
+      return [
+        action("complete"),
+        action("sendBack", {
+          targets: [
+            AppraisalStatus.SUBMITTED,
+            AppraisalStatus.PENDING,
+            AppraisalStatus.DRAFT,
+          ],
+          commentRequired: true,
+          danger: true,
+        }),
+      ];
+    }
+    if (status === AppraisalStatus.COMPLETE) {
+      return [action("reopen", { commentRequired: true, danger: true })];
+    }
+  }
+
   if (status === AppraisalStatus.DRAFT && role === UserRole.HR) {
     actions.push(
       action("editEmployeeList"),

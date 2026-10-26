@@ -1,6 +1,7 @@
 # PRD: Employee Performance Appraisal System
 
-**Status:** Draft v0.7
+**Status:** Draft v0.8
+**Changes from v0.7:** ADMIN has full access to every action in the system, including all appraisal workflow actions (create, edit employee list, rate, import ratings, every transition, send back, delete, and reopen) and daily activity notes.
 **Changes from v0.6:** Criteria sets are now scoped per department with `DRAFT`, `ACTIVE`, and `ARCHIVED` statuses (one active set per department, plus an optional global set used as fallback). HR selects the criteria set when creating an appraisal; Supervisor and Head Department select it when recording a daily note. Active criteria may be edited only by ADMIN and only for code, name, description, scale, score descriptions, and form fields; weights and the criterion list are locked.
 **Changes from v0.5:** Removes the contract status field (5.1). A contract is active between its start and end dates, and no two contracts for the same employee may overlap in time; appraisal eligibility (5.4) uses the contract end date only.
 **Changes from v0.4:** Adds Daily Activity Notes (5.9): a per-day dynamic form generated from the criteria set, filled by HEAD DEPARTMENT and by the new SUPERVISOR role; the numeric sum appears on the appraisal as informational data. Adds the SUPERVISOR role (4) and its permissions (5.8).
@@ -43,14 +44,14 @@ Each user has exactly one role. Roles do not automatically inherit permissions f
 
 | Role | Description |
 |---|---|
-| ADMIN | System owner. Manages users, departments, positions, criteria, and system-wide settings. Also manages employees and contracts. Reopens COMPLETE appraisals. Not part of the normal appraisal flow. |
+| ADMIN | System owner with full access to every action in the system. Manages users, departments, positions, criteria, and system-wide settings. Also manages employees and contracts, performs every appraisal action (including every workflow transition), and manages daily activity notes. |
 | HUMAN RESOURCE (HR) | Manages employee and contract data, criteria, and imports and exports. Creates appraisals in DRAFT and moves them to PENDING. |
 | HEAD DEPARTMENT | Gives assessment (ratings) for employees in their own department while the appraisal is PENDING, and submits it. Also records daily activity notes for their own department. |
-| SUPERVISOR | Records day-to-day activity notes for the employees whose superior they are. Not part of the appraisal approval flow. |
+| SUPERVISOR | Records day-to-day activity notes for the employees whose supervisor they are. Not part of the appraisal approval flow. |
 | MANAGER | Reviews SUBMITTED appraisals within their scope and approves them. |
 | GENERAL MANAGER | Gives final sign-off: moves APPROVED appraisals to COMPLETE. Views all departments. |
 
-**Data scope:** Head Department sees only their own department. Supervisor sees only the employees whose superior they are. Manager sees the departments assigned to them. General Manager, HR, and Admin see all.
+**Data scope:** Head Department sees only their own department. Supervisor sees only the employees whose supervisor they are. Manager sees the departments assigned to them. General Manager, HR, and Admin see all.
 
 ## 5. Functional Requirements
 
@@ -64,7 +65,7 @@ Create, read, update, and deactivate (soft delete) the following entities. Recor
 |---|---|---|
 | Department | code, name, head (employee), active flag | Admin |
 | Position | code, name, level, active flag | Admin |
-| Employee | employee number (unique), full name, gender, birth date, address, department, position, join date, status (active/inactive), superior (optional) | HR, Admin |
+| Employee | employee number (unique), full name, gender, birth date, address, department, position, join date, status (active/inactive), supervisor (optional) | HR, Admin |
 | Contract | employee, contract type (permanent, fixed-term, etc.), start date, end date (empty for permanent) | HR, Admin |
 
 Acceptance criteria:
@@ -78,7 +79,7 @@ Acceptance criteria:
 - Admin can create, edit, deactivate, and reset password for users.
 - Each user has exactly one role. Head Department, Supervisor, and Manager users have one or more assigned departments.
 - Login with username and password. JWT access token and refresh token expire after a configurable period.
-- A user may optionally be linked to an employee record. A Supervisor must be linked to an employee record, because their scope is the employees whose superior is that employee.
+- A user may optionally be linked to an employee record. A Supervisor must be linked to an employee record, because their scope is the employees whose supervisor is that employee.
 
 Acceptance criteria:
 - Deactivated users cannot log in, but their history remains in appraisals and the audit trail.
@@ -160,13 +161,14 @@ Statuses: **DRAFT → PENDING → SUBMITTED → APPROVED → COMPLETE**
 
 | Transition | Who | Notes |
 |---|---|---|
-| Create appraisal (DRAFT), edit employee list | HR | Only in DRAFT |
-| DRAFT → PENDING | HR | Opens the appraisal for assessment |
-| Edit ratings (in PENDING) | Head Department, own department | Only Head Department can give assessment |
-| PENDING → SUBMITTED | Head Department, own department | All ratings required |
-| SUBMITTED → APPROVED | Manager, within scope | Ratings read-only |
-| APPROVED → COMPLETE | General Manager | Final, locked |
+| Create appraisal (DRAFT), edit employee list | HR, Admin | Only in DRAFT |
+| DRAFT → PENDING | HR, Admin | Opens the appraisal for assessment |
+| Edit ratings (in PENDING) | Head Department (own department), Admin | Admin can edit any department |
+| PENDING → SUBMITTED | Head Department (own department), Admin | All ratings required |
+| SUBMITTED → APPROVED | Manager (within scope), Admin | Ratings read-only |
+| APPROVED → COMPLETE | General Manager, Admin | Final, locked |
 | COMPLETE → APPROVED (reopen) | Admin | Comment mandatory, audited |
+| Send back and reopen | Admin | Admin may use any send-back target allowed above |
 
 Only one approval level per status.
 
@@ -179,6 +181,7 @@ A comment is mandatory for every rejection or send-back. Allowed targets:
 | Head Department | PENDING | DRAFT |
 | Manager | SUBMITTED | PENDING, DRAFT |
 | General Manager | APPROVED | SUBMITTED, PENDING, DRAFT |
+| Admin | any status | any earlier status allowed by the row above |
 
 - The reviewer can return the appraisal to any earlier status of the workflow, as listed above.
 - After a send-back, the appraisal becomes editable according to the target status.
@@ -255,23 +258,25 @@ C = create, R = read, U = update, D = delete (soft), A = perform status transiti
 | Edit ACTIVE criteria content (code, name, description, scale, score descriptions, fields) | U | - | - | - | - | - |
 | Note form fields (DRAFT) | CRU | CRU | - | - | - | - |
 | Note form fields (ACTIVE) | U | - | - | - | - | - |
-| Create appraisal, edit employee list, soft delete (DRAFT) | - | CRU | - | - | - | - |
-| DRAFT → PENDING | - | A | - | - | - | - |
-| Give / edit ratings (PENDING) | - | - | U (own dept) | - | - | - |
-| PENDING → SUBMITTED | - | - | A (own dept) | - | - | - |
-| SUBMITTED → APPROVED | - | - | - | A (scope) | - | - |
-| APPROVED → COMPLETE | - | - | - | - | A | - |
-| Send back (see 5.5 table) | - | - | A (PENDING → DRAFT) | A | A | - |
+| Create appraisal, edit employee list, soft delete (DRAFT) | CRU | CRU | - | - | - | - |
+| DRAFT → PENDING | A | A | - | - | - | - |
+| Give / edit ratings (PENDING) | U | - | U (own dept) | - | - | - |
+| PENDING → SUBMITTED | A | - | A (own dept) | - | - | - |
+| SUBMITTED → APPROVED | A | - | - | A (scope) | - | - |
+| APPROVED → COMPLETE | A | - | - | - | A | - |
+| Send back (see 5.5 table) | A | - | A (PENDING → DRAFT) | A | A | - |
 | Reopen COMPLETE → APPROVED | A | - | - | - | - | - |
 | View appraisals | R (all) | R (all) | R (own dept) | R (scope) | R (all) | R (own subordinates) |
 | Export assessment template | X | X | X (own dept) | X (scope) | X | - |
-| Import assessment ratings | - | - | X (own dept) | - | - | - |
+| Import assessment ratings | X | - | X (own dept) | - | - | - |
 | Export appraisal result | X | X | X (own dept) | X (scope) | X | - |
 | Import / export employees and contracts | X | X | - | - | - | - |
 | Audit trail | R | R | - | - | - | - |
-| Daily activity notes (create / edit / delete) | - | - | CRUD (own dept) | - | - | CRUD (own subordinates) |
-| View individual daily notes | - | - | R (own dept) | - | - | R (own subordinates) |
+| Daily activity notes (create / edit / delete) | CRUD | - | CRUD (own dept) | - | - | CRUD (own subordinates) |
+| View individual daily notes | R | - | R (own dept) | - | - | R (own subordinates) |
 | Daily note sum on appraisal | R | R | R (own dept) | R (scope) | R | R (own subordinates) |
+
+ADMIN has full access to every function in this matrix, including actions listed only for other roles.
 
 ### 5.9 Daily Activity Notes (P0)
 
@@ -280,7 +285,7 @@ Supervisors and Head Department record what an employee did each day. The note f
 **Record**
 - One note per employee per day. A unique key on employee and date prevents duplicates.
 - A note belongs to a department and a period (month), so notes roll up to that department's appraisal for the same period.
-- Only **SUPERVISOR** (for employees whose superior they are) and **HEAD DEPARTMENT** (for their own department) can create, edit, and delete notes.
+- Only **SUPERVISOR** (for employees whose supervisor they are) and **HEAD DEPARTMENT** (for their own department) can create, edit, and delete notes.
 - There is no approval step. The author can edit a note; an edit replaces its values.
 - Notes are never physically deleted (soft delete), and every create, edit, and delete is audited.
 
@@ -298,13 +303,14 @@ Supervisors and Head Department record what an employee did each day. The note f
 - The sum does **not** change the appraisal rating score; the formula in 5.4 is unchanged.
 
 **Access**
-- A SUPERVISOR reads and writes notes only for employees whose superior is that supervisor's linked employee.
+- A SUPERVISOR reads and writes notes only for employees whose supervisor is that supervisor's linked employee.
 - HEAD DEPARTMENT reads and writes notes for their own department.
-- Every other role (including HR, Manager, General Manager, and Admin) sees only the summed value on the appraisal, never the individual notes.
+- ADMIN reads and writes every note in every department.
+- Every other role (including HR, Manager, and General Manager) sees only the summed value on the appraisal, never the individual notes.
 
 Acceptance criteria:
 - A second note for the same employee and the same day is rejected.
-- A user who is not linked to an employee, or who is not the employee's superior, cannot create a note for that employee.
+- A user who is not linked to an employee, or who is not the employee's supervisor, cannot create a note for that employee.
 - The form shows the fields defined on the selected set, without per-criterion grouping.
 - Values that break a field's rules (for example an out-of-range number or a missing required field) are rejected.
 - The appraisal shows the correct sum for the period, and changing notes updates it.

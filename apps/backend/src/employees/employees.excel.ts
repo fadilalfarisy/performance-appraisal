@@ -11,7 +11,7 @@ const HEADERS = [
   { header: 'department_code', key: 'departmentCode', width: 18 },
   { header: 'position_code', key: 'positionCode', width: 16 },
   { header: 'status', key: 'status', width: 12 },
-  { header: 'superior_number', key: 'superiorNumber', width: 18 },
+  { header: 'supervisor_number', key: 'supervisorNumber', width: 18 },
 ];
 
 function sanitize(value: string): string {
@@ -28,7 +28,7 @@ interface ExportRow {
   departmentCode: string | null;
   positionCode: string | null;
   status: string;
-  superiorNumber: string | null;
+  supervisorNumber: string | null;
 }
 
 @Injectable()
@@ -49,7 +49,7 @@ export class EmployeesExcelService {
         departmentCode: row.departmentCode ?? '',
         positionCode: row.positionCode ?? '',
         status: row.status,
-        superiorNumber: row.superiorNumber ?? '',
+        supervisorNumber: row.supervisorNumber ?? '',
       });
     }
 
@@ -70,7 +70,7 @@ export class EmployeesExcelService {
       departmentCode: 'DEP001',
       positionCode: 'POS001',
       status: 'ACTIVE',
-      superiorNumber: '',
+      supervisorNumber: '',
     });
 
     const notes = workbook.addWorksheet('Notes');
@@ -84,7 +84,7 @@ export class EmployeesExcelService {
     notes.addRow(['department_code', 'Required. Must match an existing department code.']);
     notes.addRow(['position_code', 'Required. Must match an existing position code.']);
     notes.addRow(['status', 'Optional. ACTIVE | INACTIVE (default ACTIVE).']);
-    notes.addRow(['superior_number', 'Optional. Employee number that exists in the DB or file.']);
+    notes.addRow(['supervisor_number', 'Optional. Employee number that exists in the DB or file.']);
 
     return (await workbook.xlsx.writeBuffer()) as unknown as Buffer;
   }

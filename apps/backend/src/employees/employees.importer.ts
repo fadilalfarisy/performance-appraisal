@@ -25,7 +25,7 @@ interface ParsedEmployee {
   departmentCode: string;
   positionCode: string;
   status: string;
-  superiorNumber: string;
+  supervisorNumber: string;
 }
 
 @Injectable()
@@ -40,7 +40,7 @@ export class EmployeeImporter implements ImportStrategy {
     'department_code',
     'position_code',
     'status',
-    'superior_number',
+    'supervisor_number',
   ];
 
   constructor(private readonly repository: EmployeesRepository) {}
@@ -100,11 +100,11 @@ export class EmployeeImporter implements ImportStrategy {
       if (!STATUSES.includes(status)) {
         importError(p.row, 'status', `Invalid status '${p.status}'`);
       }
-      if (p.superiorNumber && !knownNumbers.has(p.superiorNumber)) {
+      if (p.supervisorNumber && !knownNumbers.has(p.supervisorNumber)) {
         importError(
           p.row,
-          'superior_number',
-          `Superior '${p.superiorNumber}' was not found`,
+          'supervisor_number',
+          `Supervisor '${p.supervisorNumber}' was not found`,
         );
       }
     }
@@ -128,7 +128,7 @@ export class EmployeeImporter implements ImportStrategy {
     let created = 0;
     let updated = 0;
 
-    // Pass 1: upsert employees (without superior, resolved in pass 2).
+    // Pass 1: upsert employees (without supervisor, resolved in pass 2).
     for (const p of parsed) {
       const values = {
         fullName: p.fullName,
@@ -156,15 +156,15 @@ export class EmployeeImporter implements ImportStrategy {
       }
     }
 
-    // Pass 2: resolve superiors.
+    // Pass 2: resolve supervisors.
     for (const p of parsed) {
-      if (!p.superiorNumber) continue;
+      if (!p.supervisorNumber) continue;
       const selfId = idByNumber.get(p.employeeNumber);
-      const superiorId = idByNumber.get(p.superiorNumber);
-      if (selfId && superiorId) {
+      const supervisorId = idByNumber.get(p.supervisorNumber);
+      if (selfId && supervisorId) {
         await this.repository.updateAndSave(
           selfId,
-          { superiorId } as UpdateEmployeeDto,
+          { supervisorId } as UpdateEmployeeDto,
           tx,
         );
       }
@@ -185,7 +185,7 @@ export class EmployeeImporter implements ImportStrategy {
       departmentCode: String(row.department_code ?? '').trim(),
       positionCode: String(row.position_code ?? '').trim(),
       status: String(row.status ?? '').trim(),
-      superiorNumber: String(row.superior_number ?? '').trim(),
+      supervisorNumber: String(row.supervisor_number ?? '').trim(),
     }));
   }
 

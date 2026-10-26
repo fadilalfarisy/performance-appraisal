@@ -40,7 +40,7 @@ Approach: full PRD alignment (PRD fields, not just behavior), done in stages so 
 
 - [x] Build the Departments module: CRUD, soft delete, `code`, head employee, active flag, audit, `@Roles(ADMIN)`.
 - [x] Build the Positions module: CRUD, soft delete, `code`, `level`, active flag, audit.
-- [x] Build the Employees module: `employee_number` (partial-unique among non-deleted), superior link, join date, soft delete, search/filter/sort/pagination, audit, department scope.
+- [x] Build the Employees module: `employee_number` (partial-unique among non-deleted), supervisor link, join date, soft delete, search/filter/sort/pagination, audit, department scope.
 - [x] Build the Contracts module: standalone `/contracts` CRUD, `contract_type`, date-based no-overlap rule (exclusion constraint + 422 `CONTRACT_OVERLAP`), soft delete, audit. (Contract status was removed in PRD v0.6.)
 - [x] Build the Users module: CRUD, deactivate (`PATCH /users/:id/status`), reset password, full name, optional linked employee, department assignment, `@Roles(ADMIN)`, audit.
 - [x] Permission matrix covered by a table-driven unit test (`src/common/permissions/permissions.spec.ts`); the live-DB e2e version is deferred until Postgres is available in CI.

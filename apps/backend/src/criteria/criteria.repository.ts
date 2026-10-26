@@ -244,6 +244,7 @@ export class CriteriaRepository {
         id: f.id,
         fieldKey: f.fieldKey,
         label: f.label,
+        description: f.description ?? undefined,
         inputType: f.inputType as FieldInputType,
         required: f.required,
         defaultValue:
@@ -341,6 +342,7 @@ export class CriteriaRepository {
         criteriaSetId: setId,
         fieldKey: field.fieldKey,
         label: field.label,
+        description: field.description ?? null,
         inputType: field.inputType,
         required: field.required ?? false,
         defaultValue: field.defaultValue ?? null,
@@ -400,6 +402,7 @@ export class CriteriaRepository {
     values: {
       fieldKey: string;
       label: string;
+      description: string | null;
       inputType: FieldInputType;
       required: boolean;
       defaultValue: unknown;

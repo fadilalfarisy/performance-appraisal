@@ -1,5 +1,16 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, ilike, inArray, or, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  lte,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import { DB_CONNECTION } from '../db/db.constants';
 import type { Database, DbExecutor } from '../db/db.type';
 import { contracts, employees } from '../db/schema';
@@ -27,11 +38,24 @@ export class ContractsRepository {
   }
 
   async findAllWithCount(query: ContractQueryDto) {
-    const { page = 1, limit = 20, employeeId, contractType } = query;
+    const {
+      page = 1,
+      limit = 20,
+      employeeId,
+      contractType,
+      startDateFrom,
+      startDateTo,
+      endDateFrom,
+      endDateTo,
+    } = query;
 
     const filters: SQL[] = [notDeleted(contracts)];
     if (employeeId) filters.push(eq(contracts.employeeId, employeeId));
     if (contractType) filters.push(eq(contracts.contractType, contractType));
+    if (startDateFrom) filters.push(gte(contracts.startDate, startDateFrom));
+    if (startDateTo) filters.push(lte(contracts.startDate, startDateTo));
+    if (endDateFrom) filters.push(gte(contracts.endDate, endDateFrom));
+    if (endDateTo) filters.push(lte(contracts.endDate, endDateTo));
     const where = and(...filters);
 
     const rows = await this.db
@@ -143,11 +167,23 @@ export class ContractsRepository {
   }
 
   async findForExport(query: ContractQueryDto) {
-    const { employeeId, contractType, search } = query;
+    const {
+      employeeId,
+      contractType,
+      search,
+      startDateFrom,
+      startDateTo,
+      endDateFrom,
+      endDateTo,
+    } = query;
 
     const filters: SQL[] = [notDeleted(contracts)];
     if (employeeId) filters.push(eq(contracts.employeeId, employeeId));
     if (contractType) filters.push(eq(contracts.contractType, contractType));
+    if (startDateFrom) filters.push(gte(contracts.startDate, startDateFrom));
+    if (startDateTo) filters.push(lte(contracts.startDate, startDateTo));
+    if (endDateFrom) filters.push(gte(contracts.endDate, endDateFrom));
+    if (endDateTo) filters.push(lte(contracts.endDate, endDateTo));
     if (search) {
       const searchFilter = or(
         ilike(employees.fullName, `%${search}%`),

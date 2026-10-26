@@ -4,9 +4,16 @@ import type { PositionResponse } from './positions';
 import type { ContractResponse } from './contracts';
 import type {
   ColumnEmployee,
+  ContractType,
   EmployeeStatus,
   GenderEnum,
 } from './enums';
+
+export interface CreateEmployeeContractRequest {
+  contractType: ContractType;
+  startDate: string;
+  endDate?: string;
+}
 
 export interface CreateEmployeeRequest {
   employeeNumber: string;
@@ -17,11 +24,14 @@ export interface CreateEmployeeRequest {
   address: string;
   departmentId: string;
   positionId: string;
-  superiorId?: string | null;
+  supervisorId?: string | null;
   status?: EmployeeStatus;
+  contracts?: CreateEmployeeContractRequest[];
 }
 
-export type UpdateEmployeeRequest = Partial<CreateEmployeeRequest>;
+export type UpdateEmployeeRequest = Partial<
+  Omit<CreateEmployeeRequest, 'contracts'>
+>;
 
 export interface EmployeeQuery extends PaginationQuery {
   sortBy?: ColumnEmployee;
@@ -30,7 +40,7 @@ export interface EmployeeQuery extends PaginationQuery {
   status?: EmployeeStatus;
 }
 
-export interface SuperiorResponse {
+export interface SupervisorResponse {
   id: string;
   fullName: string;
 }
@@ -42,10 +52,11 @@ export interface EmployeeResponse {
   birthDate: string;
   joinDate: string;
   gender: GenderEnum;
-  superior: SuperiorResponse | null;
+  supervisor: SupervisorResponse | null;
   position: Partial<PositionResponse> | null;
   department: Partial<DepartmentResponse> | null;
   status: EmployeeStatus;
   address: string;
   contract?: Partial<ContractResponse> | null;
+  contractStartDate?: string | null;
 }

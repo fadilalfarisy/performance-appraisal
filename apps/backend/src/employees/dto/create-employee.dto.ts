@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsDateString,
   IsEnum,
   IsNotEmpty,
@@ -6,13 +7,35 @@ import {
   IsString,
   IsUUID,
   MaxLength,
+  ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { randomUUID } from 'crypto';
-import type { CreateEmployeeRequest } from '@appraisal/types';
+import {
+  ContractType,
+  type CreateEmployeeContractRequest,
+  type CreateEmployeeRequest,
+} from '@appraisal/types';
 import { EmployeeStatus } from '../interfaces/employee.interface';
 import { GenderEnum } from '../enums/gender.enum';
+
+export class CreateEmployeeContractDto implements CreateEmployeeContractRequest {
+  @ApiProperty({ enum: ContractType, example: ContractType.PERMANENT })
+  @IsEnum(ContractType)
+  @IsNotEmpty()
+  contractType!: ContractType;
+
+  @ApiProperty({ example: '2023-01-01' })
+  @IsDateString()
+  @IsNotEmpty()
+  startDate!: string;
+
+  @ApiPropertyOptional({ example: '2023-12-31' })
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
+}
 
 export class CreateEmployeeDto implements CreateEmployeeRequest {
   @ApiProperty({ example: 'EMP0001', maxLength: 50 })
@@ -57,7 +80,7 @@ export class CreateEmployeeDto implements CreateEmployeeRequest {
   @ApiPropertyOptional({ example: randomUUID() })
   @IsOptional()
   @IsUUID()
-  superiorId?: string;
+  supervisorId?: string;
 
   @ApiProperty({
     enum: EmployeeStatus,
@@ -72,4 +95,11 @@ export class CreateEmployeeDto implements CreateEmployeeRequest {
   @IsString()
   @IsNotEmpty()
   address!: string;
+
+  @ApiPropertyOptional({ type: [CreateEmployeeContractDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateEmployeeContractDto)
+  contracts?: CreateEmployeeContractDto[];
 }

@@ -121,7 +121,12 @@ export const DailyNote = () => {
             title="Delete this daily note?"
             onConfirm={() => handleDelete(record.id)}
           >
-            <Button size="small" danger icon={<DeleteOutlined />} />
+            <Button
+              size="small"
+              color="danger"
+              variant="solid"
+              icon={<DeleteOutlined />}
+            />
           </Popconfirm>
         </Space>
       ),

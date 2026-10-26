@@ -51,7 +51,7 @@ type Props = {
 const toDayjs = (value: FieldValue | undefined) =>
   typeof value === "string" && value ? dayjs(value) : undefined;
 
-const FieldInput = ({ field }: { field: CriterionFieldResponse }) => {
+const renderFieldInput = (field: CriterionFieldResponse) => {
   switch (field.inputType) {
     case FieldInputType.NUMBER:
       return (
@@ -90,7 +90,7 @@ const FieldInput = ({ field }: { field: CriterionFieldResponse }) => {
       return <DatePicker style={{ width: 220 }} />;
     case FieldInputType.TEXT:
     default:
-      return <Input style={{ maxWidth: 480 }} />;
+      return <Input.TextArea style={{ maxWidth: 480 }} />;
   }
 };
 
@@ -167,6 +167,7 @@ export const NoteForm = ({
       form={form}
       layout="vertical"
       initialValues={initialValues}
+      scrollToFirstError
       onFinish={handleFinish}
       onValuesChange={(changed) => {
         if (changed.employeeId !== undefined) {
@@ -224,14 +225,28 @@ export const NoteForm = ({
           {fields.map((field) => (
             <Form.Item
               key={field.id}
-              label={field.label}
+              label={
+                field.description ? (
+                  <span>
+                    {field.label}
+                    <div
+                      style={{ fontWeight: 400, fontSize: 12, color: "#8c8c8c" }}
+                    >
+                      {field.description}
+                    </div>
+                  </span>
+                ) : (
+                  field.label
+                )
+              }
               name={field.id}
               valuePropName={
                 field.inputType === FieldInputType.BOOLEAN ? "checked" : "value"
               }
+              messageVariables={{ label: field.label }}
               rules={[{ required: field.required }]}
             >
-              <FieldInput field={field} />
+              {renderFieldInput(field)}
             </Form.Item>
           ))}
         </Card>

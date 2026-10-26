@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
-import { Button, DatePicker, Drawer, Flex, Form, Input, Select } from "antd";
-import { CloseOutlined, FilterOutlined } from "@ant-design/icons";
+import { useMemo } from "react";
+import { DatePicker, Form, Input, Select, Space } from "antd";
+import type { Dayjs } from "dayjs";
 import { useGetDepartmentsQuery } from "@/features/departments";
 import { useGetPositionsQuery } from "@/features/position";
 import { employeeStatusOption } from "@/constants/option/employee-status";
@@ -8,22 +8,23 @@ import { dateFormat } from "@/utils/dateUtils";
 
 export type EmployeeSearchValues = {
   search?: string;
-  departement?: string;
+  department?: string;
   position?: string;
   status?: string;
-  startDate?: string[];
-  endDate?: string[];
+  contractStartFrom?: string;
+  contractStartTo?: string;
+  contractEndFrom?: string;
+  contractEndTo?: string;
 };
 
 type Props = {
   onSearch: (values: EmployeeSearchValues) => void;
-  onReset: () => void;
 };
 
-export const EmployeeSearch = ({ onSearch, onReset }: Props) => {
+type DateRange = [Dayjs | null, Dayjs | null] | null;
+
+export const EmployeeSearch = ({ onSearch }: Props) => {
   const [form] = Form.useForm();
-  const [drawerForm] = Form.useForm();
-  const [open, setOpen] = useState(false);
 
   const { data: departmentsResponse } = useGetDepartmentsQuery();
   const { data: positionsResponse } = useGetPositionsQuery();
@@ -44,165 +45,120 @@ export const EmployeeSearch = ({ onSearch, onReset }: Props) => {
     }));
   }, [positionsResponse]);
 
-  const collectValues = (values: any, startDate: any, endDate: any) => {
+  const collectValues = (values: any) => {
     const result: EmployeeSearchValues = {
       search: values.search ?? undefined,
-      departement: values.departement,
+      department: values.department,
       position: values.position,
       status: values.status,
     };
+    const startDate: DateRange = values.startDate;
+    const endDate: DateRange = values.endDate;
     if (startDate && startDate.length === 2) {
-      result.startDate = [
-        startDate[0].format(dateFormat),
-        startDate[1].format(dateFormat),
-      ];
+      result.contractStartFrom = startDate[0]?.format(dateFormat);
+      result.contractStartTo = startDate[1]?.format(dateFormat);
     }
     if (endDate && endDate.length === 2) {
-      result.endDate = [
-        endDate[0].format(dateFormat),
-        endDate[1].format(dateFormat),
-      ];
+      result.contractEndFrom = endDate[0]?.format(dateFormat);
+      result.contractEndTo = endDate[1]?.format(dateFormat);
     }
-    console.log(result);
     return result;
   };
 
-  const handleInlineSearch = () => {
-    const values = form.getFieldsValue();
-    const current = form.getFieldValue("currentInlineDateRange");
-    onSearch(collectValues({ ...values }, current, current));
+  const applyFilters = () => {
+    onSearch(collectValues(form.getFieldsValue()));
   };
 
   const handleClearInlineSearch = () => {
-    const values = form.getFieldsValue();
-    const search = values.search == "" ? { search: undefined } : values;
-    console.log(search);
-    onSearch(values);
+    form.setFieldValue("search", undefined);
+    applyFilters();
   };
 
-  const showDrawer = () => setOpen(true);
-  const onClose = () => setOpen(false);
-
-  const handleApplyFilter = () => {
-    const values = form.getFieldsValue();
-    const drawerValues = drawerForm.getFieldsValue();
-    const startDateRange = drawerValues.startDate;
-    const endDateRange = drawerValues.endDate;
-    onSearch(
-      collectValues(
-        { ...values, ...drawerValues },
-        startDateRange,
-        endDateRange,
-      ),
-    );
-    setOpen(false);
+  const handleSelectChange = (name: string, value?: string) => {
+    form.setFieldValue(name, value);
+    applyFilters();
   };
 
-  const handleClearFilter = () => {
-    onReset();
-    drawerForm.resetFields();
-    setOpen(false);
+  const handleRangeChange = (name: "startDate" | "endDate", dates: DateRange) => {
+    form.setFieldValue(name, dates);
+    applyFilters();
   };
 
   return (
-    <>
-      <Flex gap={"middle"} justify="space-between">
-        <Form form={form} style={{ flex: 1 }}>
-          <Form.Item name="search">
+    <Form form={form} style={{ marginBottom: 16 }}>
+      <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+        <Space wrap>
+          <Space size="small" align="center">
+            <span>Start Contract</span>
+            <Form.Item name="startDate" style={{ marginBottom: 0 }}>
+              <DatePicker.RangePicker
+                format={dateFormat}
+                placeholder={["Start from", "Start to"]}
+                onChange={(dates) =>
+                  handleRangeChange("startDate", dates as DateRange)
+                }
+                style={{ width: 240 }}
+              />
+            </Form.Item>
+          </Space>
+          <Space size="small" align="center">
+            <span>End Contract</span>
+            <Form.Item name="endDate" style={{ marginBottom: 0 }}>
+              <DatePicker.RangePicker
+                format={dateFormat}
+                placeholder={["End from", "End to"]}
+                onChange={(dates) =>
+                  handleRangeChange("endDate", dates as DateRange)
+                }
+                style={{ width: 240 }}
+              />
+            </Form.Item>
+          </Space>
+        </Space>
+        <Space wrap>
+          <Form.Item name="search" style={{ marginBottom: 0 }}>
             <Input.Search
-              placeholder="Search by NIP or Name"
+              placeholder="Search by employee name or number"
               allowClear
               onClear={handleClearInlineSearch}
-              onSearch={handleInlineSearch}
+              onSearch={applyFilters}
               enterButton
+              style={{ width: "clamp(200px, 32vw, 480px)" }}
             />
           </Form.Item>
-        </Form>
-        <Button
-          color="primary"
-          variant="outlined"
-          icon={<FilterOutlined />}
-          onClick={showDrawer}
-        >
-          Filter
-        </Button>
-      </Flex>
-
-      <Drawer
-        title="Filter"
-        onClose={onClose}
-        closable={false}
-        open={open}
-        extra={<CloseOutlined onClick={onClose} />}
-      >
-        <Form form={drawerForm} layout="vertical" autoComplete="off">
-          <Flex vertical gap="small">
-            <Form.Item
-              name="departement"
-              label={<span style={{ fontWeight: 600 }}>Department</span>}
-            >
-              <Select
-                placeholder="Select Department"
-                allowClear
-                showSearch
-                optionFilterProp="label"
-                options={departmentOption}
-              />
-            </Form.Item>
-            <Form.Item
-              name="position"
-              label={<span style={{ fontWeight: 600 }}>Position</span>}
-            >
-              <Select
-                placeholder="Select Position"
-                allowClear
-                showSearch
-                optionFilterProp="label"
-                options={positionOption}
-              />
-            </Form.Item>
-            <Form.Item
-              name="status"
-              label={<span style={{ fontWeight: 600 }}>Status</span>}
-            >
-              <Select
-                placeholder="Select Status"
-                allowClear
-                options={employeeStatusOption}
-              />
-            </Form.Item>
-            <Form.Item
-              name="startDate"
-              label={
-                <span style={{ fontWeight: 600 }}>Start Contract Range</span>
-              }
-            >
-              <DatePicker.RangePicker
-                format={dateFormat}
-                style={{ width: "100%" }}
-              />
-            </Form.Item>
-
-            <Form.Item
-              name="endDate"
-              label={
-                <span style={{ fontWeight: 600 }}>End Contract Range</span>
-              }
-            >
-              <DatePicker.RangePicker
-                format={dateFormat}
-                style={{ width: "100%" }}
-              />
-            </Form.Item>
-            <Flex justify="end" gap="middle" style={{ marginTop: 16 }}>
-              <Button onClick={handleClearFilter}>Clear</Button>
-              <Button type="primary" onClick={handleApplyFilter}>
-                Apply
-              </Button>
-            </Flex>
-          </Flex>
-        </Form>
-      </Drawer>
-    </>
+          <Form.Item name="department" style={{ marginBottom: 0 }}>
+            <Select
+              placeholder="Department"
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              options={departmentOption}
+              style={{ width: 180 }}
+              onChange={(value) => handleSelectChange("department", value)}
+            />
+          </Form.Item>
+          <Form.Item name="position" style={{ marginBottom: 0 }}>
+            <Select
+              placeholder="Position"
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              options={positionOption}
+              style={{ width: 180 }}
+              onChange={(value) => handleSelectChange("position", value)}
+            />
+          </Form.Item>
+          <Form.Item name="status" style={{ marginBottom: 0 }}>
+            <Select
+              placeholder="Status"
+              allowClear
+              options={employeeStatusOption}
+              style={{ width: 160 }}
+              onChange={(value) => handleSelectChange("status", value)}
+            />
+          </Form.Item>
+        </Space>
+      </Space>
+    </Form>
   );
 };

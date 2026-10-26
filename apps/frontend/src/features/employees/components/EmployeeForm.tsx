@@ -1,11 +1,22 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { Form, Input, Row, Col, DatePicker, Select, message } from "antd";
+import {
+  Button,
+  Card,
+  Form,
+  Input,
+  Row,
+  Col,
+  DatePicker,
+  Select,
+  message,
+} from "antd";
+import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 import {
   useCreateEmployeeMutation,
   useGetEmployeeQuery,
   useUpdateEmployeeMutation,
 } from "../employeesApi";
-import dayjs from "dayjs";
+import dayjs, { type Dayjs } from "dayjs";
 import { errorHandling } from "@/utils/errorUtils";
 import { dateFormat } from "@/utils/dateUtils";
 import { FormButton } from "@/components";
@@ -14,9 +25,17 @@ import { useMemo } from "react";
 import { useGetDepartmentsQuery } from "@/features/departments";
 import { genderOption } from "@/constants/option/gender";
 import { employeeStatusOption } from "@/constants/option/employee-status";
+import { ContractType } from "@/constants/enum/contract.enum";
+import { contractTypeOption } from "@/constants/option/contract-status";
 import type { EmployeeResponse } from "@appraisal/types";
 
 type IEmployee = Partial<EmployeeResponse>;
+
+type ContractFormValue = {
+  contractType: ContractType;
+  startDate: Dayjs;
+  endDate?: Dayjs;
+};
 
 type Props = {
   createForm: boolean;
@@ -46,7 +65,7 @@ export const EmployeeForm = ({
 
   const { data: departmentsResponse } = useGetDepartmentsQuery();
 
-  const { data: superiorResponse } = useGetEmployeeQuery({});
+  const { data: supervisorResponse } = useGetEmployeeQuery({});
 
   const positionOption = useMemo(() => {
     const positions = positionsResponse?.data;
@@ -68,24 +87,36 @@ export const EmployeeForm = ({
     );
   }, [departmentsResponse]);
 
-  const superiorOption = useMemo(() => {
-    const superiors = superiorResponse?.data;
+  const supervisorOption = useMemo(() => {
+    const supervisors = supervisorResponse?.data;
 
-    return (Array.isArray(superiors) ? superiors : []).map(
-      (superior: any) => ({
-        value: superior.id,
-        label: superior.fullName,
+    return (Array.isArray(supervisors) ? supervisors : []).map(
+      (supervisor: any) => ({
+        value: supervisor.id,
+        label: supervisor.fullName,
       }),
     );
-  }, [superiorResponse]);
+  }, [supervisorResponse]);
 
   const onFinish = async (values: any) => {
+    const contractValues: ContractFormValue[] = values.contracts ?? [];
     const payload = {
       ...values,
       birthDate: dayjs(values.birthDate).format(dateFormat),
       joinDate: values.joinDate
         ? dayjs(values.joinDate).format(dateFormat)
         : null,
+      contracts: createForm
+        ? contractValues.map((contract) => ({
+            contractType: contract.contractType,
+            startDate: dayjs(contract.startDate).format(dateFormat),
+            endDate:
+              contract.contractType === ContractType.PERMANENT ||
+              !contract.endDate
+                ? null
+                : dayjs(contract.endDate).format(dateFormat),
+          }))
+        : undefined,
     };
     console.log(payload);
     try {
@@ -125,7 +156,7 @@ export const EmployeeForm = ({
         : null,
       departmentId: initialValues?.department?.id,
       positionId: initialValues?.position?.id,
-      superiorId: initialValues?.superior?.id,
+      supervisorId: initialValues?.supervisor?.id,
       address: initialValues?.address,
       status: initialValues?.status,
     };
@@ -222,15 +253,15 @@ export const EmployeeForm = ({
               />
             </Form.Item>
             <Form.Item
-              label="Superior"
-              name="superiorId"
+              label="Supervisor"
+              name="supervisorId"
               hasFeedback
             >
               <Select
                 showSearch
                 allowClear
                 optionFilterProp="label"
-                options={superiorOption}
+                options={supervisorOption}
               />
             </Form.Item>
             <Form.Item
@@ -255,6 +286,95 @@ export const EmployeeForm = ({
         >
           <Input.TextArea />
         </Form.Item>
+
+        {createForm && (
+          <Form.List name="contracts">
+            {(fields, { add, remove }) => (
+              <>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 8,
+                  }}
+                >
+                  <span style={{ fontWeight: 600 }}>Contracts</span>
+                  <Button
+                    type="dashed"
+                    icon={<PlusOutlined />}
+                    onClick={() => add({ contractType: ContractType.PERMANENT })}
+                  >
+                    Add contract
+                  </Button>
+                </div>
+                {fields.map((field) => (
+                  <Card
+                    key={field.key}
+                    size="small"
+                    title={`Contract ${field.name + 1}`}
+                    style={{ marginBottom: 8 }}
+                    extra={
+                      <Button
+                        color="danger"
+                        variant="solid"
+                        size="small"
+                        icon={<DeleteOutlined />}
+                        onClick={() => remove(field.name)}
+                      />
+                    }
+                  >
+                    <Row gutter={[16, 0]}>
+                      <Col sm={24} md={8}>
+                        <Form.Item
+                          label="Contract Type"
+                          name={[field.name, "contractType"]}
+                          rules={[{ required: true }]}
+                        >
+                          <Select options={contractTypeOption} />
+                        </Form.Item>
+                      </Col>
+                      <Col sm={24} md={8}>
+                        <Form.Item
+                          label="Start Date"
+                          name={[field.name, "startDate"]}
+                          rules={[{ required: true }]}
+                        >
+                          <DatePicker
+                            format={dateFormat}
+                            style={{ width: "100%" }}
+                          />
+                        </Form.Item>
+                      </Col>
+                      <Col sm={24} md={8}>
+                        <Form.Item noStyle shouldUpdate>
+                          {({ getFieldValue }) =>
+                            getFieldValue([
+                              "contracts",
+                              field.name,
+                              "contractType",
+                            ]) !== ContractType.PERMANENT ? (
+                              <Form.Item
+                                label="End Date"
+                                name={[field.name, "endDate"]}
+                                rules={[{ required: true }]}
+                              >
+                                <DatePicker
+                                  format={dateFormat}
+                                  style={{ width: "100%" }}
+                                />
+                              </Form.Item>
+                            ) : null
+                          }
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                  </Card>
+                ))}
+              </>
+            )}
+          </Form.List>
+        )}
       </Form>
 
       <div style={{ marginTop: "24px" }}>

@@ -1,8 +1,8 @@
 # Backend Design: Employee Performance Appraisal System
 
-**Based on:** PRD v0.6 (`docs/PRD.md`, the latest version) and the installed dependencies in `apps/backend/package.json`
+**Based on:** PRD v0.8 (`docs/PRD.md`, the latest version) and the installed dependencies in `apps/backend/package.json`
 **Scope:** `apps/backend` only (NestJS + TypeScript + Drizzle + PostgreSQL). Frontend design lives in `DESIGN-FRONTEND.md`.
-**Status:** Draft v0.5 (adds daily activity notes with criteria-driven form fields; aligned with installed dependencies and PRD v0.6)
+**Status:** Draft v0.6 (adds full ADMIN access to every endpoint and every appraisal transition; aligned with installed dependencies and PRD v0.8)
 
 ---
 
@@ -237,10 +237,12 @@ erDiagram
 | position_id | uuid FK | |
 | join_date | date | |
 | status | enum `ACTIVE` / `INACTIVE` | |
-| superior_id | uuid FK nullable | self reference |
+| supervisor_id | uuid FK nullable | self reference |
 | created_at, updated_at, deleted_at | | |
 
 Indexes: `(department_id)`, `(status)`, trigram or lower-case index on `full_name` for search.
+
+The employee list/detail response carries `contractStartDate` (earliest non-deleted contract start date) and `contract` (the latest non-deleted contract).
 
 **contracts**
 
@@ -288,6 +290,7 @@ Constraints:
 | criteria_set_id | uuid FK `criteria_sets` | cascade on delete |
 | field_key | varchar(100) | key inside the set |
 | label | varchar(255) | |
+| description | varchar(500) nullable | optional help text shown under the label |
 | input_type | enum `field_input_type` | `TEXT`, `NUMBER`, `OPTION`, `MULTI_OPTION`, `BOOLEAN`, `DATE` |
 | required | boolean | |
 | default_value | jsonb | type must match `input_type` |
@@ -295,7 +298,7 @@ Constraints:
 | options | jsonb | `[{ value, label }]` for `OPTION` / `MULTI_OPTION` |
 | display_order | int | |
 
-Unique `(criteria_set_id, field_key)` where `is_deleted = false`. Index `(criteria_set_id)`. Fields belong to the set as a whole; they are not grouped by criterion. The index is partial so a soft-deleted field key can be reused.
+Unique `(criteria_set_id, field_key)` and `(criteria_set_id, label)` where `is_deleted = false` (labels are compared case-insensitively by application validation). Index `(criteria_set_id)`. Fields belong to the set as a whole; they are not grouped by criterion. The partial indexes let a soft-deleted field key or label be reused.
 
 **appraisals**
 
@@ -385,7 +388,9 @@ Where the frontend keeps tokens is described in `DESIGN-FRONTEND.md`.
 | `RolesGuard` (global) | Checks `@Roles(...)` on the route |
 | `ScopeService` | Returns the department ids a user may access. ADMIN, HR, GM → all. HEAD_DEPARTMENT, MANAGER → rows in `user_departments`. Used in repository queries and in service checks |
 
-Role checks answer "may this role call this endpoint". Scope checks answer "may this user touch this department's data". Both are enforced on the server for every endpoint. Out-of-scope records return 404.
+ADMIN bypasses `@Roles` entirely: `RolesGuard` allows an ADMIN user through every route, and `can()` returns true for every permission. Scope checks answer "may this user touch this department's data" and ADMIN has global scope.
+
+Role checks answer "may this role call this endpoint". Both are enforced on the server for every endpoint. Out-of-scope records return 404.
 
 ### 8.3 Permission matrix in code
 
@@ -429,7 +434,7 @@ export const TRANSITIONS: TransitionRule[] = [
 ];
 ```
 
-The service never hard-codes a transition outside this table. Unit tests cover every row plus every missing combination.
+The service never hard-codes a transition outside this table. `findTransition` also allows ADMIN for every row (the role arrays still name the normal owner), so ADMIN can perform any valid transition; invalid jumps such as DRAFT → COMPLETE remain blocked. Unit tests cover every row, the ADMIN override, and every missing combination.
 
 ### 9.3 Transition execution
 
@@ -562,7 +567,7 @@ A shared cross-row check (for example duplicate keys inside the file) counts as 
 
 | Importer | Match key | Key validations |
 |---|---|---|
-| Employees (sync) | `employee_number` | Required fields; department and position codes exist and are active; valid enums and dates; no duplicate employee numbers in file; superior employee number exists in DB or file. Existing rows are updated, new rows created. Employees missing from the file are left unchanged |
+| Employees (sync) | `employee_number` | Required fields; department and position codes exist and are active; valid enums and dates; no duplicate employee numbers in file; supervisor employee number exists in DB or file. Existing rows are updated, new rows created. Employees missing from the file are left unchanged |
 | Contracts | `employee_number` + `start_date` | Employee exists; valid dates; `end_date ≥ start_date`; no overlapping contracts (against DB and inside the file) |
 | Assessment ratings | appraisal id from template | See below |
 
@@ -589,15 +594,15 @@ Rules for all exports:
 
 ## 14. API overview
 
-Full contract is generated by Swagger. Conventions above apply to every endpoint.
+Full contract is generated by Swagger. Conventions above apply to every endpoint. ADMIN bypasses every `@Roles` restriction below and can call every endpoint.
 
 | Group | Endpoints | Roles |
 |---|---|---|
 | Auth | `POST /auth/login`, `/auth/refresh`, `/auth/logout`; `GET /auth/me` | public / any user |
 | Users | `GET, POST /users`; `GET, PUT /users/:id`; `POST /users/:id/reset-password`; `PATCH /users/:id/status` | ADMIN |
 | Departments, positions | `GET /departments`, `/positions` (all roles, scoped); `POST, PUT, PATCH status` | ADMIN write |
-| Employees | `GET /employees`, `GET /employees/:id`; `POST`, `PUT`, `PATCH status`; `POST /employees/import`; export and template | ADMIN, HR write; others read in scope |
-| Contracts | Same shape as employees | ADMIN, HR write; others read in scope |
+| Employees | `GET /employees` (filters: search, department, position, status, contract start/end date ranges), `GET /employees/:id`; `POST` (optionally with nested `contracts`), `PUT`, `PATCH status`; `POST /employees/import`; export and template. Nested contracts are created in the same transaction as the employee (a contract overlap rolls back the whole create), each with its own `CONTRACT_CREATED` audit entry | ADMIN, HR write; others read in scope |
+| Contracts | `GET /contracts` (filters: search, employee, type, start/end date ranges), `GET /contracts/:id`; `POST`, `PUT`; import, export and template. Export respects the same filters as the list | ADMIN, HR write; others read in scope |
 | Criteria sets | `GET /criteria-sets`, `GET /criteria-sets/available?departmentId=`, `GET /criteria-sets/active?departmentId=`, `POST`, `PUT /:id`, `POST /:id/activate` | ADMIN, HR create/activate; ACTIVE content edit ADMIN only; others read |
 | Appraisals | `GET /appraisals`, `GET /appraisals/:id`, `POST /appraisals/preview`, `POST /appraisals`, `PUT /:id/employees`, `DELETE /:id` (soft), `PUT /:id/ratings`, `POST /:id/transition`, `GET /:id/history` | per workflow rules |
 | Appraisal files | `GET /:id/assessment-template`, `POST /:id/assessment-import`, `GET /:id/export-result` | per matrix 5.8 |
@@ -654,9 +659,9 @@ Priority order when time is short: workflow, permissions and scope, imports, sch
 
 ## 19. PRD traceability
 
-Every PRD v0.6 requirement maps to a part of this design. When the PRD version changes, update this table and the "Based on" line at the top.
+Every PRD v0.8 requirement maps to a part of this design. When the PRD version changes, update this table and the "Based on" line at the top.
 
-| PRD v0.6 section | Covered in this document |
+| PRD v0.8 section | Covered in this document |
 |---|---|
 | 4 Users and roles, data scope | 7.2 (`users`, `user_departments`), 8.2 (guards, `ScopeService`) |
 | 5.1 Master data | 7.2 (departments, positions, employees, contracts), 13.2 (importers), 14 (API) |
@@ -677,9 +682,9 @@ Supervisors and Head Department record what an employee did each day. The form i
 
 **Dynamic form (versioned with the set)**
 
-- Field definitions (`criteria_fields`, section 7.2) belong to a criteria set and are edited with it. Fields carry a key, label, input type, required flag, default value, options (for choice types), and validation rules. They are a flat list on the set, not grouped by criterion.
+- Field definitions (`criteria_fields`, section 7.2) belong to a criteria set and are edited with it. Fields carry a key, label, description (optional help text shown under the label), input type, required flag, default value, options (for choice types), and validation rules. They are a flat list on the set, not grouped by criterion.
 - Supported input types: `TEXT`, `NUMBER`, `OPTION`, `MULTI_OPTION`, `BOOLEAN`, `DATE`. The list is extensible.
-- Validation at activation (`criteria.validation.ts`) checks field keys are unique inside the set, choice types carry options, and defaults match the type. `DRAFT` fields are managed by ADMIN/HR; `ACTIVE` fields are managed by ADMIN only.
+- Validation at activation (`criteria.validation.ts`) checks field keys and labels are unique inside the set, choice types carry options, and defaults match the type. `DRAFT` fields are managed by ADMIN/HR; `ACTIVE` fields are managed by ADMIN only.
 - A note pins the set version it was created under. Editing a set changes the form for **new** notes only; existing notes keep their fields and values.
 
 **Record**
@@ -694,13 +699,14 @@ Supervisors and Head Department record what an employee did each day. The form i
 
 | Role | Scope | Can |
 |---|---|---|
-| `SUPERVISOR` | employees whose `superior_id` = the user's linked employee (`users.employee_id`) | list, read, create, edit, delete |
+| `SUPERVISOR` | employees whose `supervisor_id` = the user's linked employee (`users.employee_id`) | list, read, create, edit, delete |
 | `HEAD_DEPARTMENT` | departments from `user_departments` | list, read, create, edit, delete |
+| `ADMIN` | all departments | list, read, create, edit, delete |
 
 - Any user in scope may edit or delete a note; there is no author-only check. Out-of-scope records return 404.
-- Every controller route is `@Roles(HEAD_DEPARTMENT, SUPERVISOR)`; ADMIN has no access (PRD 5.8).
+- Every controller route is `@Roles(HEAD_DEPARTMENT, SUPERVISOR)`. ADMIN also has access through the global `RolesGuard` bypass and receives the `all` daily-note scope (every department).
 
-**Endpoints** (`/api`, `@Roles(HEAD_DEPARTMENT, SUPERVISOR)`)
+**Endpoints** (`/api`, `@Roles(HEAD_DEPARTMENT, SUPERVISOR)`; ADMIN allowed)
 
 | Endpoint | Behavior |
 |---|---|

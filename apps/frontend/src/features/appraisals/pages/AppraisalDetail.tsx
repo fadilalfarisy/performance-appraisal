@@ -13,6 +13,8 @@ import {
   Form,
   Select,
   Input,
+  Space,
+  Popconfirm,
   message,
 } from "antd";
 import type { TableColumnsType } from "antd";
@@ -20,6 +22,7 @@ import { ArrowLeftOutlined } from "@ant-design/icons";
 import { TitlePage } from "@/components";
 import { useAppSelector } from "@/app/hooks";
 import {
+  useDeleteAppraisalMutation,
   useGetAppraisalByIdQuery,
   useGetAppraisalHistoryQuery,
   useSaveRatingsMutation,
@@ -36,6 +39,21 @@ import {
 } from "@appraisal/types";
 import { APPRAISAL_STATUS_COLOR as STATUS_COLOR } from "@/features/appraisals/appraisalStatus";
 
+const TRANSITION_TARGETS: Partial<
+  Record<AvailableAction["action"], AppraisalStatus>
+> = {
+  moveToPending: AppraisalStatus.PENDING,
+  submit: AppraisalStatus.SUBMITTED,
+  approve: AppraisalStatus.APPROVED,
+  complete: AppraisalStatus.COMPLETE,
+};
+
+const HIDDEN_ACTIONS: AvailableAction["action"][] = [
+  "editRatings",
+  "importRatings",
+  "editEmployeeList",
+];
+
 export const AppraisalDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -44,7 +62,8 @@ export const AppraisalDetail = () => {
   const { data, isLoading, isError } =
     useGetAppraisalByIdQuery(id);
   const { data: history } = useGetAppraisalHistoryQuery(id);
-  const [saveRatings] = useSaveRatingsMutation();
+  const [saveRatings, { isLoading: isSaving }] = useSaveRatingsMutation();
+  const [deleteAppraisal] = useDeleteAppraisalMutation();
   const [transition, { isLoading: isTransitioning }] =
     useTransitionAppraisalMutation();
 
@@ -66,6 +85,7 @@ export const AppraisalDetail = () => {
   }
 
   const canEdit = actions.some((a) => a.action === "editRatings");
+  const dirtyCount = Object.keys(edits).length;
   const cellKey = (employeeId: string, criterionId: string) =>
     `${employeeId}:${criterionId}`;
 
@@ -86,12 +106,22 @@ export const AppraisalDetail = () => {
 
   const runTransition = async (to: AppraisalStatus, comment?: string) => {
     try {
-      if (edits && to === AppraisalStatus.SUBMITTED) {
+      if (to === AppraisalStatus.SUBMITTED) {
         await handleSave();
       }
       await transition({ id: id ?? "", body: { to, comment } }).unwrap();
       message.success(`Moved to ${to}`);
       setModalAction(null);
+    } catch (error) {
+      errorHandling(error);
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await deleteAppraisal(id ?? "").unwrap();
+      message.success("Appraisal cancelled");
+      navigate("/dashboard/appraisals");
     } catch (error) {
       errorHandling(error);
     }
@@ -162,13 +192,6 @@ export const AppraisalDetail = () => {
         {appraisal.status}
       </Tag>
 
-      {/* <Steps
-        size="small"
-        current={stepIndex}
-        items={STATUS_ORDER.map((status) => ({ title: status }))}
-        style={{ marginBottom: 16 }}
-      />
-
       <Space style={{ marginBottom: 16 }} wrap>
         {canEdit && (
           <Button
@@ -181,36 +204,54 @@ export const AppraisalDetail = () => {
           </Button>
         )}
         {actions
-          .filter((a) => a.action !== "editRatings")
-          .map((available) =>
-            available.action === "softDelete" ? (
+          .filter((available) => !HIDDEN_ACTIONS.includes(available.action))
+          .map((available) => {
+            if (available.action === "softDelete") {
+              return (
+                <Popconfirm
+                  key={available.action}
+                  title="Cancel this DRAFT appraisal?"
+                  onConfirm={handleDelete}
+                >
+                  <Button color="danger" variant="solid">
+                    {available.label}
+                  </Button>
+                </Popconfirm>
+              );
+            }
+            if (available.commentRequired) {
+              return (
+                <Button
+                  key={available.action}
+                  danger={available.danger}
+                  onClick={() => {
+                    form.resetFields();
+                    setModalAction(available);
+                  }}
+                >
+                  {available.label}
+                </Button>
+              );
+            }
+            const target = TRANSITION_TARGETS[available.action];
+            if (!target) return null;
+            return (
               <Popconfirm
                 key={available.action}
-                title="Cancel this DRAFT appraisal?"
-                onConfirm={async () => {
-                  try {
-                    await deleteAppraisal(id ?? "").unwrap();
-                    message.success("Appraisal cancelled");
-                    navigate("/dashboard/appraisals");
-                  } catch (error) {
-                    errorHandling(error);
-                  }
-                }}
+                title={`${available.label}?`}
+                onConfirm={() => runTransition(target)}
               >
-                <Button danger>{available.label}</Button>
+                <Button
+                  type="primary"
+                  danger={available.danger}
+                  loading={isTransitioning}
+                >
+                  {available.label}
+                </Button>
               </Popconfirm>
-            ) : (
-              <Button
-                key={available.action}
-                danger={available.danger}
-                loading={isTransitioning}
-                onClick={() => onAction(available)}
-              >
-                {available.label}
-              </Button>
-            ),
-          )}
-      </Space> */}
+            );
+          })}
+      </Space>
 
       <Table<AppraisalEmployeeResponse>
         columns={columns}

@@ -98,6 +98,15 @@ export class CriterionFieldDto implements CriterionFieldInput {
   @MaxLength(255)
   label!: string;
 
+  @ApiPropertyOptional({
+    example: 'Number of tasks completed today',
+    description: 'Help text shown under the field label',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  description?: string;
+
   @ApiProperty({ enum: FieldInputType, example: FieldInputType.NUMBER })
   @IsEnum(FieldInputType)
   inputType!: FieldInputType;

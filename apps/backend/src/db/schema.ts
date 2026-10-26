@@ -153,7 +153,7 @@ export const employees = pgTable(
     departmentId: uuid('department_id').references(() => departments.id),
     positionId: uuid('position_id').references(() => positions.id),
     status: employeeStatusEnum('status').default('ACTIVE').notNull(),
-    superiorId: uuid('superior_id'), // self-reference configured in relations
+    supervisorId: uuid('supervisor_id'), // self-reference configured in relations
     ...baseFields,
   },
   (table) => [
@@ -165,7 +165,7 @@ export const employees = pgTable(
     index('idx_employees_status').on(table.status),
     index('idx_employees_department').on(table.departmentId),
     index('idx_employees_position').on(table.positionId),
-    index('idx_employees_superior').on(table.superiorId),
+    index('idx_employees_supervisor').on(table.supervisorId),
     index('idx_employees_created_at_desc').on(table.createdAt.desc()),
   ],
 );
@@ -291,6 +291,7 @@ export const criteriaFields = pgTable(
       .notNull(),
     fieldKey: varchar('field_key', { length: 100 }).notNull(),
     label: varchar('label', { length: 255 }).notNull(),
+    description: varchar('description', { length: 500 }),
     inputType: fieldInputTypeEnum('input_type').notNull(),
     required: boolean('required').default(false).notNull(),
     defaultValue: jsonb('default_value'),
@@ -302,6 +303,9 @@ export const criteriaFields = pgTable(
   (table) => [
     uniqueIndex('uq_criteria_field_key')
       .on(table.criteriaSetId, table.fieldKey)
+      .where(sql`is_deleted = false`),
+    uniqueIndex('uq_criteria_field_label')
+      .on(table.criteriaSetId, table.label)
       .where(sql`is_deleted = false`),
     index('idx_criteria_fields_set').on(table.criteriaSetId),
   ],
@@ -504,12 +508,12 @@ export const positionsRelations = relations(positions, ({ many }) => ({
 }));
 
 export const employeesRelations = relations(employees, ({ one, many }) => ({
-  superior: one(employees, {
-    fields: [employees.superiorId],
+  supervisor: one(employees, {
+    fields: [employees.supervisorId],
     references: [employees.id],
-    relationName: 'superiorRelation',
+    relationName: 'supervisorRelation',
   }),
-  subordinates: many(employees, { relationName: 'superiorRelation' }),
+  subordinates: many(employees, { relationName: 'supervisorRelation' }),
   department: one(departments, {
     fields: [employees.departmentId],
     references: [departments.id],

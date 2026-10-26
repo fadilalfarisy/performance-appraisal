@@ -66,6 +66,7 @@ export const DetailsCriteria = () => {
   const fieldColumns: TableColumnsType<CriterionFieldResponse> = [
     { title: "Key", dataIndex: "fieldKey", width: "1%" },
     { title: "Label", dataIndex: "label" },
+    { title: "Description", dataIndex: "description" },
     { title: "Type", dataIndex: "inputType", width: "1%" },
     {
       title: "Required",

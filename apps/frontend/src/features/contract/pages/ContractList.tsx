@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Button,
+  DatePicker,
+  Form,
   Input,
   Select,
   Space,
@@ -9,6 +11,7 @@ import {
   Tag,
   Modal,
 } from "antd";
+import type { Dayjs } from "dayjs";
 import type { TableColumnsType } from "antd";
 import {
   PlusOutlined,
@@ -20,6 +23,7 @@ import { useAppSelector, useAppDispatch } from "@/app/hooks";
 import { apiSlice } from "@/api/apiSlice";
 import { downloadFile } from "@/api/downloadFile";
 import { errorHandling } from "@/utils/errorUtils";
+import { dateFormat } from "@/utils/dateUtils";
 import { useGetEmployeeQuery } from "@/features/employees";
 import {
   useDeleteContractMutation,
@@ -34,21 +38,65 @@ const TYPE_OPTIONS = ["PERMANENT", "FIXED_TERM", "PROBATION"].map((value) => ({
   label: value,
 }));
 
+type ContractFilters = {
+  search?: string;
+  contractType?: ContractType;
+  startDateFrom?: string;
+  startDateTo?: string;
+  endDateFrom?: string;
+  endDateTo?: string;
+};
+
+type DateRange = [Dayjs | null, Dayjs | null] | null;
+
 export const ContractList = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const auth = useAppSelector((state) => state.auth);
   const canWrite = hasAccess(roles.humanResource, auth.role);
 
-  const [search, setSearch] = useState("");
-  const [contractType, setContractType] = useState<ContractType | undefined>();
+  const [form] = Form.useForm();
+  const [filters, setFilters] = useState<ContractFilters>({});
   const [importOpen, setImportOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [employeeId, setEmployeeId] = useState<string | undefined>();
 
+  const collectFilters = (): ContractFilters => {
+    const values = form.getFieldsValue();
+    const startDate: DateRange = values.startDate;
+    const endDate: DateRange = values.endDate;
+    return {
+      search: values.search || undefined,
+      contractType: values.contractType,
+      startDateFrom: startDate?.[0]?.format(dateFormat),
+      startDateTo: startDate?.[1]?.format(dateFormat),
+      endDateFrom: endDate?.[0]?.format(dateFormat),
+      endDateTo: endDate?.[1]?.format(dateFormat),
+    };
+  };
+
+  const applyFilters = () => setFilters(collectFilters());
+
+  const handleClearSearch = () => {
+    form.setFieldValue("search", undefined);
+    applyFilters();
+  };
+
+  const handleTypeChange = (value?: ContractType) => {
+    form.setFieldValue("contractType", value);
+    applyFilters();
+  };
+
+  const handleRangeChange = (
+    name: "startDate" | "endDate",
+    dates: DateRange,
+  ) => {
+    form.setFieldValue(name, dates);
+    applyFilters();
+  };
+
   const { data, isSuccess } = useGetContractsQuery({
-    search,
-    contractType,
+    ...filters,
     page: 1,
     limit: 50,
   });
@@ -56,7 +104,6 @@ export const ContractList = () => {
   const [deleteContract] = useDeleteContractMutation();
 
   const contracts = data?.data ?? [];
-  const filters = { search, contractType };
 
   const handleExport = async () => {
     try {
@@ -136,23 +183,63 @@ export const ContractList = () => {
         </Space>
       </TitlePage>
 
-      <Space style={{ marginBottom: 16 }} wrap>
-        <Input.Search
-          placeholder="Employee name or number"
-          allowClear
-          onSearch={setSearch}
-          style={{ width: 260 }}
-          enterButton
-        />
-        <Select
-          allowClear
-          placeholder="Contract type"
-          style={{ width: 180 }}
-          options={TYPE_OPTIONS}
-          value={contractType}
-          onChange={setContractType}
-        />
-      </Space>
+      <Form form={form}>
+        <Space
+          direction="vertical"
+          size="middle"
+          style={{ marginBottom: 16, width: "100%" }}
+        >
+          <Space wrap>
+            <Space size="small" align="center">
+              <span>Start Contract</span>
+              <Form.Item name="startDate" style={{ marginBottom: 0 }}>
+                <DatePicker.RangePicker
+                  format={dateFormat}
+                  placeholder={["Start from", "Start to"]}
+                  onChange={(dates) =>
+                    handleRangeChange("startDate", dates as DateRange)
+                  }
+                  style={{ width: 240 }}
+                />
+              </Form.Item>
+            </Space>
+            <Space size="small" align="center">
+              <span>End Contract</span>
+              <Form.Item name="endDate" style={{ marginBottom: 0 }}>
+                <DatePicker.RangePicker
+                  format={dateFormat}
+                  placeholder={["End from", "End to"]}
+                  onChange={(dates) =>
+                    handleRangeChange("endDate", dates as DateRange)
+                  }
+                  style={{ width: 240 }}
+                />
+              </Form.Item>
+            </Space>
+          </Space>
+          <Space wrap>
+            <Form.Item name="search" style={{ marginBottom: 0 }}>
+              <Input.Search
+                placeholder="Search by employee name or number"
+                allowClear
+                onSearch={applyFilters}
+                onClear={handleClearSearch}
+                style={{ width: "clamp(200px, 32vw, 480px)" }}
+                enterButton
+              />
+            </Form.Item>
+            <Form.Item name="contractType" style={{ marginBottom: 0 }}>
+              <Select
+                allowClear
+                placeholder="Contract type"
+                style={{ width: 180 }}
+                options={TYPE_OPTIONS}
+                onChange={handleTypeChange}
+              />
+            </Form.Item>
+          </Space>
+        </Space>
+      </Form>
 
       <Table<ContractResponse>
         columns={columns}

@@ -13,6 +13,6 @@ import { ContractsExcelService } from './contracts.excel';
     ContractImporter,
     ContractsExcelService,
   ],
-  exports: [ContractsService],
+  exports: [ContractsService, ContractsRepository],
 })
 export class ContractsModule {}

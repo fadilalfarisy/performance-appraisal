@@ -10,6 +10,7 @@ import { AuditService, type AuditEntry } from '../audit/audit.service';
 import { RequestContextService } from '../common/context/request-context.service';
 import { ScopeService } from '../common/scope/scope.service';
 import { EmployeesRepository } from './employees.repository';
+import { ContractsRepository } from '../contracts/contracts.repository';
 import { EmployeeImporter } from './employees.importer';
 import { EmployeesExcelService } from './employees.excel';
 import { ImportService } from '../imports/import.service';
@@ -33,6 +34,7 @@ const SORT_COLUMNS: Record<string, string> = {
 export class EmployeesService {
   constructor(
     private readonly employeesRepository: EmployeesRepository,
+    private readonly contractsRepository: ContractsRepository,
     private readonly dbService: DbService,
     private readonly audit: AuditService,
     private readonly requestContext: RequestContextService,
@@ -54,6 +56,10 @@ export class EmployeesService {
       department,
       position,
       status,
+      contractStartFrom,
+      contractStartTo,
+      contractEndFrom,
+      contractEndTo,
     } = query;
 
     const offset = (page - 1) * limit;
@@ -68,9 +74,29 @@ export class EmployeesService {
         sql`(e.full_name ILIKE ${'%' + search + '%'} OR e.employee_number ILIKE ${'%' + search + '%'})`,
       );
     }
-    if (department) whereParts.push(sql`d.name = ${department}`);
-    if (position) whereParts.push(sql`p.name = ${position}`);
+    if (department) whereParts.push(sql`e.department_id = ${department}`);
+    if (position) whereParts.push(sql`e.position_id = ${position}`);
     if (status) whereParts.push(sql`e.status = ${status}`);
+    if (contractStartFrom || contractStartTo) {
+      const firstStart = sql`(
+        SELECT MIN(fc.start_date)
+        FROM contracts fc
+        WHERE fc.employee_id = e.id
+          AND fc.deleted_at IS NULL
+      )`;
+      if (contractStartFrom) {
+        whereParts.push(sql`${firstStart} >= ${contractStartFrom}`);
+      }
+      if (contractStartTo) {
+        whereParts.push(sql`${firstStart} <= ${contractStartTo}`);
+      }
+    }
+    if (contractEndFrom) {
+      whereParts.push(sql`c.end_date >= ${contractEndFrom}`);
+    }
+    if (contractEndTo) {
+      whereParts.push(sql`c.end_date <= ${contractEndTo}`);
+    }
 
     const user = this.requestContext.getUser();
     if (user) {
@@ -114,11 +140,39 @@ export class EmployeesService {
   async createEmployee(
     dto: CreateEmployeeDto,
   ): Promise<ApiResponse<EmployeePayload>> {
+    const { contracts, ...employeeData } = dto;
+
     const saved = await this.dbService.transaction(async (tx) => {
-      const employee = await this.employeesRepository.createAndSave(dto, tx);
+      const employee = await this.employeesRepository.createAndSave(
+        employeeData,
+        tx,
+      );
       if (!employee) {
         throw new BadRequestException('Failed to create employee');
       }
+
+      for (const contract of contracts ?? []) {
+        const savedContract = await this.contractsRepository.createAndSave(
+          { employeeId: employee.id, ...contract },
+          tx,
+        );
+        if (!savedContract) {
+          throw new BadRequestException('Contract could not be created');
+        }
+        await this.audit.record(tx, {
+          action: 'CONTRACT_CREATED',
+          entity: 'contract',
+          entityId: savedContract.id,
+          after: {
+            employeeId: savedContract.employeeId,
+            contractType: savedContract.contractType,
+            startDate: savedContract.startDate,
+            endDate: savedContract.endDate ?? null,
+          },
+          ...this.actor(),
+        });
+      }
+
       const full = await this.employeesRepository.findOneWithRelations(
         employee.id,
         tx,
@@ -250,14 +304,15 @@ export class EmployeesService {
       birthDate: employee.birthDate,
       joinDate: employee.joinDate,
       gender: employee.gender,
-      superior: employee.superior
-        ? { id: employee.superior.id, fullName: employee.superior.fullName }
+      supervisor: employee.supervisor
+        ? { id: employee.supervisor.id, fullName: employee.supervisor.fullName }
         : null,
       position: employee.position ?? null,
       department: employee.department ?? null,
       status: employee.status,
       address: employee.address,
       contract: employee.contract ?? null,
+      contractStartDate: employee.contractStartDate ?? null,
     };
   }
 }

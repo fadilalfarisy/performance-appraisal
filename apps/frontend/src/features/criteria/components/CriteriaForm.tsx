@@ -69,7 +69,8 @@ const CriterionFieldsEditor = ({
               title={`Field ${fieldRow.name + 1}`}
               extra={
                 <Button
-                  danger
+                  color="danger"
+                  variant="solid"
                   size="small"
                   icon={<DeleteOutlined />}
                   onClick={() => fieldOps.remove(fieldRow.name)}
@@ -84,13 +85,29 @@ const CriterionFieldsEditor = ({
                 >
                   <Input style={{ width: 160 }} />
                 </Form.Item>
-                <Form.Item
-                  label="Label"
-                  name={[fieldRow.name, "label"]}
-                  rules={[{ required: true }]}
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    width: 200,
+                  }}
                 >
-                  <Input style={{ width: 200 }} />
-                </Form.Item>
+                  <Form.Item
+                    label="Label"
+                    name={[fieldRow.name, "label"]}
+                    rules={[{ required: true }]}
+                    style={{ marginBottom: 8 }}
+                  >
+                    <Input />
+                  </Form.Item>
+                  <Form.Item
+                    label="Description"
+                    name={[fieldRow.name, "description"]}
+                    style={{ marginBottom: 8 }}
+                  >
+                    <Input placeholder="Shown under the label" />
+                  </Form.Item>
+                </div>
                 <Form.Item
                   label="Type"
                   name={[fieldRow.name, "inputType"]}
@@ -168,8 +185,8 @@ const CriterionFieldsEditor = ({
                             <Input style={{ width: 200 }} />
                           </Form.Item>
                           <Button
-                            type="text"
-                            danger
+                            color="danger"
+                            variant="solid"
                             icon={<DeleteOutlined />}
                             onClick={() => optionOps.remove(optionRow.name)}
                           />
@@ -194,6 +211,7 @@ const CriterionFieldsEditor = ({
           icon={<PlusOutlined />}
           onClick={() =>
             fieldOps.add({
+              description: "",
               inputType: FieldInputType.TEXT,
               required: false,
               displayOrder: 0,
@@ -253,6 +271,7 @@ export const CriteriaForm = ({ criteriaSet, mode }: Props) => {
       id: field.id,
       fieldKey: field.fieldKey,
       label: field.label,
+      description: field.description ?? "",
       inputType: field.inputType,
       required: field.required ?? false,
       displayOrder: field.displayOrder ?? 0,
@@ -299,7 +318,8 @@ export const CriteriaForm = ({ criteriaSet, mode }: Props) => {
               extra={
                 !isActive ? (
                   <Button
-                    danger
+                    color="danger"
+                    variant="solid"
                     size="small"
                     icon={<DeleteOutlined />}
                     onClick={() => remove(field.name)}
@@ -375,8 +395,9 @@ export const CriteriaForm = ({ criteriaSet, mode }: Props) => {
                           <Input style={{ width: 360 }} />
                         </Form.Item>
                         <Button
-                          type="text"
-                          danger
+                          color="danger"
+                          variant="solid"
+                          size="small"
                           icon={<DeleteOutlined />}
                           onClick={() => descOps.remove(descField.name)}
                         />
@@ -384,6 +405,7 @@ export const CriteriaForm = ({ criteriaSet, mode }: Props) => {
                     ))}
                     <Button
                       type="dashed"
+                      style={{marginLeft: "12px"}}
                       icon={<PlusOutlined />}
                       onClick={() =>
                         descOps.add({ score: undefined, description: "" })

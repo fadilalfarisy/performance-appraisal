@@ -25,6 +25,7 @@ export const Appraisal = () => {
   const auth = useAppSelector((state) => state.auth);
   const isAdmin = auth.role === UserRole.ADMIN;
   const isHr = auth.role === UserRole.HR;
+  const canManageAppraisals = isHr || isAdmin;
 
   const activeTab = resolveStatusTab(searchParams.get("tab"), auth.role);
   const [department, setDepartment] = useState<string | undefined>();
@@ -86,12 +87,12 @@ export const Appraisal = () => {
           >
             Open
           </Button>
-          {isHr && record.status === AppraisalStatus.DRAFT && (
+          {canManageAppraisals && record.status === AppraisalStatus.DRAFT && (
             <Popconfirm
               title="Cancel this DRAFT appraisal?"
               onConfirm={() => handleDelete(record.id)}
             >
-              <Button size="small" danger>
+              <Button size="small" color="danger" variant="solid">
                 Delete
               </Button>
             </Popconfirm>
@@ -116,7 +117,7 @@ export const Appraisal = () => {
               Run scheduler now
             </Button>
           )}
-          {isHr && (
+          {canManageAppraisals && (
             <Button
               type="primary"
               icon={<PlusOutlined />}

@@ -8,6 +8,14 @@ describe('appraisal transitions', () => {
     expect(findTransition(from, to, role)).toBeDefined();
   });
 
+  it('allows ADMIN for every transition', () => {
+    for (const rule of TRANSITIONS) {
+      for (const to of rule.to) {
+        expect(findTransition(rule.from, to, UserRole.ADMIN)).toBeDefined();
+      }
+    }
+  });
+
   it('blocks HR from sending back (removed in PRD v0.4)', () => {
     expect(
       findTransition(AppraisalStatus.PENDING, AppraisalStatus.DRAFT, UserRole.HR),

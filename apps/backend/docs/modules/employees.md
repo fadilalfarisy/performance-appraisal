@@ -225,7 +225,7 @@ async importEmployees(file) { const result = await this.importService.run(file, 
 - **Kenapa:** Memisahkan "cara baca/tulis Excel" (importer/excel) dari "aturan pipeline impor" (`ImportService`), sehingga modul lain bisa memakai pipeline yang sama.
 - **Analogi:** Kurir (ImportService) yang mengantar setoran ke petugas data (EmployeeImporter) setelah memeriksa seluruh berkas dulu.
 
-Helper `actor()` dan `toResponseEmployee()` → sama polanya dengan module lain; `toResponseEmployee` menyusun bentuk respons (tanpa kolom internal), memakai objek `superior`/`position`/`department`/`contract` yang sudah dibentuk repository.
+Helper `actor()` dan `toResponseEmployee()` → sama polanya dengan module lain; `toResponseEmployee` menyusun bentuk respons (tanpa kolom internal), memakai objek `supervisor`/`position`/`department`/`contract` yang sudah dibentuk repository.
 
 ### `employees.repository.ts`
 
@@ -237,7 +237,7 @@ Helper `actor()` dan `toResponseEmployee()` → sama polanya dengan module lain;
 private readonly selectClause = sql`
   SELECT e.id, e.employee_number AS "employeeNumber", e.full_name AS "fullName",
     e.birth_date AS "birthDate", e.join_date AS "joinDate", e.status, e.address, e.gender,
-    json_build_object('id', m.id, 'fullName', m.full_name) AS superior,
+    json_build_object('id', m.id, 'fullName', m.full_name) AS supervisor,
     json_build_object('id', p.id, 'name', p.name) AS position,
     json_build_object('id', d.id, 'name', d.name) AS department,
     json_build_object('id', c.id, 'contractType', c.contract_type, 'startDate', c.start_date, 'endDate', c.end_date) AS contract
@@ -245,7 +245,7 @@ private readonly selectClause = sql`
 
 private readonly fromClause = sql`
   FROM employees e
-  LEFT JOIN employees m ON m.id = e.superior_id
+  LEFT JOIN employees m ON m.id = e.supervisor_id
   LEFT JOIN positions p ON p.id = e.position_id
   LEFT JOIN departments d ON d.id = e.department_id
   LEFT JOIN (
@@ -277,7 +277,7 @@ Method lain:
 ```ts
 @Injectable()
 export class EmployeeImporter implements ImportStrategy {
-  readonly expectedHeaders = ['employee_number','full_name','gender','birth_date','join_date','address','department_code','position_code','status','superior_number'];
+  readonly expectedHeaders = ['employee_number','full_name','gender','birth_date','join_date','address','department_code','position_code','status','supervisor_number'];
 
   async validate(rows: ImportRow[]) { /* validasi seluruh file, lempar error baris pertama */ }
   async commit(rows: ImportRow[], tx: DbExecutor): Promise<ImportResult> { /* upsert 2 tahap */ }
@@ -288,7 +288,7 @@ export class EmployeeImporter implements ImportStrategy {
 
 - **Fungsinya:**
   - `validate` → memeriksa **seluruh** baris: wajib isi, gender valid, tanggal format `YYYY-MM-DD`, departemen/posisi harus ada di DB, status valid, atasan dikenal (ada di DB atau di file). Gagal → `importError` (422) untuk **baris pertama** yang salah.
-  - `commit` → 2 tahap: (1) upsert semua karyawan (tanpa atasan), (2) selesaikan `superiorId` (karena atasan bisa jadi ikut diimpor di file yang sama).
+  - `commit` → 2 tahap: (1) upsert semua karyawan (tanpa atasan), (2) selesaikan `supervisorId` (karena atasan bisa jadi ikut diimpor di file yang sama).
 - **Kenapa dibuat seperti ini:** Sesuai aturan domain "validasi seluruh file dulu, tolak seluruhnya bila ada error, laporkan error pertama, commit dalam satu transaksi". Dua tahap menangani **ketergantungan antar-baris** (atasan yang belum ada saat pass 1).
 - **Dampaknya:** Jika validasi dihilangkan, data rusak bisa masuk. Jika dua tahap digabung, atasan yang baru diimpor tak bisa dirujuk.
 - **Analogi:** Pramuniaga yang memeriksa seluruh lembar setoran sebelum mengetik, lalu mengetik dalam dua babak karena "atasan" mungkin ada di lembar yang sama.
@@ -318,11 +318,11 @@ async buildExport(rows) {
 
 | File | Isi penting |
 |------|-------------|
-| `create-employee.dto.ts` | `employeeNumber`, `fullName`, `gender` (`@IsEnum`), `birthDate`/`joinDate` (`@IsDateString`), `departmentId`/`positionId` (UUID), `superiorId?`, `status` (default ACTIVE), `address` |
+| `create-employee.dto.ts` | `employeeNumber`, `fullName`, `gender` (`@IsEnum`), `birthDate`/`joinDate` (`@IsDateString`), `departmentId`/`positionId` (UUID), `supervisorId?`, `status` (default ACTIVE), `address` |
 | `update-employee.dto.ts` | `PartialType(CreateEmployeeDto)` |
 | `query-employee.dto.ts` | extends `QueryDto` + `sortBy` (`@IsEnum(ColumnEmployee)`), `department?`, `position?`, `status?`, `startDate?`, `endDate?` |
 | `enums/gender.enum.ts`, `column-employee.enum.ts` | Re-export dari `@appraisal/types` |
-| `interfaces/employee.interface.ts` | Re-export `EmployeeStatus`, `EmployeePayload`, `SuperiorPayload` |
+| `interfaces/employee.interface.ts` | Re-export `EmployeeStatus`, `EmployeePayload`, `SupervisorPayload` |
 
 - **Fungsinya:** Validasi input. `@Transform(({value}) => value?.trim())` membersihkan spasi di `employeeNumber`/`fullName`. `@IsDateString()` memastikan format tanggal ISO.
 - **Kenapa:** Mencegah input kotor & format tanggal salah sedini mungkin.
@@ -343,7 +343,7 @@ Skenario A: **HR mengimpor 200 karyawan dari Excel.**
 6. `EmployeeImporter.validate(rows)` → memeriksa **seluruh** baris. Jika ada yang salah, lempar 422 dengan `{ row, column, message }` baris pertama.
 7. `dbService.transaction` → `EmployeeImporter.commit(rows, tx)`:
    - Pass 1: upsert tiap karyawan (nama, gender, tanggal, departemen/posisi dari kode, status).
-   - Pass 2: isi `superiorId` berdasarkan `superior_number`.
+   - Pass 2: isi `supervisorId` berdasarkan `supervisor_number`.
    - `ImportService` mencatat audit `EMPLOYEE_IMPORTED` dengan metadata file & hasil.
 8. Respons: `{ created, updated, skipped }`.
 
@@ -414,7 +414,7 @@ Skenario C: **Ekspor.** `GET /api/employees/export` → service ambil data → `
 **Pertanyaan latihan:**
 
 1. *Kenapa `commit` dilakukan dalam dua tahap?*
-   → Karena `superiorId` bisa merujuk karyawan yang baru ikut diimpor; pass 1 membuat semua karyawan dulu, pass 2 baru menghubungkan atasan.
+   → Karena `supervisorId` bisa merujuk karyawan yang baru ikut diimpor; pass 1 membuat semua karyawan dulu, pass 2 baru menghubungkan atasan.
 
 2. *Apa fungsi `SORT_COLUMNS` dan risiko bila dihapus?*
    → Memetakan input `sortBy` ke nama kolom SQL yang aman (whitelist). Tanpa itu, input bisa disisipkan ke `ORDER BY` dan membuka celah SQL injection.

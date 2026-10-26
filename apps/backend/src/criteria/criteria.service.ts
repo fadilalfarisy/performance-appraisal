@@ -153,6 +153,8 @@ export class CriteriaService {
         }
       }
 
+      validateFields(fieldList ?? []);
+
       await this.criteriaRepository.replaceCriteria(
         set.id,
         criteriaList ?? [],
@@ -390,6 +392,7 @@ export class CriteriaService {
       const values = {
         fieldKey: field.fieldKey,
         label: field.label,
+        description: field.description ?? null,
         inputType: field.inputType,
         required: field.required ?? false,
         defaultValue: field.defaultValue ?? null,
@@ -437,6 +440,7 @@ export class CriteriaService {
     return {
       fieldKey: field.fieldKey,
       label: field.label,
+      description: field.description ?? undefined,
       inputType: field.inputType,
       required: field.required,
       defaultValue: field.defaultValue ?? undefined,

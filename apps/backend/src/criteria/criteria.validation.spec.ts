@@ -95,6 +95,15 @@ describe('validateFields', () => {
     ).toThrow(/Duplicate field key/);
   });
 
+  it('rejects duplicate field labels across the set', () => {
+    expect(() =>
+      validateFields([
+        field({ fieldKey: 'quantity', label: 'Quantity' }),
+        field({ fieldKey: 'quality', label: ' quantity ' }),
+      ]),
+    ).toThrow(/Duplicate field label/);
+  });
+
   it('requires options for option fields', () => {
     expect(() =>
       validateFields([

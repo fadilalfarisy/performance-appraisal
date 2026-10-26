@@ -1,0 +1,1 @@
+ALTER TABLE "criteria_fields" ADD COLUMN "description" varchar(500);

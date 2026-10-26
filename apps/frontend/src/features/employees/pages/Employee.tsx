@@ -99,11 +99,6 @@ export const Employee = () => {
     setPagination((prev) => ({ ...prev, current: 1 }));
   };
 
-  const handleReset = () => {
-    setSearchValues(null);
-    setPagination((prev) => ({ ...prev, current: 1 }));
-  };
-
   const handleTableChange = (page: number, pageSize?: number) => {
     setPagination((prev) => ({
       ...prev,
@@ -150,6 +145,11 @@ export const Employee = () => {
       render: (value) => (
         <Tag color={employeeStatusColor[value] ?? "default"}>{value}</Tag>
       ),
+    },
+    {
+      title: "Start Contract",
+      dataIndex: "contractStartDate",
+      render: (value) => value ?? "-",
     },
     {
       title: "End Contract",
@@ -215,7 +215,7 @@ export const Employee = () => {
           )}
         </TitlePage>
 
-        <EmployeeSearch onSearch={handleSearch} onReset={handleReset} />
+        <EmployeeSearch onSearch={handleSearch} />
 
         <ImportModal
           open={importOpen}

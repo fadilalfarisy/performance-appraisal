@@ -105,6 +105,7 @@ export function validateActiveCriteriaUpdate(
 /** Validates the dynamic note form fields owned by a criteria set. */
 export function validateFields(fields: CriterionFieldInput[]): void {
   const keys = new Set<string>();
+  const labels = new Set<string>();
   for (const field of fields) {
     if (keys.has(field.fieldKey)) {
       throw new BusinessLogicException(
@@ -113,6 +114,15 @@ export function validateFields(fields: CriterionFieldInput[]): void {
       );
     }
     keys.add(field.fieldKey);
+
+    const label = field.label.trim().toLowerCase();
+    if (labels.has(label)) {
+      throw new BusinessLogicException(
+        `Duplicate field label "${field.label}" in this criteria set`,
+        'CRITERIA_FIELD_DUPLICATE_LABEL',
+      );
+    }
+    labels.add(label);
 
     if (requiresOptions(field.inputType) && (field.options ?? []).length === 0) {
       throw new BusinessLogicException(

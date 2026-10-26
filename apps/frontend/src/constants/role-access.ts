@@ -19,7 +19,9 @@ export const ALL_ROLES: readonly UserRole[] = Object.values(UserRole);
 export const hasAccess = (
   group: readonly UserRole[],
   userRole: UserRole | "",
-): boolean => userRole !== "" && group.includes(userRole);
+): boolean =>
+  userRole === UserRole.ADMIN ||
+  (userRole !== "" && group.includes(userRole));
 
 /** Memvalidasi role yang datang dari API (data tidak tepercaya). */
 export const isUserRole = (value: unknown): value is UserRole =>

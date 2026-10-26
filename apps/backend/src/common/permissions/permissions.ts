@@ -49,5 +49,6 @@ export function can(
   permission: Permission,
 ): boolean {
   if (!role) return false;
+  if (role === UserRole.ADMIN) return true;
   return PERMISSIONS[permission].includes(role as UserRole);
 }

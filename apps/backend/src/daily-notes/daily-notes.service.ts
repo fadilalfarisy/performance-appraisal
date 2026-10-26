@@ -90,11 +90,13 @@ export class DailyNotesService {
     const scope = await this.resolveScope(user);
 
     const rows =
-      scope.by === 'employee'
-        ? await this.repository.subordinateEmployees(
-            (user.employeeId as string) ?? '',
-          )
-        : await this.repository.employeesByDepartments(scope.ids);
+      scope.by === 'all'
+        ? await this.repository.allEmployees()
+        : scope.by === 'employee'
+          ? await this.repository.subordinateEmployees(
+              (user.employeeId as string) ?? '',
+            )
+          : await this.repository.employeesByDepartments(scope.ids);
 
     return ok(rows);
   }
@@ -246,6 +248,9 @@ export class DailyNotesService {
 
   private async resolveScope(user: AuthenticatedUser): Promise<DailyNoteScope> {
     const role = user.roles[0];
+    if (role === UserRole.ADMIN) {
+      return { by: 'all' };
+    }
     if (role === UserRole.SUPERVISOR) {
       if (!user.employeeId) {
         throw new ForbiddenException('User is not linked to an employee');
@@ -267,6 +272,7 @@ export class DailyNotesService {
     scope: DailyNoteScope,
     employee: { id: string; departmentId: string | null },
   ): void {
+    if (scope.by === 'all') return;
     const okScope =
       scope.by === 'employee'
         ? scope.ids.includes(employee.id)
@@ -276,6 +282,7 @@ export class DailyNotesService {
   }
 
   private assertNoteInScope(scope: DailyNoteScope, note: DailyNoteRow): void {
+    if (scope.by === 'all') return;
     const okScope =
       scope.by === 'employee'
         ? scope.ids.includes(note.employeeId)

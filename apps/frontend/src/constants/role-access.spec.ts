@@ -29,10 +29,8 @@ describe("role groups", () => {
     });
   }
 
-  it("gives ADMIN access to every group except note managers", () => {
-    for (const [name, group] of Object.entries(EXPECTED_GROUPS)) {
-      // Daily notes follow PRD 5.8: ADMIN has no access there.
-      if (name === "noteManagers") continue;
+  it("gives ADMIN access to every group", () => {
+    for (const group of Object.values(EXPECTED_GROUPS)) {
       expect(hasAccess(group, UserRole.ADMIN)).toBe(true);
     }
   });
@@ -52,6 +50,11 @@ describe("hasAccess", () => {
   it("allows a member and denies a non-member", () => {
     expect(hasAccess(roles.humanResource, UserRole.HR)).toBe(true);
     expect(hasAccess(roles.humanResource, UserRole.MANAGER)).toBe(false);
+  });
+
+  it("always allows ADMIN", () => {
+    expect(hasAccess(roles.noteManagers, UserRole.ADMIN)).toBe(true);
+    expect(hasAccess([], UserRole.ADMIN)).toBe(true);
   });
 });
 
@@ -73,13 +76,13 @@ describe("filteredMenuByRole", () => {
   const EVERYONE = 5;
   const NOTE_MANAGERS = [UserRole.HEAD_DEPARTMENT, UserRole.SUPERVISOR];
 
-  it("shows ADMIN every section except Daily Notes", () => {
+  it("shows ADMIN every section", () => {
     const keys = menuKeys(UserRole.ADMIN);
-    expect(keys).toHaveLength(EVERYONE + 2);
+    expect(keys).toHaveLength(EVERYONE + 3);
     expect(keys).toEqual(
       expect.arrayContaining(["/dashboard/master-data", "/dashboard/user"]),
     );
-    expect(keys).not.toContain("/dashboard/daily-notes");
+    expect(keys).toContain("/dashboard/daily-notes");
   });
 
   it("shows Daily Notes only to note managers", () => {

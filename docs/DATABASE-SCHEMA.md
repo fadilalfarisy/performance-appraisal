@@ -92,7 +92,7 @@ erDiagram
         uuid department_id FK
         uuid position_id FK
         employee_status status
-        uuid superior_id FK
+        uuid supervisor_id FK
         timestamp created_at
         timestamp updated_at
         boolean is_deleted
@@ -316,7 +316,7 @@ erDiagram
 
 `USERS` menyimpan akun dan satu role. `REFRESH_TOKENS` menyimpan hash refresh token (id = JWT `jti`) dengan rotasi lewat `replaced_by` dan pencabutan lewat `revoked_at`. `USER_DEPARTMENTS` adalah scope departemen untuk role yang tidak global.
 
-`DEPARTMENTS` dan `POSITIONS` adalah master data. `EMPLOYEES` mereferensikan keduanya, dan `superior_id` adalah self-reference untuk atasan langsung. `CONTRACTS` menyimpan riwayat kontrak per karyawan.
+`DEPARTMENTS` dan `POSITIONS` adalah master data. `EMPLOYEES` mereferensikan keduanya, dan `supervisor_id` adalah self-reference untuk atasan langsung. `CONTRACTS` menyimpan riwayat kontrak per karyawan.
 
 ### Kriteria
 
@@ -358,6 +358,7 @@ Tabel aplikasi memakai `is_deleted` + `deleted_at`. Semua query dan index parsia
 | `criteria` | `(criteria_set_id, code)` |
 | `criteria_scale_descriptions` | `(criterion_id, score)` |
 | `criteria_fields` | `(criteria_set_id, field_key)` where `is_deleted = false` |
+| `criteria_fields` | `(criteria_set_id, label)` where `is_deleted = false` |
 | `daily_note_values` | `(note_id, field_id)` |
 | `appraisal_employees` | `(appraisal_id, employee_id)` |
 | `appraisal_ratings` | `(appraisal_employee_id, criterion_id)` |
@@ -404,11 +405,15 @@ Sisanya memakai default `NO ACTION`, termasuk relasi yang mengunci versi (`daily
 - `0006`: kolom `criteria_sets.effective_date` dihapus.
 - `0007`: `criteria_sets.department_id` ditambahkan; enum `SUPERSEDED` di-rename menjadi `ARCHIVED`; index versi/aktif menjadi per department group; index `uq_criteria_field_key` menjadi parsial (`is_deleted = false`).
 - `0008`: `criteria_fields.criterion_id` dihapus; field sekarang hanya terikat ke `criteria_set_id`; unique index menjadi `(criteria_set_id, field_key)` parsial.
+- `0009`: kolom `criteria_fields.description` ditambahkan (teks bantuan di bawah label).
+- `0010`: kolom `employees.supervisor_id` ditambahkan dan diisi dari `superior_id` (rename bertahap tanpa kehilangan data).
+- `0011`: kolom `employees.superior_id` dan index `idx_employees_superior` dihapus; index `idx_employees_supervisor` dibuat di `0010`.
+- `0012`: unique index `(criteria_set_id, label)` parsial ditambahkan pada `criteria_fields`; label duplikat yang sudah ada diberi suffix id lebih dulu.
 
 ## Sumber
 
 - `apps/backend/src/db/schema.ts`
 - `apps/backend/src/db/audit-logs.schema.ts`
-- `apps/backend/drizzle/0000_init.sql` - `0008_glossy_lenny_balinger.sql`
+- `apps/backend/drizzle/0000_init.sql` - `0012_criteria_field_label_unique.sql`
 
-Diverifikasi dengan introspeksi `information_schema` dan `pg_catalog` pada database lokal: 19 relasi (termasuk partisi `audit_logs_default`) dan 208 kolom.
+Diverifikasi dengan introspeksi `information_schema` dan `pg_catalog` pada database lokal: 19 relasi (termasuk partisi `audit_logs_default`) dan 209 kolom.

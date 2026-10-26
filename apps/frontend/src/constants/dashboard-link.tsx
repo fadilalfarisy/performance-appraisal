@@ -95,17 +95,18 @@ export const menuItem: MenuItem[] = [
 
 export const filteredMenuByRole = (userRole: UserRole | "") => {
   if (userRole === "") return [];
-  return menuItem
-    .filter((item) => item.roles.includes(userRole))
-    .map((item) => ({
-      ...item,
-      children: item.children
-        ? filterMenuByRole(item.children, userRole)
-        : null,
-    }));
+  return visibleMenuItems(menuItem, userRole).map((item) => ({
+    ...item,
+    children: item.children
+      ? visibleMenuItems(item.children, userRole)
+      : null,
+  }));
 };
 
-const filterMenuByRole = (
-  items: Omit<MenuItem, "children" | "icon">[],
+const visibleMenuItems = <T extends { roles: readonly UserRole[] }>(
+  items: T[],
   userRole: UserRole,
-) => items.filter((item) => item.roles.includes(userRole));
+) =>
+  items.filter(
+    (item) => userRole === UserRole.ADMIN || item.roles.includes(userRole),
+  );

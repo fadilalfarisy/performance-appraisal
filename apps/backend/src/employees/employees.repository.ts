@@ -23,7 +23,7 @@ export class EmployeesRepository {
       e.status,
       e.address,
       e.gender,
-      json_build_object('id', m.id, 'fullName', m.full_name) AS superior,
+      json_build_object('id', m.id, 'fullName', m.full_name) AS supervisor,
       json_build_object('id', p.id, 'name', p.name) AS position,
       json_build_object('id', d.id, 'name', d.name) AS department,
       json_build_object(
@@ -31,13 +31,19 @@ export class EmployeesRepository {
         'contractType', c.contract_type,
         'startDate', c.start_date,
         'endDate', c.end_date
-      ) AS contract
+      ) AS contract,
+      (
+        SELECT MIN(fc.start_date)::text
+        FROM contracts fc
+        WHERE fc.employee_id = e.id
+          AND fc.deleted_at IS NULL
+      ) AS "contractStartDate"
   `;
 
   private readonly fromClause = sql`
     FROM employees e
     LEFT JOIN employees m
-      ON m.id = e.superior_id
+      ON m.id = e.supervisor_id
     LEFT JOIN positions p
       ON p.id = e.position_id
     LEFT JOIN departments d
@@ -45,12 +51,14 @@ export class EmployeesRepository {
     LEFT JOIN (
       SELECT employee_id, MAX(start_date) AS latest_start_date
       FROM contracts
+      WHERE deleted_at IS NULL
       GROUP BY employee_id
     ) latest
       ON latest.employee_id = e.id
     LEFT JOIN contracts c
       ON c.employee_id = latest.employee_id
       AND c.start_date = latest.latest_start_date
+      AND c.deleted_at IS NULL
   `;
 
   async findAllWithRelationAndQuery(
@@ -172,7 +180,7 @@ export class EmployeesRepository {
   }
 
   async findForExport() {
-    const superior = alias(schema.employees, 'superior');
+    const supervisor = alias(schema.employees, 'supervisor');
     return this.db
       .select({
         employeeNumber: schema.employees.employeeNumber,
@@ -184,12 +192,12 @@ export class EmployeesRepository {
         departmentCode: departments.code,
         positionCode: positions.code,
         status: schema.employees.status,
-        superiorNumber: superior.employeeNumber,
+        supervisorNumber: supervisor.employeeNumber,
       })
       .from(schema.employees)
       .leftJoin(departments, eq(schema.employees.departmentId, departments.id))
       .leftJoin(positions, eq(schema.employees.positionId, positions.id))
-      .leftJoin(superior, eq(schema.employees.superiorId, superior.id))
+      .leftJoin(supervisor, eq(schema.employees.supervisorId, supervisor.id))
       .where(notDeleted(schema.employees))
       .orderBy(asc(schema.employees.employeeNumber));
   }

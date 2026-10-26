@@ -16,7 +16,8 @@ export type DailyNoteRow = typeof dailyNotes.$inferSelect;
 
 export type DailyNoteScope =
   | { by: 'employee'; ids: string[] }
-  | { by: 'department'; ids: string[] };
+  | { by: 'department'; ids: string[] }
+  | { by: 'all' };
 
 @Injectable()
 export class DailyNotesRepository {
@@ -29,7 +30,7 @@ export class DailyNotesRepository {
         employeeNumber: employees.employeeNumber,
         fullName: employees.fullName,
         departmentId: employees.departmentId,
-        superiorId: employees.superiorId,
+        supervisorId: employees.supervisorId,
       })
       .from(employees)
       .where(and(eq(employees.id, id), notDeleted(employees)))
@@ -37,7 +38,7 @@ export class DailyNotesRepository {
     return row ?? null;
   }
 
-  async subordinateEmployees(superiorEmployeeId: string) {
+  async subordinateEmployees(supervisorEmployeeId: string) {
     return this.db
       .select({
         id: employees.id,
@@ -50,10 +51,25 @@ export class DailyNotesRepository {
       .leftJoin(departments, eq(employees.departmentId, departments.id))
       .where(
         and(
-          eq(employees.superiorId, superiorEmployeeId),
+          eq(employees.supervisorId, supervisorEmployeeId),
           notDeleted(employees),
         ),
       )
+      .orderBy(asc(employees.fullName));
+  }
+
+  async allEmployees() {
+    return this.db
+      .select({
+        id: employees.id,
+        employeeNumber: employees.employeeNumber,
+        fullName: employees.fullName,
+        departmentId: employees.departmentId,
+        departmentName: departments.name,
+      })
+      .from(employees)
+      .leftJoin(departments, eq(employees.departmentId, departments.id))
+      .where(notDeleted(employees))
       .orderBy(asc(employees.fullName));
   }
 
@@ -186,7 +202,7 @@ export class DailyNotesRepository {
           ? sql`1 = 0`
           : inArray(dailyNotes.employeeId, scope.ids),
       );
-    } else {
+    } else if (scope.by === 'department') {
       filters.push(
         scope.ids.length === 0
           ? sql`1 = 0`

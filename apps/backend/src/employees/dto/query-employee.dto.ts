@@ -1,10 +1,4 @@
-import {
-  IsOptional,
-  IsString,
-  IsEnum,
-  IsDateString,
-  IsArray,
-} from 'class-validator';
+import { IsOptional, IsEnum, IsDateString, IsUUID } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { EmployeeStatus } from '../interfaces/employee.interface';
 import { ColumnEmployee } from '../enums/column-employee.enum';
@@ -17,11 +11,11 @@ export class QueryEmployeeDto extends QueryDto {
   sortBy: ColumnEmployee = ColumnEmployee.EMPLOYEE_NUMBER;
 
   @IsOptional()
-  @IsString()
+  @IsUUID()
   department?: string;
 
   @IsOptional()
-  @IsString()
+  @IsUUID()
   position?: string;
 
   @IsOptional()
@@ -29,12 +23,18 @@ export class QueryEmployeeDto extends QueryDto {
   status?: EmployeeStatus;
 
   @IsOptional()
-  @IsArray()
-  @IsDateString({}, { each: true })
-  startDate?: string[];
+  @IsDateString()
+  contractStartFrom?: string;
 
   @IsOptional()
-  @IsArray()
-  @IsDateString({}, { each: true })
-  endDate?: string[];
+  @IsDateString()
+  contractStartTo?: string;
+
+  @IsOptional()
+  @IsDateString()
+  contractEndFrom?: string;
+
+  @IsOptional()
+  @IsDateString()
+  contractEndTo?: string;
 }

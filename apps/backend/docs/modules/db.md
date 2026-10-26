@@ -190,7 +190,7 @@ const baseFields = {
 | `user_departments` | Scope departemen user | Primary key gabungan `(userId, departmentId)` |
 | `departments` | Master departemen | `code` unik, `headEmployeeId` (self-ref ke employees) |
 | `positions` | Master jabatan | `code` unik, `level` angka |
-| `employees` | Karyawan | `employeeNumber` unik (hanya untuk baris aktif), `superiorId` self-ref |
+| `employees` | Karyawan | `employeeNumber` unik (hanya untuk baris aktif), `supervisorId` self-ref |
 | `contracts` | Kontrak karyawan | Tipe varchar, `startDate`/`endDate`, index unik `(employeeId, startDate)` untuk baris aktif |
 | `criteria_sets` | Versi set kriteria | `version` unik; hanya satu `ACTIVE` (unique index parsial) |
 | `criteria` | Item kriteria | `weight` numeric, check `scaleMin < scaleMax`, `weight > 0` |
@@ -226,7 +226,7 @@ check('criteria_weight_check', sql`${table.weight} > 0`),
 - **Kenapa dibuat seperti ini:** Pertahanan lapis terakhir; walau kode aplikasi punya bug, DB tetap menolak data tak masuk akal.
 - **Analogi:** Palang pintu yang tidak bisa dilewati kalau barang melebihi ukuran.
 
-**Relasi (`relations`)** — mendefinisikan keterkaitan antar tabel (mis. `employees.superior`, `appraisals.employees`) agar bisa dipakai query relasional Drizzle. Tidak mengubah struktur DB, hanya metadata untuk ORM.
+**Relasi (`relations`)** — mendefinisikan keterkaitan antar tabel (mis. `employees.supervisor`, `appraisals.employees`) agar bisa dipakai query relasional Drizzle. Tidak mengubah struktur DB, hanya metadata untuk ORM.
 
 > Perlu konfirmasi: `schema.ts` masih memuat enum `userRoleEnum` dengan `SUPERVISOR`, sedangkan AGENTS.md menyebut 5 role tanpa SUPERVISOR. Lihat juga catatan di module `common`.
 
