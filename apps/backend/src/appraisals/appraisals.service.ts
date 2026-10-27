@@ -6,6 +6,7 @@ import {
 import { sql } from 'drizzle-orm';
 import {
   AppraisalStatus,
+  type AppraisalEmployeeDetailResponse,
   type AppraisalEmployeeResponse,
   type AppraisalResponse,
   type CriterionResponse,
@@ -21,7 +22,11 @@ import { ScopeService } from '../common/scope/scope.service';
 import { CriteriaService } from '../criteria/criteria.service';
 import { calculateScore } from './appraisal-score';
 import { findTransition } from './appraisal.transitions';
-import { AppraisalsRepository } from './appraisals.repository';
+import {
+  AppraisalsRepository,
+  type AppraisalEmployeeRow,
+} from './appraisals.repository';
+import { AppraisalsExcelService } from './appraisals.excel';
 import { PreviewAppraisalDto } from './dto/preview-appraisal.dto';
 import { CreateAppraisalDto } from './dto/create-appraisal.dto';
 import { UpdateAppraisalEmployeesDto } from './dto/update-appraisal-employees.dto';
@@ -42,6 +47,7 @@ export class AppraisalsService {
     private readonly audit: AuditService,
     private readonly requestContext: RequestContextService,
     private readonly scopeService: ScopeService,
+    private readonly excel: AppraisalsExcelService,
   ) {}
 
   // ── Preview / creation ─────────────────────────────────────────────────────
@@ -52,10 +58,12 @@ export class AppraisalsService {
       dto.departmentId,
     );
     const start = periodStart(dto.period);
-    const eligible = await this.repository.findEligible(
-      dto.departmentId,
-      start,
-      periodEnd(dto.period),
+    const eligible = this.dedupeEligible(
+      await this.repository.findEligible(
+        dto.departmentId,
+        start,
+        periodEnd(dto.period),
+      ),
     );
     return ok({
       departmentId: dto.departmentId,
@@ -73,10 +81,12 @@ export class AppraisalsService {
       dto.departmentId,
     );
     const start = periodStart(dto.period);
-    const eligible = await this.repository.findEligible(
-      dto.departmentId,
-      start,
-      periodEnd(dto.period),
+    const eligible = this.dedupeEligible(
+      await this.repository.findEligible(
+        dto.departmentId,
+        start,
+        periodEnd(dto.period),
+      ),
     );
     const byId = new Map(eligible.map((row) => [row.id, row]));
     const chosen = dto.employeeIds
@@ -162,6 +172,97 @@ export class AppraisalsService {
     );
   }
 
+  async findEmployeeDetail(
+    id: string,
+    appraisalEmployeeId: string,
+  ): Promise<ApiResponse<AppraisalEmployeeDetailResponse>> {
+    const appraisal = await this.repository.findAppraisal(id);
+    if (!appraisal) {
+      throw new NotFoundException(`Appraisal with ID ${id} not found`);
+    }
+    await this.assertScope(appraisal.departmentId);
+
+    const employee = await this.repository.findEmployeeById(
+      appraisalEmployeeId,
+      id,
+    );
+    if (!employee) {
+      throw new NotFoundException(
+        `Appraisal employee ${appraisalEmployeeId} not found`,
+      );
+    }
+
+    const [criteria, ratings, sums, departmentName] = await Promise.all([
+      this.criteriaForSet(appraisal.criteriaSetId),
+      this.repository.ratingsForAppraisal(id),
+      this.repository.dailyNoteSums(id),
+      this.repository.departmentName(appraisal.departmentId),
+    ]);
+
+    const employeeRatings = ratings.filter(
+      (rating) => rating.appraisalEmployeeId === appraisalEmployeeId,
+    );
+    const hasWindow = Boolean(
+      employee.contractStartDate && employee.contractEndDate,
+    );
+    const sum = sums.find(
+      (row) => row.appraisalEmployeeId === appraisalEmployeeId,
+    );
+
+    return ok({
+      appraisal: {
+        id: appraisal.id,
+        departmentId: appraisal.departmentId,
+        departmentName,
+        period: appraisal.period,
+        status: appraisal.status as AppraisalStatus,
+        criteriaSetId: appraisal.criteriaSetId,
+        criteriaSetVersion: appraisal.criteriaSetVersion ?? 0,
+        criteriaSetStatus: (appraisal.criteriaSetStatus ??
+          'ARCHIVED') as AppraisalEmployeeDetailResponse['appraisal']['criteriaSetStatus'],
+      },
+      employee: {
+        ...this.toEmployeeResponse(employee, employeeRatings),
+        dailyNoteSum: hasWindow ? (sum?.total ?? 0) : null,
+      },
+      criteria,
+    });
+  }
+
+  async exportResult(id: string): Promise<Buffer> {
+    const appraisal = await this.repository.findAppraisal(id);
+    if (!appraisal) {
+      throw new NotFoundException(`Appraisal with ID ${id} not found`);
+    }
+    await this.assertScope(appraisal.departmentId);
+
+    if (appraisal.status !== AppraisalStatus.COMPLETE) {
+      throw new BusinessLogicException(
+        'Appraisal result can only be exported when COMPLETE',
+        'APPRAISAL_RESULT_NOT_COMPLETE',
+      );
+    }
+
+    const [criteria, employees, ratings, departmentName] = await Promise.all([
+      this.criteriaForSet(appraisal.criteriaSetId),
+      this.repository.findEmployees(id),
+      this.repository.ratingsForAppraisal(id),
+      this.repository.departmentName(appraisal.departmentId),
+    ]);
+
+    return this.excel.buildResult({
+      appraisal: {
+        period: appraisal.period,
+        status: appraisal.status,
+        criteriaSetVersion: appraisal.criteriaSetVersion,
+      },
+      departmentName,
+      criteria,
+      employees,
+      ratings,
+    });
+  }
+
   async history(
     id: string,
   ): Promise<ApiResponse<unknown[]>> {
@@ -198,10 +299,12 @@ export class AppraisalsService {
         await this.repository.removeEmployees(id, dto.removeEmployeeIds, tx);
       }
       if (dto.addEmployeeIds?.length) {
-        const eligible = await this.repository.findEligible(
-          appraisal.departmentId,
-          appraisal.period,
-          periodEnd(appraisal.period),
+        const eligible = this.dedupeEligible(
+          await this.repository.findEligible(
+            appraisal.departmentId,
+            appraisal.period,
+            periodEnd(appraisal.period),
+          ),
         );
         const byId = new Map(eligible.map((row) => [row.id, row]));
         const chosen = dto.addEmployeeIds
@@ -417,10 +520,12 @@ export class AppraisalsService {
             skipped += 1;
             continue;
           }
-          const eligible = await this.repository.findEligible(
-            department.id,
-            period,
-            end,
+          const eligible = this.dedupeEligible(
+            await this.repository.findEligible(
+              department.id,
+              period,
+              end,
+            ),
           );
           if (eligible.length === 0) {
             skipped += 1;
@@ -574,6 +679,33 @@ export class AppraisalsService {
     }
   }
 
+  private dedupeEligible(rows: EligibleEmployee[]): EligibleEmployee[] {
+    const byEmployee = new Map<string, EligibleEmployee>();
+
+    for (const row of rows) {
+      const current = byEmployee.get(row.id);
+      if (!current) {
+        byEmployee.set(row.id, row);
+        continue;
+      }
+
+      const rowEnd = row.contractEndDate ?? '';
+      const currentEnd = current.contractEndDate ?? '';
+      const rowStart = row.contractStartDate ?? '';
+      const currentStart = current.contractStartDate ?? '';
+      const isLater =
+        rowEnd > currentEnd || (rowEnd === currentEnd && rowStart > currentStart);
+
+      if (isLater) {
+        byEmployee.set(row.id, row);
+      }
+    }
+
+    return [...byEmployee.values()].sort((a, b) =>
+      a.fullName.localeCompare(b.fullName),
+    );
+  }
+
   private toSnapshot(appraisalId: string, employee: EligibleEmployee) {
     return {
       appraisalId,
@@ -586,7 +718,40 @@ export class AppraisalsService {
       positionName: employee.positionName,
       contractId: employee.contractId,
       contractType: employee.contractType,
+      contractStartDate: employee.contractStartDate,
       contractEndDate: employee.contractEndDate,
+    };
+  }
+
+  private toEmployeeResponse(
+    employee: AppraisalEmployeeRow,
+    ratings: {
+      appraisalEmployeeId: string;
+      criterionId: string;
+      rating: number;
+    }[],
+  ): AppraisalEmployeeResponse {
+    return {
+      id: employee.id,
+      employeeId: employee.employeeId,
+      employeeNumber: employee.employeeNumber,
+      employeeName: employee.employeeName,
+      departmentId: employee.departmentId,
+      departmentName: employee.departmentName,
+      positionId: employee.positionId,
+      positionName: employee.positionName,
+      contractId: employee.contractId,
+      contractType: employee.contractType,
+      contractStartDate: employee.contractStartDate,
+      contractEndDate: employee.contractEndDate,
+      comment: employee.comment,
+      totalScore: employee.totalScore,
+      ratings: ratings
+        .filter((rating) => rating.appraisalEmployeeId === employee.id)
+        .map((rating) => ({
+          criterionId: rating.criterionId,
+          rating: rating.rating,
+        })),
     };
   }
 
@@ -603,21 +768,7 @@ export class AppraisalsService {
       createdBy: string | null;
       createdAt: Date | string;
     },
-    employees: {
-      id: string;
-      employeeId: string;
-      employeeNumber: string;
-      employeeName: string;
-      departmentId: string | null;
-      departmentName: string | null;
-      positionId: string | null;
-      positionName: string | null;
-      contractId: string | null;
-      contractType: string | null;
-      contractEndDate: string | null;
-      comment: string | null;
-      totalScore: number | null;
-    }[],
+    employees: AppraisalEmployeeRow[],
     ratings: {
       appraisalEmployeeId: string;
       criterionId: string;
@@ -627,24 +778,7 @@ export class AppraisalsService {
     departmentName: string | null = null,
   ): AppraisalResponse {
     const mappedEmployees: AppraisalEmployeeResponse[] = employees.map(
-      (employee) => ({
-        id: employee.id,
-        employeeId: employee.employeeId,
-        employeeNumber: employee.employeeNumber,
-        employeeName: employee.employeeName,
-        departmentId: employee.departmentId,
-        departmentName: employee.departmentName,
-        positionId: employee.positionId,
-        positionName: employee.positionName,
-        contractId: employee.contractId,
-        contractType: employee.contractType,
-        contractEndDate: employee.contractEndDate,
-        comment: employee.comment,
-        totalScore: employee.totalScore,
-        ratings: ratings
-          .filter((r) => r.appraisalEmployeeId === employee.id)
-          .map((r) => ({ criterionId: r.criterionId, rating: r.rating })),
-      }),
+      (employee) => this.toEmployeeResponse(employee, ratings),
     );
 
     return {

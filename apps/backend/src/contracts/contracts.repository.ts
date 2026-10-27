@@ -7,6 +7,7 @@ import {
   ilike,
   inArray,
   lte,
+  ne,
   or,
   sql,
   type SQL,
@@ -20,6 +21,35 @@ import { UpdateContractDto } from './dto/update-contract.dto';
 import { ContractQueryDto } from './dto/contract-query.dto';
 
 export type ContractRow = typeof contracts.$inferSelect;
+
+export function buildContractFilters(query: ContractQueryDto): SQL[] {
+  const {
+    employeeId,
+    contractType,
+    search,
+    startDateFrom,
+    startDateTo,
+    endDateFrom,
+    endDateTo,
+  } = query;
+
+  const filters: SQL[] = [notDeleted(contracts)];
+  if (employeeId) filters.push(eq(contracts.employeeId, employeeId));
+  if (contractType) filters.push(eq(contracts.contractType, contractType));
+  if (startDateFrom) filters.push(gte(contracts.startDate, startDateFrom));
+  if (startDateTo) filters.push(lte(contracts.startDate, startDateTo));
+  if (endDateFrom) filters.push(gte(contracts.endDate, endDateFrom));
+  if (endDateTo) filters.push(lte(contracts.endDate, endDateTo));
+  if (search) {
+    const term = `%${search}%`;
+    const searchFilter = or(
+      ilike(employees.fullName, term),
+      ilike(employees.employeeNumber, term),
+    );
+    if (searchFilter) filters.push(searchFilter);
+  }
+  return filters;
+}
 
 @Injectable()
 export class ContractsRepository {
@@ -37,26 +67,32 @@ export class ContractsRepository {
     return result ?? null;
   }
 
-  async findAllWithCount(query: ContractQueryDto) {
-    const {
-      page = 1,
-      limit = 20,
-      employeeId,
-      contractType,
-      startDateFrom,
-      startDateTo,
-      endDateFrom,
-      endDateTo,
-    } = query;
+  async findOverlapping(
+    employeeId: string,
+    startDate: string,
+    endDate: string | null,
+    excludeId?: string,
+    executor: DbExecutor = this.db,
+  ): Promise<ContractRow | null> {
+    const newRange = sql`daterange(${startDate}::date, COALESCE(${endDate}::date, 'infinity'::date), '[]')`;
+    const filters: SQL[] = [
+      eq(contracts.employeeId, employeeId),
+      notDeleted(contracts),
+      sql`daterange(${contracts.startDate}, COALESCE(${contracts.endDate}, 'infinity'::date), '[]') && ${newRange}`,
+    ];
+    if (excludeId) filters.push(ne(contracts.id, excludeId));
 
-    const filters: SQL[] = [notDeleted(contracts)];
-    if (employeeId) filters.push(eq(contracts.employeeId, employeeId));
-    if (contractType) filters.push(eq(contracts.contractType, contractType));
-    if (startDateFrom) filters.push(gte(contracts.startDate, startDateFrom));
-    if (startDateTo) filters.push(lte(contracts.startDate, startDateTo));
-    if (endDateFrom) filters.push(gte(contracts.endDate, endDateFrom));
-    if (endDateTo) filters.push(lte(contracts.endDate, endDateTo));
-    const where = and(...filters);
+    const [row] = await executor
+      .select()
+      .from(contracts)
+      .where(and(...filters))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async findAllWithCount(query: ContractQueryDto) {
+    const { page = 1, limit = 20 } = query;
+    const where = and(...buildContractFilters(query));
 
     const rows = await this.db
       .select({
@@ -81,6 +117,7 @@ export class ContractsRepository {
     const [total] = await this.db
       .select({ count: sql<number>`count(*)` })
       .from(contracts)
+      .leftJoin(employees, eq(contracts.employeeId, employees.id))
       .where(where);
 
     return [rows, Number(total?.count ?? 0)] as const;
@@ -167,30 +204,7 @@ export class ContractsRepository {
   }
 
   async findForExport(query: ContractQueryDto) {
-    const {
-      employeeId,
-      contractType,
-      search,
-      startDateFrom,
-      startDateTo,
-      endDateFrom,
-      endDateTo,
-    } = query;
-
-    const filters: SQL[] = [notDeleted(contracts)];
-    if (employeeId) filters.push(eq(contracts.employeeId, employeeId));
-    if (contractType) filters.push(eq(contracts.contractType, contractType));
-    if (startDateFrom) filters.push(gte(contracts.startDate, startDateFrom));
-    if (startDateTo) filters.push(lte(contracts.startDate, startDateTo));
-    if (endDateFrom) filters.push(gte(contracts.endDate, endDateFrom));
-    if (endDateTo) filters.push(lte(contracts.endDate, endDateTo));
-    if (search) {
-      const searchFilter = or(
-        ilike(employees.fullName, `%${search}%`),
-        ilike(employees.employeeNumber, `%${search}%`),
-      );
-      if (searchFilter) filters.push(searchFilter);
-    }
+    const where = and(...buildContractFilters(query));
 
     return this.db
       .select({
@@ -202,7 +216,7 @@ export class ContractsRepository {
       })
       .from(contracts)
       .leftJoin(employees, eq(contracts.employeeId, employees.id))
-      .where(and(...filters))
+      .where(where)
       .orderBy(desc(contracts.startDate));
   }
 }

@@ -5,12 +5,15 @@ import {
   App,
   Button,
   DatePicker,
+  Form,
+  Input,
   Popconfirm,
   Result,
   Select,
   Space,
   Table,
 } from "antd";
+import type { Dayjs } from "dayjs";
 import {
   PlusOutlined,
   EyeOutlined,
@@ -19,31 +22,38 @@ import {
 import { TitlePage } from "@/components";
 import { useAppSelector } from "@/app/hooks";
 import { hasAccess, roles } from "@/constants/role-access";
+import { useGetDepartmentsQuery } from "@/features/departments";
 import {
   useDeleteDailyNoteMutation,
-  useGetAccessibleEmployeesQuery,
   useGetDailyNotesQuery,
 } from "../dailyNotesApi";
 import { errorHandling } from "@/utils/errorUtils";
-import { formatDate, formatDateTime } from "@/utils/dateUtils";
+import {
+  dateFormat,
+  formatDate,
+  formatDateTime,
+} from "@/utils/dateUtils";
 import type { DailyNoteResponse } from "@appraisal/types";
 
-const { RangePicker } = DatePicker;
+type DailyNoteFilters = {
+  search?: string;
+  departmentId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+};
 
 export const DailyNote = () => {
   const navigate = useNavigate();
   const auth = useAppSelector((state) => state.auth);
   const { message } = App.useApp();
 
-  const [employeeId, setEmployeeId] = useState<string | undefined>();
-  const [range, setRange] = useState<[string, string] | undefined>();
+  const [form] = Form.useForm();
+  const [filters, setFilters] = useState<DailyNoteFilters>({});
   const [page, setPage] = useState(1);
 
-  const { data: employees } = useGetAccessibleEmployeesQuery();
+  const { data: departments } = useGetDepartmentsQuery();
   const { data, isSuccess } = useGetDailyNotesQuery({
-    employeeId,
-    dateFrom: range?.[0],
-    dateTo: range?.[1],
+    ...filters,
     page,
     limit: 10,
   });
@@ -51,6 +61,39 @@ export const DailyNote = () => {
 
   const canManage = hasAccess(roles.noteManagers, auth.role);
   const notes = data?.data ?? [];
+
+  const collectFilters = (): DailyNoteFilters => {
+    const values = form.getFieldsValue();
+    const date = values.date as Dayjs | undefined;
+    const selectedDate = date ? date.format(dateFormat) : undefined;
+
+    return {
+      search: values.search?.trim() || undefined,
+      departmentId: values.departmentId,
+      dateFrom: selectedDate,
+      dateTo: selectedDate,
+    };
+  };
+
+  const applyFilters = () => {
+    setFilters(collectFilters());
+    setPage(1);
+  };
+
+  const handleClearSearch = () => {
+    form.setFieldValue("search", undefined);
+    applyFilters();
+  };
+
+  const handleDepartmentChange = (value?: string) => {
+    form.setFieldValue("departmentId", value);
+    applyFilters();
+  };
+
+  const handleDateChange = (value: Dayjs | null) => {
+    form.setFieldValue("date", value ?? undefined);
+    applyFilters();
+  };
 
   if (!canManage) {
     return (
@@ -73,11 +116,16 @@ export const DailyNote = () => {
 
   const columns: TableColumnsType<DailyNoteResponse> = [
     {
-      title: "Employee",
-      render: (_, record) =>
-        record.employeeName
-          ? `${record.employeeNumber ?? "-"} — ${record.employeeName}`
-          : "-",
+      title: "Employee No",
+      dataIndex: "employeeNumber",
+      width: "1%",
+      render: (value) => value || "-",
+    },
+    {
+      title: "Employee Name",
+      dataIndex: "employeeName",
+      width: "2%",
+      render: (value) => value || "-",
     },
     {
       title: "Department",
@@ -154,36 +202,42 @@ export const DailyNote = () => {
         </Button>
       </TitlePage>
 
-      <Space style={{ marginBottom: 16 }} wrap>
-        <Select
-          allowClear
-          showSearch
-          optionFilterProp="label"
-          placeholder="Employee"
-          style={{ width: 280 }}
-          value={employeeId}
-          onChange={(value) => {
-            setEmployeeId(value);
-            setPage(1);
-          }}
-          options={(employees?.data ?? []).map((employee) => ({
-            value: employee.id,
-            label: `${employee.employeeNumber} — ${employee.fullName}`,
-          }))}
-        />
-        <RangePicker
-          allowEmpty={[true, true]}
-          onChange={(dates) => {
-            const [from, to] = dates ?? [];
-            setRange(
-              from && to
-                ? [from.format("YYYY-MM-DD"), to.format("YYYY-MM-DD")]
-                : undefined,
-            );
-            setPage(1);
-          }}
-        />
-      </Space>
+      <Form form={form} style={{ marginBottom: 16 }}>
+        <Space wrap>
+          <Form.Item name="search" style={{ marginBottom: 0 }}>
+            <Input.Search
+              placeholder="Search by employee number or name"
+              allowClear
+              onSearch={applyFilters}
+              onClear={handleClearSearch}
+              enterButton
+              style={{ width: "clamp(220px, 32vw, 480px)" }}
+            />
+          </Form.Item>
+          <Form.Item name="departmentId" style={{ marginBottom: 0 }}>
+            <Select
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder="Department"
+              style={{ width: 220 }}
+              onChange={handleDepartmentChange}
+              options={(departments?.data ?? []).map((department) => ({
+                value: department.id,
+                label: department.name,
+              }))}
+            />
+          </Form.Item>
+          <Form.Item name="date" style={{ marginBottom: 0 }}>
+            <DatePicker
+              format={dateFormat}
+              placeholder="Date"
+              style={{ width: 180 }}
+              onChange={handleDateChange}
+            />
+          </Form.Item>
+        </Space>
+      </Form>
 
       <Table<DailyNoteResponse>
         columns={columns}

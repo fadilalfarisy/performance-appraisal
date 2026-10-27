@@ -2,9 +2,11 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { ApiResponse, ok, paginated } from '../common/utils/response.util';
 import { DbService } from '../db/db.service';
+import type { DbExecutor } from '../db/db.type';
 import { AuditService, type AuditEntry } from '../audit/audit.service';
 import { RequestContextService } from '../common/context/request-context.service';
 import { ImportService } from '../imports/import.service';
@@ -50,6 +52,12 @@ export class ContractsService {
     dto: CreateContractDto,
   ): Promise<ApiResponse<ContractPayload>> {
     const created = await this.dbService.transaction(async (tx) => {
+      await this.assertNoOverlap(
+        dto.employeeId,
+        dto.startDate,
+        dto.endDate ?? null,
+        tx,
+      );
       const row = await this.contractsRepository.createAndSave(dto, tx);
       if (!row) {
         throw new BadRequestException('Contract could not be created');
@@ -73,6 +81,13 @@ export class ContractsService {
     const existing = await this.findOneOrFail(id);
 
     const updated = await this.dbService.transaction(async (tx) => {
+      await this.assertNoOverlap(
+        existing.employeeId,
+        dto.startDate ?? existing.startDate,
+        dto.endDate !== undefined ? (dto.endDate ?? null) : existing.endDate,
+        tx,
+        id,
+      );
       const row = await this.contractsRepository.updateAndSave(id, dto, tx);
       if (!row) {
         throw new NotFoundException(`Contract with ID ${id} not found`);
@@ -129,6 +144,28 @@ export class ContractsService {
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
+
+  private async assertNoOverlap(
+    employeeId: string,
+    startDate: string,
+    endDate: string | null,
+    executor: DbExecutor,
+    excludeId?: string,
+  ): Promise<void> {
+    const overlapping = await this.contractsRepository.findOverlapping(
+      employeeId,
+      startDate,
+      endDate,
+      excludeId,
+      executor,
+    );
+    if (overlapping) {
+      throw new UnprocessableEntityException({
+        errorCode: 'CONTRACT_OVERLAP',
+        message: `This contract overlaps an existing contract (${overlapping.startDate} to ${overlapping.endDate ?? 'no end date'}) for the employee`,
+      });
+    }
+  }
 
   private async findOneOrFail(id: string): Promise<ContractRow> {
     const contract = await this.contractsRepository.findById(id);

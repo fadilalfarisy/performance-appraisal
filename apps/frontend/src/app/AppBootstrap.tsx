@@ -26,6 +26,8 @@ export const AppBootstrap = ({ children }: { children: ReactNode }) => {
     (async () => {
       try {
         const { data } = await refresh().unwrap();
+        if (cancelled) return;
+        
         dispatch(setAccessToken(data.accessToken));
 
         const me = await loadMe().unwrap();

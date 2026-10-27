@@ -223,6 +223,7 @@ erDiagram
         varchar position_name
         uuid contract_id
         varchar contract_type
+        date contract_start_date
         date contract_end_date
         text comment
         numeric total_score
@@ -409,11 +410,13 @@ Sisanya memakai default `NO ACTION`, termasuk relasi yang mengunci versi (`daily
 - `0010`: kolom `employees.supervisor_id` ditambahkan dan diisi dari `superior_id` (rename bertahap tanpa kehilangan data).
 - `0011`: kolom `employees.superior_id` dan index `idx_employees_superior` dihapus; index `idx_employees_supervisor` dibuat di `0010`.
 - `0012`: unique index `(criteria_set_id, label)` parsial ditambahkan pada `criteria_fields`; label duplikat yang sudah ada diberi suffix id lebih dulu.
+- `0013`: kolom `appraisal_employees.contract_start_date` (date, nullable) ditambahkan sebagai snapshot window kontrak.
+- `0014`: backfill `appraisal_employees.contract_start_date` dari `contracts.start_date` melalui `contract_id` untuk appraisal lama.
 
 ## Sumber
 
 - `apps/backend/src/db/schema.ts`
 - `apps/backend/src/db/audit-logs.schema.ts`
-- `apps/backend/drizzle/0000_init.sql` - `0012_criteria_field_label_unique.sql`
+- `apps/backend/drizzle/0000_init.sql` - `0014_backfill_appraisal_contract_start.sql`
 
-Diverifikasi dengan introspeksi `information_schema` dan `pg_catalog` pada database lokal: 19 relasi (termasuk partisi `audit_logs_default`) dan 209 kolom.
+Diverifikasi dengan introspeksi `information_schema` dan `pg_catalog` pada database lokal: 19 relasi (termasuk partisi `audit_logs_default`) dan 210 kolom.

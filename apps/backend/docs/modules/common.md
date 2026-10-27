@@ -363,6 +363,7 @@ case '23P01': // exclusion_violation
   - `23503` = referensi ke record yang tak ada → 400.
   - `23502` = field wajib kosong → 400.
   - `23P01` = kontrak aktif tumpang-tindih (exclusion constraint) → 422.
+- **Drizzle wrapper:** Drizzle melempar `DrizzleQueryError` dan menaruh error PostgreSQL asli di `cause`. Karena itu `findDatabaseError()` menelusuri rantai `cause` (maksimal 4 level) sebelum membaca `code`/`detail`/`column`; tanpa ini, `23P01` dan `23505` tidak terdeteksi dan jatuh ke default 500 `DATABASE_ERROR`.
 - **Kenapa dibuat seperti ini:** Developer/frontend tidak perlu tahu kode mentah PostgreSQL; mereka cukup membaca `code`. `extractDatabaseErrorMessage` mengubah detail teknis jadi `"kolom 'nilai' already exists"`.
 - **Dampaknya:** Menghapus salah satu case membuat error itu jatuh ke default `DATABASE_ERROR` 500 — membingungkan pengguna.
 - **Analogi:** Penerjemah yang mengubah pesan error mesin berbahasa asing menjadi kalimat yang dapat dimengerti pelanggan.

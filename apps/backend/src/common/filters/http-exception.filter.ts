@@ -68,8 +68,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
       };
     }
 
-    const dbError = exception as { code?: string; detail?: string; column?: string };
-    if (dbError?.code) {
+    const dbError = this.findDatabaseError(exception);
+    if (dbError) {
       switch (dbError.code) {
         case '23505':
           return {
@@ -120,6 +120,31 @@ export class HttpExceptionFilter implements ExceptionFilter {
       message: 'Internal server error',
       details: {},
     };
+  }
+
+  private findDatabaseError(
+    exception: unknown,
+  ): { code: string; detail?: string; column?: string } | null {
+    let current: unknown = exception;
+
+    for (let depth = 0; depth < 4 && current; depth += 1) {
+      const candidate = current as {
+        code?: unknown;
+        detail?: string;
+        column?: string;
+        cause?: unknown;
+      };
+      if (typeof candidate.code === 'string') {
+        return {
+          code: candidate.code,
+          detail: candidate.detail,
+          column: candidate.column,
+        };
+      }
+      current = candidate.cause;
+    }
+
+    return null;
   }
 
   private extractDatabaseErrorMessage(detail?: string): string | null {

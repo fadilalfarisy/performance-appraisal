@@ -1,6 +1,7 @@
 import { apiSlice } from "@/api/apiSlice";
 import type {
   ApiResponse,
+  AppraisalEmployeeDetailResponse,
   AppraisalQuery,
   AppraisalResponse,
   AppraisalStatusHistoryResponse,
@@ -33,6 +34,14 @@ export const appraisalsApi = apiSlice.injectEndpoints({
       string | undefined
     >({
       query: (id) => `/appraisals/${id}/history`,
+      providesTags: ["Appraisals"],
+    }),
+    getAppraisalEmployee: builder.query<
+      ApiResponse<AppraisalEmployeeDetailResponse>,
+      { id: string; appraisalEmployeeId: string }
+    >({
+      query: ({ id, appraisalEmployeeId }) =>
+        `/appraisals/${id}/employees/${appraisalEmployeeId}`,
       providesTags: ["Appraisals"],
     }),
     previewAppraisal: builder.mutation<
@@ -104,6 +113,7 @@ export const {
   useGetAppraisalsQuery,
   useGetAppraisalByIdQuery,
   useGetAppraisalHistoryQuery,
+  useGetAppraisalEmployeeQuery,
   usePreviewAppraisalMutation,
   useCreateAppraisalMutation,
   useUpdateAppraisalEmployeesMutation,

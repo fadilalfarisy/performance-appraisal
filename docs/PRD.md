@@ -1,6 +1,7 @@
 # PRD: Employee Performance Appraisal System
 
-**Status:** Draft v0.8
+**Status:** Draft v0.9
+**Changes from v0.8:** Appraisal ratings are edited on a per-employee detail page for HEAD_DEPARTMENT and ADMIN, not inline in the appraisal table. The daily note sum is calculated over the employee's qualifying contract period (contract start to contract end), is informational, and is visible only to ADMIN and HEAD_DEPARTMENT. A renewed contract starts a new note window. When an appraisal is COMPLETE, authorized roles can download the result as `.xlsx` (employee rows × criteria columns, total score, comment).
 **Changes from v0.7:** ADMIN has full access to every action in the system, including all appraisal workflow actions (create, edit employee list, rate, import ratings, every transition, send back, delete, and reopen) and daily activity notes.
 **Changes from v0.6:** Criteria sets are now scoped per department with `DRAFT`, `ACTIVE`, and `ARCHIVED` statuses (one active set per department, plus an optional global set used as fallback). HR selects the criteria set when creating an appraisal; Supervisor and Head Department select it when recording a daily note. Active criteria may be edited only by ADMIN and only for code, name, description, scale, score descriptions, and form fields; weights and the criterion list are locked.
 **Changes from v0.5:** Removes the contract status field (5.1). A contract is active between its start and end dates, and no two contracts for the same employee may overlap in time; appraisal eligibility (5.4) uses the contract end date only.
@@ -135,15 +136,19 @@ The appraisal is presented as a **table**: rows are employees, columns are crite
 - An employee cannot appear in more than one open (not COMPLETE) appraisal for the same period.
 
 **Table behavior**
-- Columns are generated from the criteria set selected when the appraisal is created.
-- Each cell holds a rating within that criterion's scale. The score guide for each level is shown to the assessor.
+- The appraisal table is **read-only**: rows are employees and columns are the criteria from the pinned criteria set.
+- HEAD_DEPARTMENT (own department) and ADMIN can open a **per-employee detail page** from each row.
+- The detail page contains the editable assessment form (rating per criterion plus the employee comment), the score rubric for each criterion (`scaleMin`–`scaleMax` and every score description), and the informational daily note sum.
+- Each rating must be within that criterion's scale. The score guide for each level is shown next to the rating input.
 - Optional comment per employee row (P1: comment per cell).
 - Total score per employee is calculated automatically: each rating is normalized (`rating / maximum of that criterion's scale`), multiplied by the criterion weight, and summed to a score out of 100.
-- Per employee, an additional **daily note sum** column (see 5.9) shows the summed activity note values for the period. It is informational and does not change the total score.
-- Ratings are editable only by Head Department, only in PENDING, only for their own department.
+- Per employee, the **daily note sum** (see 5.9) is shown on the detail page. It is informational and does not change the total score.
+- Ratings are editable only by Head Department (own department) and ADMIN, and only while the appraisal is PENDING.
+- When the appraisal is **COMPLETE**, ADMIN, HR, Head Department (own department), Manager (scope), and General Manager can download the result as an `.xlsx` file. The sheet has one row per employee, columns for every pinned criterion, Total Score, and Comment.
 
 **Snapshot**
-- At creation, the appraisal stores for each employee: department, position, contract type, and contract end date. Later master data changes do not alter it.
+- At creation, the appraisal stores for each employee: department, position, contract type, contract start date, and contract end date. Later master data changes do not alter it.
+- The contract start and end dates define the employee's daily note window for this appraisal.
 
 **Deletion**
 - Appraisals are never physically deleted. In DRAFT, HR can **soft delete** (cancel) an appraisal. It is hidden from normal lists, kept in the database, and the action is audited.
@@ -153,7 +158,8 @@ Acceptance criteria:
 - Saving in PENDING allows incomplete ratings; submitting requires all cells filled.
 - Changing criteria after an appraisal is created does not change that appraisal's columns.
 - Creating an appraisal for a department and period that already has one is blocked with a clear message.
-- The daily note sum shown on the appraisal matches the employee's notes for the period and never changes the total score.
+- The daily note sum shown on the per-employee assessment matches the employee's notes inside the contract window and never changes the total score.
+- A COMPLETE appraisal can be downloaded as `.xlsx` with the same employee rows and criteria columns as the assessment table.
 
 ### 5.5 Approval Workflow (P0)
 
@@ -274,7 +280,7 @@ C = create, R = read, U = update, D = delete (soft), A = perform status transiti
 | Audit trail | R | R | - | - | - | - |
 | Daily activity notes (create / edit / delete) | CRUD | - | CRUD (own dept) | - | - | CRUD (own subordinates) |
 | View individual daily notes | R | - | R (own dept) | - | - | R (own subordinates) |
-| Daily note sum on appraisal | R | R | R (own dept) | R (scope) | R | R (own subordinates) |
+| Daily note sum on appraisal | R | - | R (own dept) | - | - | - |
 
 ADMIN has full access to every function in this matrix, including actions listed only for other roles.
 
@@ -284,7 +290,7 @@ Supervisors and Head Department record what an employee did each day. The note f
 
 **Record**
 - One note per employee per day. A unique key on employee and date prevents duplicates.
-- A note belongs to a department and a period (month), so notes roll up to that department's appraisal for the same period.
+- A note belongs to a department and keeps a month period for reporting. The appraisal daily note sum uses the employee's contract window (5.4 / below), not the note month.
 - Only **SUPERVISOR** (for employees whose supervisor they are) and **HEAD DEPARTMENT** (for their own department) can create, edit, and delete notes.
 - There is no approval step. The author can edit a note; an edit replaces its values.
 - Notes are never physically deleted (soft delete), and every create, edit, and delete is audited.
@@ -298,22 +304,24 @@ Supervisors and Head Department record what an employee did each day. The note f
 - `DRAFT` form-field definitions are managed by Admin and HR. `ACTIVE` form-field definitions are managed by Admin only (see 5.3 and 5.8).
 
 **Sum on the appraisal**
-- The **daily note sum** for an employee over a period is the sum of all numeric field values across that employee's notes in that department and month. Fields that are not numeric contribute 0.
-- The sum is shown on the performance appraisal as an informational column per employee (see 5.4) and is included in the appraisal result export.
+- The **daily note sum** for an appraisal employee is the sum of all numeric (`NUMBER`) field values across that employee's notes in the appraisal department whose `recordDate` falls between the **contract start date and contract end date** of the contract that made the employee eligible.
+- If the contract is renewed, the next appraisal uses the new contract's start date; notes from the previous contract are not included.
+- A note with no numeric fields, or an employee with no notes in the window, contributes 0.
+- The sum is shown on the per-employee detail page, visible only to ADMIN and HEAD_DEPARTMENT (own department).
 - The sum does **not** change the appraisal rating score; the formula in 5.4 is unchanged.
 
 **Access**
 - A SUPERVISOR reads and writes notes only for employees whose supervisor is that supervisor's linked employee.
 - HEAD DEPARTMENT reads and writes notes for their own department.
 - ADMIN reads and writes every note in every department.
-- Every other role (including HR, Manager, and General Manager) sees only the summed value on the appraisal, never the individual notes.
+- Every other role (including HR, Manager, and General Manager) cannot open the individual notes or the per-employee assessment page.
 
 Acceptance criteria:
 - A second note for the same employee and the same day is rejected.
 - A user who is not linked to an employee, or who is not the employee's supervisor, cannot create a note for that employee.
 - The form shows the fields defined on the selected set, without per-criterion grouping.
 - Values that break a field's rules (for example an out-of-range number or a missing required field) are rejected.
-- The appraisal shows the correct sum for the period, and changing notes updates it.
+- The per-employee assessment shows the correct contract-window sum, and changing notes inside the window updates it.
 - Notes written before a criteria-set change still show their original values and still count toward the sum.
 
 ## 6. Non-Functional Requirements

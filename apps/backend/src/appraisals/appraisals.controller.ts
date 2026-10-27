@@ -10,9 +10,11 @@ import {
   Post,
   Put,
   Query,
+  Res,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { UserRole } from '@appraisal/types';
+import type { Response } from 'express';
+import { UserRole, type AppraisalEmployeeDetailResponse } from '@appraisal/types';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ApiResponse } from '../common/utils/response.util';
 import { AppraisalsService } from './appraisals.service';
@@ -23,6 +25,9 @@ import { SaveRatingsDto } from './dto/save-ratings.dto';
 import { AppraisalTransitionDto } from './dto/appraisal-transition.dto';
 import { AppraisalQueryDto } from './dto/appraisal-query.dto';
 import { AppraisalPayload } from './interfaces/appraisal.interface';
+
+const XLSX_MIME =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 @ApiTags('appraisals')
 @ApiBearerAuth()
@@ -50,6 +55,42 @@ export class AppraisalsController {
   @ApiOperation({ summary: 'Get the status history' })
   history(@Param('id', ParseUUIDPipe) id: string) {
     return this.appraisalsService.history(id);
+  }
+
+  @Get(':id/employees/:appraisalEmployeeId')
+  @Roles(UserRole.HEAD_DEPARTMENT)
+  @ApiOperation({
+    summary:
+      'Get one appraisal employee with ratings, criteria rubric, and daily note sum (Head Department, Admin)',
+  })
+  findEmployeeDetail(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('appraisalEmployeeId', ParseUUIDPipe) appraisalEmployeeId: string,
+  ): Promise<ApiResponse<AppraisalEmployeeDetailResponse>> {
+    return this.appraisalsService.findEmployeeDetail(id, appraisalEmployeeId);
+  }
+
+  @Get(':id/export-result')
+  @Roles(
+    UserRole.HR,
+    UserRole.HEAD_DEPARTMENT,
+    UserRole.MANAGER,
+    UserRole.GENERAL_MANAGER,
+  )
+  @ApiOperation({
+    summary: 'Export the appraisal result as .xlsx (COMPLETE only)',
+  })
+  async exportResult(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const buffer = await this.appraisalsService.exportResult(id);
+    res.setHeader('Content-Type', XLSX_MIME);
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="appraisal-result.xlsx"',
+    );
+    res.send(buffer);
   }
 
   @Post('preview')

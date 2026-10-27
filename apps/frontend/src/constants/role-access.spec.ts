@@ -13,6 +13,13 @@ const EXPECTED_GROUPS: Record<keyof typeof roles, UserRole[]> = {
   headDepartment: [UserRole.ADMIN, UserRole.HEAD_DEPARTMENT],
   supervisor: [UserRole.ADMIN, UserRole.SUPERVISOR],
   noteManagers: [UserRole.HEAD_DEPARTMENT, UserRole.SUPERVISOR],
+  appraisalResultExport: [
+    UserRole.ADMIN,
+    UserRole.HR,
+    UserRole.HEAD_DEPARTMENT,
+    UserRole.MANAGER,
+    UserRole.GENERAL_MANAGER,
+  ],
 };
 
 const menuKeys = (userRole: UserRole | "") => {

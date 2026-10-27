@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, gte, inArray, lte, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, ilike, inArray, lte, or, sql, type SQL } from 'drizzle-orm';
 import { DB_CONNECTION } from '../db/db.constants';
 import type { Database, DbExecutor } from '../db/db.type';
 import {
@@ -18,6 +18,43 @@ export type DailyNoteScope =
   | { by: 'employee'; ids: string[] }
   | { by: 'department'; ids: string[] }
   | { by: 'all' };
+
+export function buildDailyNoteFilters(
+  query: DailyNoteQueryDto,
+  scope: DailyNoteScope,
+): SQL[] {
+  const { employeeId, departmentId, search, dateFrom, dateTo } = query;
+
+  const filters: SQL[] = [notDeleted(dailyNotes)];
+  if (employeeId) filters.push(eq(dailyNotes.employeeId, employeeId));
+  if (departmentId) filters.push(eq(dailyNotes.departmentId, departmentId));
+  if (dateFrom) filters.push(gte(dailyNotes.recordDate, dateFrom));
+  if (dateTo) filters.push(lte(dailyNotes.recordDate, dateTo));
+  if (search) {
+    const term = `%${search}%`;
+    const searchFilter = or(
+      ilike(employees.employeeNumber, term),
+      ilike(employees.fullName, term),
+    );
+    if (searchFilter) filters.push(searchFilter);
+  }
+
+  if (scope.by === 'employee') {
+    filters.push(
+      scope.ids.length === 0
+        ? sql`1 = 0`
+        : inArray(dailyNotes.employeeId, scope.ids),
+    );
+  } else if (scope.by === 'department') {
+    filters.push(
+      scope.ids.length === 0
+        ? sql`1 = 0`
+        : inArray(dailyNotes.departmentId, scope.ids),
+    );
+  }
+
+  return filters;
+}
 
 @Injectable()
 export class DailyNotesRepository {
@@ -181,36 +218,8 @@ export class DailyNotesRepository {
   }
 
   async listNotes(query: DailyNoteQueryDto, scope: DailyNoteScope) {
-    const {
-      page = 1,
-      limit = 10,
-      employeeId,
-      departmentId,
-      dateFrom,
-      dateTo,
-    } = query;
-
-    const filters: SQL[] = [notDeleted(dailyNotes)];
-    if (employeeId) filters.push(eq(dailyNotes.employeeId, employeeId));
-    if (departmentId) filters.push(eq(dailyNotes.departmentId, departmentId));
-    if (dateFrom) filters.push(gte(dailyNotes.recordDate, dateFrom));
-    if (dateTo) filters.push(lte(dailyNotes.recordDate, dateTo));
-
-    if (scope.by === 'employee') {
-      filters.push(
-        scope.ids.length === 0
-          ? sql`1 = 0`
-          : inArray(dailyNotes.employeeId, scope.ids),
-      );
-    } else if (scope.by === 'department') {
-      filters.push(
-        scope.ids.length === 0
-          ? sql`1 = 0`
-          : inArray(dailyNotes.departmentId, scope.ids),
-      );
-    }
-
-    const where = and(...filters);
+    const { page = 1, limit = 10 } = query;
+    const where = and(...buildDailyNoteFilters(query, scope));
 
     const rows = await this.db
       .select({
@@ -240,6 +249,7 @@ export class DailyNotesRepository {
     const [total] = await this.db
       .select({ count: sql<number>`count(*)` })
       .from(dailyNotes)
+      .leftJoin(employees, eq(dailyNotes.employeeId, employees.id))
       .where(where);
 
     return [rows, Number(total?.count ?? 0)] as const;

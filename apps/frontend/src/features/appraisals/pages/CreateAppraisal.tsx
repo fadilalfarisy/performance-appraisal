@@ -92,6 +92,11 @@ export const CreateAppraisal = () => {
     { title: "Position", dataIndex: "positionName", render: (v) => v || "-" },
     { title: "Contract type", dataIndex: "contractType", render: (v) => v || "-" },
     {
+      title: "Contract start",
+      dataIndex: "contractStartDate",
+      render: (v) => v || "-",
+    },
+    {
       title: "Contract ends",
       dataIndex: "contractEndDate",
       render: (v) => v || "-",

@@ -1,8 +1,8 @@
 # Frontend Design: Employee Performance Appraisal System
 
-**Based on:** PRD v0.8, `DESIGN-BACKEND.md` v0.6, and the installed dependencies in `apps/frontend/package.json`
+**Based on:** PRD v0.9, `DESIGN-BACKEND.md` v0.7, and the installed dependencies in `apps/frontend/package.json`
 **Scope:** `apps/frontend` only (React 18, Vite 7, TypeScript 5.7, Redux Toolkit, Ant Design 5, `@ant-design/icons`, dayjs, react-router-dom 6).
-**Status:** Draft v0.9 (ADMIN sees every menu, button, and appraisal action; aligned with PRD v0.8. Previous: Templates screen under Master Data, daily notes screen, criteria-editor form fields, appraisal list tabs)
+**Status:** Draft v1.0 (per-employee assessment page, contract-window daily note sum, aligned with PRD v0.9. Previous: ADMIN sees every menu, button, and appraisal action; Templates screen under Master Data, daily notes screen, criteria-editor form fields, appraisal list tabs)
 
 ---
 
@@ -15,10 +15,10 @@ The PRD and backend design do not specify these, so this document decides them. 
 | 1 | Server data is handled by **RTK Query** (part of `@reduxjs/toolkit`). No axios, no hand-written fetch thunks. | No extra dependency; caching, loading and error states, and tag invalidation come built in. |
 | 2 | Access token lives **in memory only** (Redux state). Refresh token is kept in `sessionStorage`. | Works with the current backend design (tokens in JSON bodies) without backend changes. Closing the tab ends the session. Upgrade path: httpOnly cookie for the refresh token, which needs a backend change (see section 18). |
 | 3 | Token refresh is **single-flight**: only one refresh request at a time; other 401 requests wait for it. | The backend rotates refresh tokens and revokes all tokens on reuse. Two parallel refresh calls would log the user out. |
-| 4 | Redux holds only auth state, unsaved grid edits, and small UI state. Server data is never copied into slices. | One source of truth for server data (the RTK Query cache). |
+| 4 | Redux holds only auth state and small UI state. Server data and assessment form state are never copied into slices. | One source of truth for server data (the RTK Query cache); the per-employee form is local. |
 | 5 | Nothing non-serializable goes in Redux: dates are ISO strings, never `dayjs` objects. | Redux Toolkit's serializability check and predictable state. |
 | 6 | Permission checks in the UI mirror the backend rules (roles, status, department scope) in one tested module. The backend remains the authority. | Hide or disable actions the user cannot perform; still handle 403 and 404 gracefully. |
-| 7 | Routing uses `createBrowserRouter` (data router). | Needed for `useBlocker` (warn about unsaved ratings). |
+| 7 | Routing uses `createBrowserRouter` (data router). | Available for `useBlocker` if unsaved-change warnings are added later. |
 | 8 | List screens keep page, sort, filters, and search in the **URL query string**. | Back button, refresh, and shared links keep the same view. |
 | 9 | UI language is English; no i18n library. | Not required by the PRD. Text stays in components for now. |
 | 10 | API types are written by hand from the Swagger contract. | Fewer tools for v1. Generating types from OpenAPI is an option later. |
@@ -204,7 +204,8 @@ Global toasts use the Ant Design `App` context (`App.useApp()`), not static `mes
 | `/login` | Login | public |
 | `/appraisals` | Appraisal list (home) | all |
 | `/appraisals/new` | Create appraisal wizard | HR |
-| `/appraisals/:id` | Appraisal detail (table, actions, history) | all (scope) |
+| `/appraisals/:id` | Appraisal detail (read-only table, actions, history) | all (scope) |
+| `/appraisals/:id/employees/:appraisalEmployeeId` | Per-employee assessment (form, rubric, daily note sum) | HEAD_DEPARTMENT (own department), ADMIN |
 | `/employees` | Employees | all (read), ADMIN and HR write |
 | `/contracts` | Contracts | all (read), ADMIN and HR write |
 | `/departments` | Departments | all (read), ADMIN write |
@@ -383,20 +384,23 @@ Layout:
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │ Dept: Production   Period: March 2027   Criteria set v3      │
-│ Steps: DRAFT ─ PENDING ─ SUBMITTED ─ APPROVED ─ COMPLETE     │
-│ [Save] [Import ratings] [Export template] [Submit] [Send back]│
+│ Status: PENDING                                              │
+│ [Submit] [Send back] [Reopen] ...                            │
 ├──────────────────────────────────────────────────────────────┤
-│ Employee      │ Quality │ Quantity │ Discipline │ ... │ Total │
-│ (sticky left) │ (20%)   │ (20%)    │ (20%)      │     │ score │
-│ ──────────────┼─────────┼──────────┼────────────┼─────┼───────│
-│ 1001 Budi     │  [ 4 ]  │  [ 5 ]   │  [ 3 ]     │     │ 78.00 │
+│ Employee      │ Quality │ Quantity │ Discipline │ Total │ Action│
+│ (sticky left) │ (20%)   │ (20%)    │ (20%)      │ score │       │
+│ ──────────────┼─────────┼──────────┼────────────┼───────┼───────│
+│ 1001 Budi     │    4    │    5     │     3      │ 78.00 │ Open  │
 │ ...                                                          │
 ├──────────────────────────────────────────────────────────────┤
-│ Tabs: Status history (timeline with comments) │ Info         │
+│ Status history (timeline with comments)                      │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-- Header shows department, period, criteria set version, status tag, and the five-step `Steps` component for the current status.
+- Header shows department, period, criteria set version, and status tag.
+- The table is **read-only**: criteria columns show the saved ratings, and the Total column shows `totalScore`.
+- The **Action** column is shown only to HEAD_DEPARTMENT (own department) and ADMIN. It opens `/appraisals/:id/employees/:appraisalEmployeeId`; the label is "Edit assessment" in PENDING and "View assessment" otherwise.
+- When the status is **COMPLETE**, the title area shows **Export result** for ADMIN, HR, HEAD_DEPARTMENT (own department), MANAGER, and GENERAL_MANAGER. It downloads `/appraisals/:id/export-result` via `downloadFile`; errors go through `errorHandling`.
 - The **action bar** is built from `getAvailableActions` (section 7.3). Buttons that do not apply are not shown. ADMIN sees every status-appropriate action.
 - **Status history:** Ant Design `Timeline` with from → to status, actor, time, and comment (send backs and reopen are highlighted).
 - Rejection comments are also shown in a banner at the top when the latest history entry is a send back to the current status, so the assessor sees why the appraisal returned.
@@ -406,12 +410,23 @@ Layout:
 | Action | Dialog |
 |---|---|
 | Move to PENDING (HR) | Confirm |
-| Submit (Head Department) | Saves unsaved edits first; blocked with a message and highlighted cells if any rating is missing |
+| Submit (Head Department) | Blocked with a message if any rating is missing; ratings are saved from the per-employee page |
 | Approve, Complete | Confirm |
 | Send back | Select target status (only the allowed ones) + required comment |
 | Reopen (Admin) | Required comment |
 | Delete (HR, DRAFT) | Confirm; explains that the appraisal is hidden, not erased |
 | Edit employee list (HR, DRAFT) | Modal with add and remove, same rules as the wizard |
+
+### 10.7.1 Per-employee assessment `/appraisals/:id/employees/:appraisalEmployeeId`
+
+- Access: HEAD_DEPARTMENT (own department) and ADMIN. Other roles get a 403 result.
+- Header: employee name, appraisal period, criteria set version, status tag, and a Back button to the appraisal.
+- Employee card: employee number, name, department, position, contract type, and contract start–end (the evaluation window).
+- **Daily note sum** card: numeric sum of `NUMBER` daily-note fields for this employee and department from contract start to contract end. Shown as informational only; it never changes the score. A legacy row without a contract window shows `-`.
+- **Assessment form:** one `InputNumber` per criterion (`scaleMin`–`scaleMax`, integer), the criterion weight, and the full score rubric (`scaleDescriptions` sorted by score) beside the input. One optional comment field per employee.
+- The form is editable only while the appraisal is PENDING for HEAD_DEPARTMENT and ADMIN (`editRatings` action). Otherwise it is read-only with an info banner.
+- Save sends the filled ratings plus the comment through `PUT /appraisals/:id/ratings`; partial saves are allowed. Submitting the appraisal still requires every rating to be filled.
+- After save, RTK Query invalidates `Appraisals`; the detail page and the appraisal table refetch.
 
 ### 10.8 Audit trail (ADMIN, HR)
 
@@ -422,12 +437,12 @@ Layout:
 
 ### 10.9 Daily notes (ADMIN, HEAD_DEPARTMENT, SUPERVISOR)
 
-- `/daily-notes`: scoped list. Filters: employee (options from `GET /daily-notes/accessible-employees`) and a date range. Columns: employee, department, criteria version, date, period, created at; row actions open (edit) and delete (confirm). Server-side pagination. The list only returns notes the caller's scope allows (a supervisor's own subordinates, a head department's own departments, or every department for ADMIN).
+- `/daily-notes`: scoped list. Filters: search by employee number/name, department, and a single date picker (`dateFrom = dateTo`). Columns: employee number, employee name, department, criteria version, date, period, created at; row actions open (edit) and delete (confirm). Server-side pagination. The list only returns notes the caller's scope allows (a supervisor's own subordinates, a head department's own departments, or every department for ADMIN).
 - `/daily-notes/create`: choose the employee and date first, then a criteria set from `GET /criteria-sets/available?departmentId=` for the selected employee's department. Once a set is selected, the **dynamic form** renders from that set (`GET /criteria-sets/:id`). The set's fields render as one flat "Daily note fields" card, without per-criterion grouping. Each field renders an input by type — `Input`, `InputNumber`, `Select` (single or multiple), `Switch`, or `DatePicker` — with required-ness taken from the field definition. When the field has a description, it is shown in smaller grey text under the field label. The employee select is limited to accessible employees. Submitting sends `{ employeeId, recordDate, criteriaSetId, values: [{ fieldId, value }] }`. Changing the employee clears the criteria selection; changing the criteria set reloads the fields.
 - `/daily-notes/:id/edit`: the same form built from the note's **pinned** set version; employee and date are fixed, only values change. Editing replaces the note's values.
 - When the selected department has no available criteria set, the page shows a warning and the fields stay empty.
 - A duplicate employee + date shows the backend's 409 message. Out-of-scope ids return 404 and show the error page.
-- The **daily note sum** on the appraisal detail (PRD 5.4 / 5.9) is deferred.
+- The **daily note sum** is shown on the per-employee appraisal assessment page (section 10.7.1) as informational data; it is calculated from contract start to contract end and never changes the appraisal score.
 
 ## 11. Excel import and export
 
@@ -463,48 +478,42 @@ Use cases:
 | Templates page (Master Data, ADMIN) | — | Download employees and contracts import templates |
 | Appraisal detail | Import ratings (Head Department, PENDING only) | Export assessment template, export result |
 
-Assessment flow in the UI: Head Department downloads the **assessment template**, fills ratings in Excel, and uploads it in `ImportModal`. On success, the appraisal is reloaded and imported cells are visible in the table. If the table has unsaved edits, the user must save or discard first, because imported ratings overwrite cells.
+Assessment flow in the UI: Head Department downloads the **assessment template**, fills ratings in Excel, and uploads it in `ImportModal`. On success, the appraisal is reloaded and the imported ratings are visible in the overview table and the per-employee assessment pages.
 
-## 12. Appraisal table (grid) in detail
+## 12. Per-employee assessment page
 
-### 12.1 Columns and rows
+### 12.1 Layout and data
 
-- Rows: `appraisal_employees`. First columns (fixed left): employee number and name, with department, position, and contract end date available in a tooltip (snapshot values).
-- Criteria columns are **generated from the appraisal's own criteria set**, not from the current active set. The title shows name and weight; a popover on the header shows the criterion description and the score guide.
-- Last columns: total score (fixed right) and optional comment per employee row.
-- Sticky header and sticky first column (`Table` `sticky` and `fixed`). The table scrolls horizontally if there are many criteria.
+- Route `/appraisals/:id/employees/:appraisalEmployeeId`, available to HEAD_DEPARTMENT (own department) and ADMIN.
+- Data comes from `GET /appraisals/:id/employees/:appraisalEmployeeId`: appraisal summary, employee snapshot, ratings, criteria with `scaleDescriptions`, and `dailyNoteSum`.
+- The appraisal table remains the overview: read-only criteria columns, total score, and an Action column that opens this page.
 
-### 12.2 Cell editing
+### 12.2 Form editing
 
-- Each editable cell is an `InputNumber` with `min = scale_min`, `max = scale_max`, `precision = 0`, no step buttons.
-- Next to the focused cell, the score description for the entered value is shown (from `criteria_scale_descriptions`), so assessors rate against the guide.
-- **Keyboard:** Tab and Shift+Tab move across cells; Enter and arrow up and down move between rows; Escape reverts the cell. Implemented with a ref map keyed by `rowId:criterionId`.
-- Read-only cells render plain numbers. Missing values show an empty marker.
-- Validation: out-of-range values are blocked at input and also marked inline if pasted.
+- One `InputNumber` per criterion with `min = scaleMin`, `max = scaleMax`, `precision = 0`, no step buttons.
+- Beside each input, show the full rubric from `criteria_scale_descriptions` (score + description) so the assessor rates against the guide.
+- One optional comment field per employee.
+- Inputs are disabled unless the appraisal is PENDING and the role has the `editRatings` action.
 
-### 12.3 Unsaved edits
+### 12.3 Saving
 
-- Edits are stored in a slice `appraisalDraft`:
-  `{ [appraisalId]: { ratings: { [rowId:criterionId]: number | null }, comments: { [rowId]: string } } }`. Only changed cells are stored.
-- The table shows draft values over server values and marks changed cells.
-- **Save** sends only changed cells with `PUT /appraisals/:id/ratings` (partial saves are allowed in PENDING), then invalidates the appraisal tag and clears the draft for that appraisal.
-- `useUnsavedChanges` uses `useBlocker` and `beforeunload` to warn before leaving with unsaved edits.
-- If the server rejects a rating (e.g. out of range), the error is mapped to the cell.
+- No Redux draft slice and no grid keyboard navigation. The form lives in local `Form` state.
+- Save sends the filled ratings plus the comment through `PUT /appraisals/:id/ratings` (partial saves allowed), then invalidates the `Appraisals` tag.
+- There is no unsaved-change blocker on this page; leaving discards unsaved form changes.
 
 ### 12.4 Score display
 
-- `calculateScore(rating[], criteria[])` in `shared/utils/score.ts` uses the same formula as the backend: `Σ (rating / scale_max × weight)`, rounded to 2 decimals, and returns nothing while any rating is missing.
-- The table shows the live value as a preview while editing. After saving, the value from the server replaces it.
-- Both implementations are tested with the same cases (mixed scales, missing values, rounding).
+- The server-computed `totalScore` is shown on the appraisal table; the detail page does not recalculate it live.
+- `calculateScore` in `shared/utils/score.ts` remains the shared formula reference and is tested against the backend cases.
 
 ### 12.5 Completeness
 
-- A counter shows "filled / total cells". Missing cells are highlighted when the user tries to submit.
-- Submit is available only when all cells are filled and nothing is unsaved (the button saves first).
+- Partial ratings can be saved.
+- Moving the appraisal to SUBMITTED requires every rating; the backend enforces `allRatingsFilled` and returns a clear error.
 
 ### 12.6 Size
 
-A department appraisal is expected to have tens of rows and about five criteria, so no virtualization is used. If rows grow past roughly 200, switch on Ant Design's virtual table.
+A department appraisal is expected to have tens of rows and about five criteria, so the overview table uses no virtualization. If rows grow past roughly 200, switch on Ant Design's virtual table.
 
 ## 13. Forms and validation
 
@@ -551,7 +560,8 @@ Priority when time is short: permissions, score, grid, import modal, re-auth. To
 | # | Assumption | If different |
 |---|---|---|
 | 1 | Login and refresh return `{ accessToken, refreshToken, user }`; `GET /auth/me` returns role and department ids | Adjust `authApi` and bootstrap |
-| 2 | `GET /appraisals/:id` returns status, department, period, criteria set version, the criteria (with scales and score descriptions), the employee rows with snapshots, ratings, comments, and total scores | The grid needs all of this in one call |
+| 2 | `GET /appraisals/:id` returns status, department, period, criteria set version, the criteria (with scales and score descriptions), the employee rows with snapshots, ratings, comments, and total scores | The overview table needs all of this in one call |
+| 2b | `GET /appraisals/:id/employees/:appraisalEmployeeId` returns the appraisal summary, one employee snapshot with ratings/comment, criteria with scale descriptions, and `dailyNoteSum` | The per-employee assessment page needs all of this in one call |
 | 3 | 400 errors put field messages in `details` as `{ field: string[] }` | Adjust error mapping |
 | 4 | Import failures return 422 with `details: { row, column, message }` | Adjust `ImportModal` |
 | 5 | File responses include `Content-Disposition` with a file name | Fall back to a generated name |

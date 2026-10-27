@@ -45,8 +45,12 @@ Analogi: ini seperti **rapat penilaian tahunan dengan buku besar bertahap**. HR 
 | `scheduler.controller.ts` | Controller | Endpoint `/api/scheduler/appraisals/run` |
 | `appraisals.service.ts` | Service | Aturan bisnis lengkap (preview, create, rating, transisi, scheduler) |
 | `appraisals.repository.ts` | Repository | Query Drizzle (termasuk `FOR UPDATE`, advisory lock, upsert) |
+| `appraisals.excel.ts` | Excel writer | Export hasil appraisal (Summary + Assessment) |
 | `appraisal.transitions.ts` | Tabel aturan | Daftar transisi status yang diizinkan |
 | `appraisal.transitions.spec.ts` | Test | Uji tabel transisi |
+| `appraisals.service.spec.ts` | Test | Uji dedupe eligibility, snapshot contract start, detail + daily note sum |
+| `appraisals.repository.spec.ts` | Test | Uji query daily note sum (window, department, field NUMBER) |
+| `appraisals.excel.spec.ts` | Test | Uji sheet Summary/Assessment, kolom, dan sanitasi formula |
 | `appraisal-score.ts` | Pure function | Rumus skor |
 | `appraisal-score.spec.ts` | Test | Uji rumus skor |
 | `appraisal-scheduler.service.ts` | Job (`@Cron`) | Menjalankan penjadwal tiap awal bulan |
@@ -107,6 +111,8 @@ export class AppraisalsController {
   @Get() findAll(@Query() query: AppraisalQueryDto) { ... }                 // scoped
   @Get(':id') findOne(@Param('id', ParseUUIDPipe) id) { ... }
   @Get(':id/history') history(@Param('id', ParseUUIDPipe) id) { ... }
+  @Get(':id/employees/:appraisalEmployeeId') @Roles(HEAD_DEPARTMENT) findEmployeeDetail(...) { ... }
+  @Get(':id/export-result') @Roles(HR, HEAD_DEPARTMENT, MANAGER, GENERAL_MANAGER) exportResult(...) { ... }
   @Post('preview') @Roles(HR) @HttpCode(200) preview(@Body() dto) { ... }
   @Post() @Roles(HR) @HttpCode(201) create(@Body() dto) { ... }
   @Put(':id/employees') @Roles(HR) updateEmployees(...) { ... }
@@ -118,6 +124,7 @@ export class AppraisalsController {
 
 - **Fungsinya:**
   - Read endpoints (list, detail, history) → semua user login, dibatasi scope di service.
+  - `GET /:id/employees/:appraisalEmployeeId` → HEAD_DEPARTMENT (scope department) dan ADMIN; mengembalikan detail penilaian + daily note sum.
   - `preview` & `create` → HR.
   - `updateEmployees` → HR (hanya DRAFT, dicek di service).
   - `saveRatings` → `HEAD_DEPARTMENT` (hanya PENDING).
@@ -152,7 +159,10 @@ const created = await this.dbService.transaction(async (tx) => {
 return this.findOne(created.id);
 ```
 
-- **Fungsinya:** Preview menampilkan kandidat; create membuat appraisal DRAFT + menyalin **snapshot** karyawan terpilih (nama, nomor, posisi, departemen, kontrak) ke `appraisal_employees`.
+- **Fungsinya:** Preview menampilkan kandidat; create membuat appraisal DRAFT + menyalin **snapshot** karyawan terpilih (nama, nomor, posisi, departemen, kontrak start/end) ke `appraisal_employees`.
+- **Window kontrak:** `findEligible` mengambil `contracts.startDate` dan `contracts.endDate`; `dedupeEligible` memilih satu kontrak per karyawan (end date terbaru, lalu start date terbaru) jika ada beberapa kontrak yang berakhir di bulan yang sama. Window ini disimpan di snapshot dan menjadi dasar daily note sum.
+- **Detail karyawan:** `findEmployeeDetail(id, appraisalEmployeeId)` hanya untuk HEAD_DEPARTMENT (scope department) dan ADMIN; mengembalikan snapshot, rating, kriteria + `scaleDescriptions`, dan `dailyNoteSum`. Sum dihitung `dailyNoteSums` dari note department yang sama pada `recordDate` antara `contractStartDate` dan `contractEndDate`, hanya field `NUMBER`.
+- **Export hasil:** `exportResult(id)` hanya saat status `COMPLETE`; memakai `criteriaForSet` (set yang di-pin), `findEmployees`, `ratingsForAppraisal`, lalu `AppraisalsExcelService.buildResult`. Role: ADMIN, HR, HEAD_DEPARTMENT, MANAGER, GENERAL_MANAGER; scope department dicek di service.
 - **Kenapa dibuat seperti ini:**
   - Snapshot menjaga data historis tetap utuh walau master data berubah kelak.
   - `createAppraisal` memakai `onConflictDoNothing` → bentrok dengan unique index `(departmentId, period)` menghasilkan `null` → diubah menjadi 409 `APPRAISAL_ALREADY_EXISTS`.
@@ -459,13 +469,34 @@ export class SchedulerController {
 - **Dampaknya & catatan penting (lihat bagian 7):** Karena memakai `gte(contracts.endDate, start)` dan `lte(contracts.endDate, end)`, karyawan dengan kontrak **PERMANENT** (`endDate` NULL) **tidak** akan pernah eligible. *Perlu konfirmasi:* apakah ini disengaja (hanya menilai mereka yang kontraknya berakhir di periode tertentu) atau bug.
 - **Analogi:** Menyaring "siapa yang masa kontraknya habis bulan ini dan belum masuk daftar penilaian".
 
+`dailyNoteSums(appraisalId)`:
+
+```ts
+// appraisal_employees
+//   INNER JOIN daily_notes ON employee_id + department_id
+//     AND record_date BETWEEN contract_start_date AND contract_end_date
+//   INNER JOIN daily_note_values ON note_id
+//   INNER JOIN criteria_fields ON field_id AND input_type = 'NUMBER'
+// SUM(CASE WHEN jsonb_typeof(value) = 'number' THEN (value #>> '{}')::numeric ELSE 0 END)
+// GROUP BY appraisal_employees.id
+```
+
+- **Fungsinya:** Menghitung daily note sum per appraisal employee hanya dari note numerik di department yang sama dan di dalam window kontrak.
+- **Dampaknya:** Baris lama dengan `contract_start_date` NULL tidak menghasilkan sum (ditampilkan `-`). Sum tidak pernah mengubah `total_score`.
+
 `lockAppraisal`:
 
 ```ts
-const result = await executor.execute(sql`SELECT * FROM appraisals WHERE id = ${id} AND deleted_at IS NULL FOR UPDATE`);
+const [row] = await executor
+  .select()
+  .from(appraisals)
+  .where(and(eq(appraisals.id, id), notDeleted(appraisals)))
+  .limit(1)
+  .for('update');
 ```
 
 - **Fungsinya:** Mengunci baris appraisal selama transisi (mencegah race condition).
+- **Kenapa memakai Drizzle select:** Hasilnya tetap camelCase (`criteriaSetId`, `departmentId`). Versi lama memakai raw `SELECT *` lalu cast ke `AppraisalRow`, sehingga field snake_case menjadi `undefined`; `checkPreconditions` lalu memanggil `criteriaForSet(undefined)` dan gagal dengan `Criteria set with ID undefined not found`.
 - **Analogi:** Mengambil berkas dari lemari dan menguncinya selama diproses.
 
 `createAppraisal` → `insert(...).onConflictDoNothing().returning()` (null = sudah ada).

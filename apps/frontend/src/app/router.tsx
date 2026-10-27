@@ -114,6 +114,11 @@ const AppraisalDetail = lazy(() =>
     default: module.AppraisalDetail,
   })),
 );
+const AppraisalEmployeeDetail = lazy(() =>
+  import("@/features/appraisals").then((module) => ({
+    default: module.AppraisalEmployeeDetail,
+  })),
+);
 
 const DailyNote = lazy(() =>
   import("@/features/daily-notes").then((module) => ({
@@ -239,6 +244,10 @@ export default createBrowserRouter(
                 {
                   path: ":id",
                   element: suspenseWrapper(<AppraisalDetail />),
+                },
+                {
+                  path: ":id/employees/:appraisalEmployeeId",
+                  element: suspenseWrapper(<AppraisalEmployeeDetail />),
                 },
               ],
             },

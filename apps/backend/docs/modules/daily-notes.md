@@ -39,6 +39,7 @@ Analogi: ini seperti **buku harian pengawas lapangan**. Setiap pengawas menulisk
 | `daily-notes.controller.ts` | Controller | Endpoint `/api/daily-notes*` |
 | `daily-notes.service.ts` | Service | Aturan owner + pemetaan payload |
 | `daily-notes.repository.ts` | Repository | Query Drizzle ke `daily_notes` |
+| `daily-notes.repository.spec.ts` | Test | Uji filter list (search employee, department, tanggal, scope) |
 | `dto/create-daily-note.dto.ts`, `update-daily-note.dto.ts` | DTO | Validasi input |
 | `interfaces/daily-note.interface.ts` | Alias | `DailyNotePayload = DailyNoteResponse` |
 | `daily-records.http` | Contoh request (manual) | Berisi sample HTTP (lihat catatan: sudah usang) |
@@ -184,6 +185,10 @@ export class DailyNotesRepository {
 - **Analogi:** Merobek halaman buku harian (bukan menandainya "dibatalkan").
 - **Istilah baru:** **Hard delete** = `DELETE` permanen; lawan dari soft delete.
 - **Catatan tipe:** constructor memakai `NodePgDatabase<typeof schema>` langsung, bukan `Database` dari `db.type.ts` (inkonsistensi kecil dengan module lain).
+
+> **Pembaruan list (2026-10-27):** `listNotes` memakai `buildDailyNoteFilters(query, scope)`. Filter yang didukung: `employeeId`, `departmentId`, `dateFrom`/`dateTo` pada `daily_notes.record_date`, `search` pada `employees.employee_number`/`employees.full_name`, lalu scope role (`employee`/`department`/`all`). Karena `search` mereferensikan `employees`, count query ikut `leftJoin(employees, eq(dailyNotes.employeeId, employees.id))`. Search ditambahkan agar daftar bisa dicari berdasarkan nomor atau nama karyawan.
+
+> **Daily note sum:** perhitungan sum ada di `AppraisalsRepository.dailyNoteSums`, bukan di module ini. Window-nya adalah `contract_start_date`–`contract_end_date` snapshot appraisal employee, hanya field `NUMBER`, department yang sama, dan hasilnya informational (tidak mengubah skor).
 
 ### DTO
 

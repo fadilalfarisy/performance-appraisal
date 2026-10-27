@@ -1,0 +1,1 @@
+ALTER TABLE "appraisal_employees" ADD COLUMN "contract_start_date" date;

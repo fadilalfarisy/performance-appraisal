@@ -42,6 +42,8 @@ Analogi: ini seperti **bagian administrasi masa kerja**. Setiap pegawai bisa pun
 | `contracts.repository.ts` | Repository | Query Drizzle (list+count, CRUD, deteksi existing) |
 | `contracts.importer.ts` | Import strategy | Validasi (termasuk overlap) & commit |
 | `contracts.importer.spec.ts` | Test | Uji validasi importer |
+| `contracts.repository.spec.ts` | Test | Uji filter builder (soft delete, employee, tipe, tanggal, search) & SQL overlap |
+| `contracts.service.spec.ts` | Test | Uji guard overlap create/update |
 | `contracts.excel.ts` | Excel helper | Ekspor & template `.xlsx` |
 | `dto/create-contract.dto.ts`, `update-contract.dto.ts`, `contract-query.dto.ts` | DTO | Validasi input |
 | `interfaces/contract.interface.ts` | Alias | `ContractPayload = ContractResponse` |
@@ -121,6 +123,7 @@ export class ContractsController {
 
 ```ts
 const created = await this.dbService.transaction(async (tx) => {
+  await this.assertNoOverlap(dto.employeeId, dto.startDate, dto.endDate ?? null, tx);
   const row = await this.contractsRepository.createAndSave(dto, tx);
   if (!row) throw new BadRequestException('Contract could not be created');
   await this.audit.record(tx, { action: 'CONTRACT_CREATED', entity: 'contract', entityId: row.id, after: this.toPayload(row), ...this.actor() });
@@ -136,10 +139,11 @@ async remove(id: string) {
 }
 ```
 
-- **Fungsinya:** Menulis dalam transaksi + audit; penghapusan soft delete.
-- **Kenapa:** Konsistensi & jejak audit. Berbeda dari departments/positions, di sini `remove` **tidak** mengecek keterkaitan lain (kontrak memang boleh dihapus; relasinya ke employee bercascade lewat DB).
-- **Dampaknya:** Jika kontrak yang masih dipakai appraisal dihapus, *perlu konfirmasi* bagaimana appraisal menanganinya (appraisal menyimpan snapshot, jadi kemungkinan aman).
-- **Analogi:** Mencabut satu catatan periode kerja, tetap tercatat di register perubahan.
+- **Fungsinya:** Menulis dalam transaksi + audit; penghapusan soft delete. Sebelum insert/update, `assertNoOverlap` memanggil `findOverlapping` dan melempar `422 CONTRACT_OVERLAP` bila rentang baru beririsan; pesannya menyebut rentang kontrak yang bentrok.
+- **Update:** rentang efektif dihitung dari `dto.startDate ?? existing.startDate` dan `dto.endDate !== undefined ? dto.endDate : existing.endDate`, lalu `findOverlapping(..., excludeId = id)` agar kontrak itu sendiri tidak dianggap bentrok.
+- **Kenapa:** Pesan overlap yang ramah dan spesifik lebih cepat daripada menunggu exclusion constraint; constraint DB tetap menjadi jaring terakhir untuk race condition.
+- **Dampaknya:** Jika validasi ini dilepas, error database tetap muncul, tetapi lewat `HttpExceptionFilter` dan hanya sebagai pesan generik.
+- **Analogi:** Petugas memeriksa tumpang-tindih jadwal sebelum menyimpan, sementara sistem penguncian tetap ada sebagai cadangan.
 
 Impor/ekspor:
 
@@ -167,26 +171,47 @@ private toPayload(contract: any): ContractPayload {
 
 ### `contracts.repository.ts`
 
+`buildContractFilters` (dipakai list dan export):
+
+```ts
+export function buildContractFilters(query: ContractQueryDto): SQL[] {
+  const filters: SQL[] = [notDeleted(contracts)];
+  if (employeeId) filters.push(eq(contracts.employeeId, employeeId));
+  if (contractType) filters.push(eq(contracts.contractType, contractType));
+  if (startDateFrom) filters.push(gte(contracts.startDate, startDateFrom));
+  if (startDateTo) filters.push(lte(contracts.startDate, startDateTo));
+  if (endDateFrom) filters.push(gte(contracts.endDate, endDateFrom));
+  if (endDateTo) filters.push(lte(contracts.endDate, endDateTo));
+  if (search) {
+    const term = `%${search}%`;
+    const searchFilter = or(
+      ilike(employees.fullName, term),
+      ilike(employees.employeeNumber, term),
+    );
+    if (searchFilter) filters.push(searchFilter);
+  }
+  return filters;
+}
+```
+
 `findAllWithCount`:
 
 ```ts
-const filters: SQL[] = [notDeleted(contracts)];
-if (employeeId) filters.push(eq(contracts.employeeId, employeeId));
-if (contractType) filters.push(eq(contracts.contractType, contractType));
-const where = and(...filters);
+const where = and(...buildContractFilters(query));
 
 const rows = await this.db.select({ id, employeeId, contractType, startDate, endDate,
     employee: { id: employees.id, fullName: employees.fullName, employeeNumber: employees.employeeNumber } })
   .from(contracts).leftJoin(employees, eq(contracts.employeeId, employees.id))
   .where(where).orderBy(desc(contracts.startDate)).limit(limit).offset((page - 1) * limit);
-const [total] = await this.db.select({ count: sql<number>`count(*)` }).from(contracts).where(where);
+const [total] = await this.db.select({ count: sql<number>`count(*)` })
+  .from(contracts).leftJoin(employees, eq(contracts.employeeId, employees.id)).where(where);
 return [rows, Number(total?.count ?? 0)] as const;
 ```
 
-- **Fungsinya:** Daftar kontrak (join nama karyawan), filter employee/tipe, urut tanggal mulai terbaru, + total.
-- **Kenapa:** Mengembalikan `[rows, total]` agar service bisa menyusun meta paginasi.
-- **Dampaknya:** Tanpa `notDeleted`, kontrak terhapus muncul.
-- **Analogi:** Menyusun halaman daftar periode kerja, terbaru di atas.
+- **Fungsinya:** Daftar kontrak dengan `contracts` sebagai tabel utama, join nama/nomor karyawan, filter employee/tipe/rentang tanggal/**search nama atau nomor karyawan**, urut tanggal mulai terbaru, + total.
+- **Kenapa:** Mengembalikan `[rows, total]` agar service bisa menyusun meta paginasi. `search` harus ikut di query list, bukan hanya export.
+- **Dampaknya:** Count query juga harus `leftJoin(employees)` karena `where` bisa mereferensikan kolom employee. Join ini one-to-one sehingga count tidak berlipat.
+- **Analogi:** Menyusun halaman daftar periode kerja, terbaru di atas, dengan nama pemilik kontrak menempel di tiap baris.
 
 Method penting lain:
 
@@ -202,7 +227,7 @@ async findByEmployeeAndStart(employeeId, startDate, executor = this.db) {
 - **Kenapa:** Kunci alami kontrak = `(employeeId, startDate)`; baris yang sama akan di-update, bukan diduplikasi.
 - **Analogi:** Memeriksa apakah "periode mulai tanggal X" sudah tercatat sebelum menambahkan.
 
-Juga: `findEmployeesByNumbers` (terjemahkan nomor karyawan → id), `findByEmployeeIds` (ambil kontrak existing untuk cek overlap), `findForExport` (join + filter search), `createAndSave`/`updateAndSave`/`softDelete`/`findById`.
+Juga: `findOverlapping(employeeId, startDate, endDate, excludeId?)` — cek irisan memakai `daterange(..., '[]') && daterange(..., '[]')`, persis aturan constraint dan mengecualikan kontrak yang sedang di-update; `findEmployeesByNumbers` (terjemahkan nomor karyawan → id), `findByEmployeeIds` (ambil kontrak existing untuk cek overlap importer), `findForExport` (join + `buildContractFilters`, jadi filter list dan export identik), `createAndSave`/`updateAndSave`/`softDelete`/`findById`.
 
 ### `contracts.importer.ts` — Strategi Impor Kontrak
 

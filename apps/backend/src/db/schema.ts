@@ -424,6 +424,7 @@ export const appraisalEmployees = pgTable(
     positionName: varchar('position_name', { length: 255 }),
     contractId: uuid('contract_id'),
     contractType: varchar('contract_type', { length: 50 }),
+    contractStartDate: date('contract_start_date'),
     contractEndDate: date('contract_end_date'),
     comment: text('comment'),
     totalScore: numeric('total_score', { precision: 5, scale: 2, mode: 'number' }),

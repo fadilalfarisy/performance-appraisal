@@ -7,7 +7,6 @@ import {
   Button,
   Table,
   Tag,
-  InputNumber,
   Timeline,
   Modal,
   Form,
@@ -18,20 +17,21 @@ import {
   message,
 } from "antd";
 import type { TableColumnsType } from "antd";
-import { ArrowLeftOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined, DownloadOutlined, EyeOutlined } from "@ant-design/icons";
 import { TitlePage } from "@/components";
 import { useAppSelector } from "@/app/hooks";
+import { downloadFile } from "@/api/downloadFile";
 import {
   useDeleteAppraisalMutation,
   useGetAppraisalByIdQuery,
   useGetAppraisalHistoryQuery,
-  useSaveRatingsMutation,
   useTransitionAppraisalMutation,
 } from "@/features/appraisals/appraisalsApi";
 import {
   getAvailableActions,
   type AvailableAction,
 } from "@/permissions/appraisalPermissions";
+import { hasAccess, roles } from "@/constants/role-access";
 import { errorHandling } from "@/utils/errorUtils";
 import {
   AppraisalStatus,
@@ -62,13 +62,12 @@ export const AppraisalDetail = () => {
   const { data, isLoading, isError } =
     useGetAppraisalByIdQuery(id);
   const { data: history } = useGetAppraisalHistoryQuery(id);
-  const [saveRatings, { isLoading: isSaving }] = useSaveRatingsMutation();
   const [deleteAppraisal] = useDeleteAppraisalMutation();
   const [transition, { isLoading: isTransitioning }] =
     useTransitionAppraisalMutation();
 
-  const [edits, setEdits] = useState<Record<string, number>>({});
   const [modalAction, setModalAction] = useState<AvailableAction | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const [form] = Form.useForm();
 
   const appraisal = data?.data;
@@ -85,30 +84,28 @@ export const AppraisalDetail = () => {
   }
 
   const canEdit = actions.some((a) => a.action === "editRatings");
-  const dirtyCount = Object.keys(edits).length;
-  const cellKey = (employeeId: string, criterionId: string) =>
-    `${employeeId}:${criterionId}`;
+  const canOpenDetail = hasAccess(roles.headDepartment, auth.role);
+  const canExport =
+    appraisal.status === AppraisalStatus.COMPLETE &&
+    hasAccess(roles.appraisalResultExport, auth.role);
 
-  const handleSave = async () => {
-    const ratings = Object.entries(edits).map(([key, rating]) => {
-      const [appraisalEmployeeId, criterionId] = key.split(":");
-      return { appraisalEmployeeId, criterionId, rating };
-    });
-    if (ratings.length === 0) return;
+  const handleExport = async () => {
+    setIsExporting(true);
     try {
-      await saveRatings({ id: id ?? "", body: { ratings } }).unwrap();
-      setEdits({});
-      message.success("Ratings saved");
+      await downloadFile(
+        `/appraisals/${id}/export-result`,
+        undefined,
+        `appraisal-${appraisal.period}.xlsx`,
+      );
     } catch (error) {
       errorHandling(error);
+    } finally {
+      setIsExporting(false);
     }
   };
 
   const runTransition = async (to: AppraisalStatus, comment?: string) => {
     try {
-      if (to === AppraisalStatus.SUBMITTED) {
-        await handleSave();
-      }
       await transition({ id: id ?? "", body: { to, comment } }).unwrap();
       message.success(`Moved to ${to}`);
       setModalAction(null);
@@ -138,40 +135,39 @@ export const AppraisalDetail = () => {
       title: `${criterion.name} (${criterion.weight}%)`,
       width: 120,
       render: (_: unknown, record: AppraisalEmployeeResponse) => {
-        const key = cellKey(record.id, criterion.id);
-        const serverValue = record.ratings.find(
-          (r) => r.criterionId === criterion.id,
+        const value = record.ratings.find(
+          (rating) => rating.criterionId === criterion.id,
         )?.rating;
-        if (!canEdit) {
-          return serverValue ?? "-";
-        }
-        return (
-          <InputNumber
-            min={criterion.scaleMin}
-            max={criterion.scaleMax}
-            precision={0}
-            value={edits[key] ?? serverValue ?? null}
-            onChange={(value) =>
-              setEdits((prev) => {
-                const next = { ...prev };
-                if (value === null || value === undefined) {
-                  delete next[key];
-                } else {
-                  next[key] = value as number;
-                }
-                return next;
-              })
-            }
-          />
-        );
+        return value ?? "-";
       },
     })),
     {
       title: "Total",
-      fixed: "right",
       width: 90,
       render: (_, record) => record.totalScore ?? "-",
     },
+    ...(canOpenDetail
+      ? [
+          {
+            title: "Action",
+            width: "1%",
+            fixed: "right" as const,
+            render: (_: unknown, record: AppraisalEmployeeResponse) => (
+              <Button
+                size="small"
+                icon={<EyeOutlined />}
+                onClick={() =>
+                  navigate(
+                    `/dashboard/appraisals/${id}/employees/${record.id}`,
+                  )
+                }
+              >
+                {canEdit ? "Edit assessment" : "View assessment"}
+              </Button>
+            ),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -180,12 +176,23 @@ export const AppraisalDetail = () => {
         title={`${appraisal.departmentName ?? "Department"} — ${appraisal.period}`}
         description={`Criteria set v${appraisal.criteriaSetVersion}`}
       >
-        <Button
-          onClick={() => navigate("/dashboard/appraisals")}
-          icon={<ArrowLeftOutlined />}
-        >
-          Back
-        </Button>
+        <Space>
+          {canExport && (
+            <Button
+              icon={<DownloadOutlined />}
+              loading={isExporting}
+              onClick={handleExport}
+            >
+              Export result
+            </Button>
+          )}
+          <Button
+            onClick={() => navigate("/dashboard/appraisals")}
+            icon={<ArrowLeftOutlined />}
+          >
+            Back
+          </Button>
+        </Space>
       </TitlePage>
 
       <Tag color={STATUS_COLOR[appraisal.status] ?? "default"}>
@@ -193,16 +200,6 @@ export const AppraisalDetail = () => {
       </Tag>
 
       <Space style={{ marginBottom: 16 }} wrap>
-        {canEdit && (
-          <Button
-            type="primary"
-            loading={isSaving}
-            disabled={dirtyCount === 0}
-            onClick={handleSave}
-          >
-            Save ratings{dirtyCount ? ` (${dirtyCount})` : ""}
-          </Button>
-        )}
         {actions
           .filter((available) => !HIDDEN_ACTIONS.includes(available.action))
           .map((available) => {

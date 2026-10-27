@@ -7,6 +7,7 @@ import {
   getTableColumns,
   gte,
   inArray,
+  isNotNull,
   lte,
   sql,
   type SQL,
@@ -19,13 +20,16 @@ import {
   appraisalStatusHistory,
   appraisals,
   contracts,
+  criteriaFields,
   criteriaSets,
+  dailyNoteValues,
+  dailyNotes,
   departments,
   employees,
   positions,
 } from '../db/schema';
 import { notDeleted } from '../db/helpers/soft-delete';
-import type { AppraisalStatus } from '@appraisal/types';
+import { FieldInputType, type AppraisalStatus } from '@appraisal/types';
 import type { AppraisalQueryDto } from './dto/appraisal-query.dto';
 
 export type AppraisalRow = typeof appraisals.$inferSelect;
@@ -51,6 +55,7 @@ export class AppraisalsRepository {
         positionName: positions.name,
         contractId: contracts.id,
         contractType: contracts.contractType,
+        contractStartDate: contracts.startDate,
         contractEndDate: contracts.endDate,
       })
       .from(employees)
@@ -139,11 +144,13 @@ export class AppraisalsRepository {
     id: string,
     executor: DbExecutor,
   ): Promise<AppraisalRow | null> {
-    const result = await executor.execute(
-      sql`SELECT * FROM appraisals WHERE id = ${id} AND deleted_at IS NULL FOR UPDATE`,
-    );
-    const row = (result.rows[0] as Record<string, unknown> | undefined) ?? null;
-    return row as unknown as AppraisalRow | null;
+    const [row] = await executor
+      .select()
+      .from(appraisals)
+      .where(and(eq(appraisals.id, id), notDeleted(appraisals)))
+      .limit(1)
+      .for('update');
+    return row ?? null;
   }
 
   async departmentName(id: string): Promise<string | null> {
@@ -236,6 +243,59 @@ export class AppraisalsRepository {
       )
       .limit(1);
     return row ?? null;
+  }
+
+  async dailyNoteSums(appraisalId: string) {
+    const numericValue = sql<number>`CASE
+      WHEN jsonb_typeof(${dailyNoteValues.value}) = 'number'
+        THEN (${dailyNoteValues.value} #>> '{}')::numeric
+      ELSE 0
+    END`;
+
+    const rows = await this.db
+      .select({
+        appraisalEmployeeId: appraisalEmployees.id,
+        total: sql<number>`COALESCE(SUM(${numericValue}), 0)`,
+      })
+      .from(appraisalEmployees)
+      .innerJoin(
+        dailyNotes,
+        and(
+          eq(dailyNotes.employeeId, appraisalEmployees.employeeId),
+          eq(dailyNotes.departmentId, appraisalEmployees.departmentId),
+          gte(dailyNotes.recordDate, appraisalEmployees.contractStartDate),
+          lte(dailyNotes.recordDate, appraisalEmployees.contractEndDate),
+          notDeleted(dailyNotes),
+        ),
+      )
+      .innerJoin(
+        dailyNoteValues,
+        and(
+          eq(dailyNoteValues.noteId, dailyNotes.id),
+          notDeleted(dailyNoteValues),
+        ),
+      )
+      .innerJoin(
+        criteriaFields,
+        and(
+          eq(criteriaFields.id, dailyNoteValues.fieldId),
+          eq(criteriaFields.inputType, FieldInputType.NUMBER),
+        ),
+      )
+      .where(
+        and(
+          eq(appraisalEmployees.appraisalId, appraisalId),
+          isNotNull(appraisalEmployees.contractStartDate),
+          isNotNull(appraisalEmployees.contractEndDate),
+          notDeleted(appraisalEmployees),
+        ),
+      )
+      .groupBy(appraisalEmployees.id);
+
+    return rows.map((row) => ({
+      appraisalEmployeeId: row.appraisalEmployeeId,
+      total: Number(row.total ?? 0),
+    }));
   }
 
   async removeEmployees(

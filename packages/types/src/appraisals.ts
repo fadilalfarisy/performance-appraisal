@@ -17,6 +17,7 @@ export interface EligibleEmployeeResponse {
   positionName: string | null;
   contractId: string | null;
   contractType: string | null;
+  contractStartDate: string | null;
   contractEndDate: string | null;
 }
 
@@ -63,10 +64,28 @@ export interface AppraisalEmployeeResponse {
   positionName: string | null;
   contractId: string | null;
   contractType: string | null;
+  contractStartDate: string | null;
   contractEndDate: string | null;
   comment: string | null;
   totalScore: number | null;
   ratings: AppraisalRatingResponse[];
+}
+
+export interface AppraisalEmployeeDetailResponse {
+  appraisal: {
+    id: string;
+    departmentId: string;
+    departmentName: string | null;
+    period: string;
+    status: AppraisalStatus;
+    criteriaSetId: string;
+    criteriaSetVersion: number;
+    criteriaSetStatus: CriteriaSetStatus;
+  };
+  employee: AppraisalEmployeeResponse & {
+    dailyNoteSum: number | null;
+  };
+  criteria: CriterionResponse[];
 }
 
 export interface SaveRatingsRequest {
