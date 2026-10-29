@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, isNull } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { DB_CONNECTION } from '../db/db.constants';
 import type { Database } from '../db/db.type';
 import { refreshTokens } from '../db/schema';
@@ -23,19 +23,10 @@ export class AuthRepository {
     return row ?? null;
   }
 
-  async revoke(id: string, replacedBy?: string): Promise<void> {
-    await this.db
-      .update(refreshTokens)
-      .set({ revokedAt: new Date(), replacedBy: replacedBy ?? null })
-      .where(eq(refreshTokens.id, id));
-  }
-
-  async revokeAllForUser(userId: string): Promise<void> {
+  async revoke(id: string): Promise<void> {
     await this.db
       .update(refreshTokens)
       .set({ revokedAt: new Date() })
-      .where(
-        and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)),
-      );
+      .where(eq(refreshTokens.id, id));
   }
 }

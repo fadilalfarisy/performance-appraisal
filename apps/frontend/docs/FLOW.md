@@ -4,7 +4,7 @@
 **Cakupan:** `apps/frontend` saja. Untuk rancangan/desain lihat `docs/DESIGN-FRONTEND.md`; untuk aturan produk lihat `docs/PRD.md` (khususnya PRD v0.9 untuk peran dan otorisasi).
 **Sifat dokumen:** ini menggambarkan **apa yang benar-benar ada di kode**, bukan yang direncanakan. Bagian 10 mendaftar tempat kode berbeda dari `DESIGN-FRONTEND.md`.
 
-**Perubahan terbaru yang sudah tercermin di dokumen ini:** sesi dipulihkan lewat cookie refresh HttpOnly (tidak ada `tokenStorage`, access token hanya di memori); logout tanpa argumen; `ImportModal` tidak lagi mengunduh template dan menampilkan error inline; pembuatan draft criteria lewat modal + route shim; daftar department/position/user punya pencarian klien yang benar; appraisal punya riwayat status dan default tab per role; penilaian appraisal dipindah ke halaman detail per karyawan dengan daily note sum berbasis window kontrak; ADMIN adalah peran akses penuh.
+**Perubahan terbaru yang sudah tercermin di dokumen ini:** sesi dipulihkan lewat cookie refresh HttpOnly (tidak ada `tokenStorage`, access token hanya di memori); logout tanpa argumen; `ImportModal` tidak lagi mengunduh template dan menampilkan error inline; pembuatan draft criteria lewat modal + route shim; daftar department/position/user punya pencarian klien yang benar; daily notes punya search employee + department + date; appraisal punya riwayat status, default tab per role, halaman detail per karyawan dengan daily note sum berbasis window kontrak, dan export hasil `.xlsx` saat COMPLETE; ADMIN adalah peran akses penuh.
 
 Cara membaca: dokumen ini disusun mengikuti **urutan render** — mulai dari file HTML, naik lapis demi lapis sampai satu halaman tampil. Setelah itu komponen dijelaskan satu per satu, lalu ditutup dengan tiga jejak alur nyata.
 
@@ -66,13 +66,13 @@ Tujuh lapis ini berjalan sebelum satu halaman pun tampil.
 
 **Alur:**
 
-1. Panggil `refresh()` → `POST /auth/refresh`. Permintaan ini membawa cookie lewat `credentials: "include"`; refresh token disimpan backend sebagai cookie HttpOnly, jadi JavaScript tidak pernah membaca atau menulisnya. **Tidak ada** `tokenStorage` dan tidak ada pengecekan token di frontend.
-2. Sukses → `dispatch(setAccessToken(data.accessToken))`, supaya `GET /auth/me` berikutnya sudah membawa header Bearer.
-3. `await loadMe().unwrap()` → `me.data.roles?.[0]` divalidasi `isUserRole` → `dispatch(setSession({ accessToken, username, role }))`; `setSession` menetapkan `logged = true`.
+1. Panggil `refresh()` → `POST /auth/refresh`. Permintaan ini membawa cookie lewat `credentials: "include"`; refresh token disimpan backend sebagai cookie HttpOnly, jadi JavaScript tidak pernah membaca atau menulisnya. **Tidak ada** `tokenStorage` dan tidak ada pengecekan token di frontend. Backend **tidak merotasi** refresh token: yang diterbitkan hanya access token baru (lihat `DESIGN-BACKEND.md` 8.1). Request ini tetap **single-flight** lewat `refreshRequestRef` agar effect yang dijalankan ulang (StrictMode, Fast Refresh, remount) tidak mengirim POST ganda; sifatnya efisiensi, bukan syarat kebenaran.
+2. Sukses → `if (cancelled) return;` lalu `dispatch(setAccessToken(data.accessToken))`, supaya `GET /auth/me` berikutnya sudah membawa header Bearer.
+3. `await loadMe().unwrap()` → `if (cancelled) return;` lalu `me.data.roles?.[0]` divalidasi `isUserRole` → `dispatch(setSession({ accessToken, username, role }))`; `setSession` menetapkan `logged = true`.
 4. Gagal di langkah 1-3 (tidak ada cookie, cookie kedaluwarsa, atau `/auth/me` menolak) → `dispatch(deleteAuth())`, sehingga `logged` tetap `false`.
 5. `finally` → `setReady(true)`. Baru setelah itu `children` (router) dirender.
 
-**Catatan:** flag `cancelled` membatalkan pembaruan state setelah unmount (perilaku `StrictMode`).
+**Catatan:** flag `cancelled` membatalkan pembaruan state setelah unmount (perilaku `StrictMode`). Guard-nya dicek tepat setelah `refresh()` dan tepat setelah `loadMe()`; `deleteAuth` dan `setReady` juga hanya dijalankan bila run itu masih aktif.
 
 **Catatan:** permintaan refresh sendiri tidak diulang oleh `baseQueryWithReauth`, karena `isRefreshRequest()` mengecualikan `/auth/refresh`.
 
@@ -128,7 +128,7 @@ Singleton-nya ada di `src/utils/message.ts` (`setMessageApi` / `getMessageApi`).
 
 **Peran:** `errorHandling(error)` — jalur error bersama. Isinya: `console.error`, lalu ambil instance pesan dengan `getMessageApi() ?? staticMessage` (fallback ke `message` statis antd kalau jembatan belum siap), lalu tampilkan `error.data.error` atau `error.data.message` atau `"Something error"`.
 
-**Dipakai di 26 panggilan (21 berkas):** setiap form, `ActionTable`, `ImportModal`, `SignIn`, `UserProfile`, dan semua handler mutasi di halaman.
+**Dipakai di 27 panggilan (22 berkas):** setiap form, `ActionTable`, `ImportModal`, `SignIn`, `UserProfile`, `AppraisalDetail`, `AppraisalEmployeeDetail`, dan semua handler mutasi di halaman.
 
 ---
 
@@ -149,7 +149,7 @@ Singleton-nya ada di `src/utils/message.ts` (`setMessageApi` / `getMessageApi`).
 ### 3.3 Sumber daya: `src/constants/`
 
 - `dashboard-link.tsx` → `menuItem` (key = path URL, label, icon, `roles: readonly UserRole[]`) dan `filteredMenuByRole(userRole)`. **Satu-satunya sumber** untuk menu sidebar. ADMIN mendapat semua item, termasuk Daily Notes.
-- `role-access.ts` → **sumber tunggal aturan akses**: `roles` (tujuh grup bertipe `readonly UserRole[]`; semua grup memuat ADMIN kecuali `noteManagers` yang berisi HEAD_DEPARTMENT + SUPERVISOR), `ALL_ROLES`, predikat `hasAccess(group, userRole)`, dan guard `isUserRole(value)`. `hasAccess` selalu `true` untuk ADMIN, sehingga semua tombol yang memakai grup ini ikut terbuka untuk ADMIN dan `noteManagers` pun terbuka untuknya. Dipakai sebagai `hasAccess(roles.humanResource, auth.role)` (`roles.humanResource` = ADMIN + HR).
+- `role-access.ts` → **sumber tunggal aturan akses**: `roles` (delapan grup bertipe `readonly UserRole[]`; semua grup memuat ADMIN kecuali `noteManagers` yang berisi HEAD_DEPARTMENT + SUPERVISOR; `appraisalResultExport` berisi ADMIN + HR + HEAD_DEPARTMENT + MANAGER + GENERAL_MANAGER), `ALL_ROLES`, predikat `hasAccess(group, userRole)`, dan guard `isUserRole(value)`. `hasAccess` selalu `true` untuk ADMIN, sehingga semua tombol yang memakai grup ini ikut terbuka untuk ADMIN dan `noteManagers` pun terbuka untuknya. Dipakai sebagai `hasAccess(roles.humanResource, auth.role)` (`roles.humanResource` = ADMIN + HR).
 - `option/` dan `enum/` → daftar opsi Select dan re-export enum dari `@appraisal/types`.
 
 ### 3.4 Akses role terjadi di tiga lapis terpisah
@@ -168,7 +168,7 @@ Tipe role dijaga di tiga titik: `AuthState.role: UserRole | ""`, grup di `role-a
 
 Barrel `src/components/index.ts` mengekspor 9 komponen. **`MessageBridge` dan `DashboardLayout` tidak ada di barrel** — keduanya diimpor lewat path penuh.
 
-### 4.1 `TitlePage/TitlePage.tsx` — 24 call site
+### 4.1 `TitlePage/TitlePage.tsx` — 25 call site
 
 **Peran:** header halaman standar. Kiri: `Title` H3 + teks `description`. Kanan: slot `children` untuk tombol aksi.
 
@@ -176,7 +176,7 @@ Barrel `src/components/index.ts` mengekspor 9 komponen. **`MessageBridge` dan `D
 type Props = { title?: string; description?: string; children?: React.ReactNode };
 ```
 
-**Dipakai di:** hampir semua halaman — daftar, create, update, detail kriteria, dan detail appraisal. Ini komponen shared yang paling luas jangkauannya.
+**Dipakai di:** hampir semua halaman — daftar, create, update, detail kriteria, detail appraisal, dan detail assessment per karyawan. Ini komponen shared yang paling luas jangkauannya.
 
 ### 4.2 `ActionTable/ActionTable.tsx` — dipakai di semua daftar CRUD
 
@@ -203,7 +203,7 @@ type DeleteProps =
 
 **Call site:** `features/users/pages/User.tsx`, `features/employees/pages/Employee.tsx`, `features/departments/pages/Department.tsx`, `features/position/pages/Position.tsx`, `features/contract/pages/Contract.tsx`, dan dua varian di `features/contract/pages/ContractList.tsx` (satu lengkap, satu view-only `isEditButton={false} isDeleteButton={false}`).
 
-**Penyimpangan:** `features/criteria/pages/Criteria.tsx` dan `features/appraisals/pages/Appraisal.tsx` **tidak** memakai komponen ini — keduanya menulis kolom aksinya sendiri secara inline.
+**Penyimpangan:** `features/criteria/pages/Criteria.tsx`, `features/appraisals/pages/Appraisal.tsx`, `features/appraisals/pages/AppraisalDetail.tsx`, dan `features/daily-notes/pages/DailyNote.tsx` **tidak** memakai komponen ini — kolom/aksi baris ditulis inline.
 
 ### 4.3 `FormButton/FormButton.tsx` — 5 call site
 
@@ -272,8 +272,8 @@ Setiap fitur CRUD dibangun dari potongan yang sama: `index.ts` (barrel) → `xAp
 - **Berkas:** `pages/SignIn.tsx`, `authSlice.ts`, `authApi.ts`. **Tidak ada** `tokenStorage.ts`.
 - **Endpoint:** `signIn` (`POST /auth/signin`), `refresh` (`POST /auth/refresh`, tanpa argumen), `me` (`GET /auth/me`), `logout` (`POST /auth/logout`, tanpa argumen) — semuanya tanpa tag (login bukan data yang di-cache).
 - **Token:** access token hanya di memori Redux. Refresh token berupa cookie HttpOnly yang di-set backend; `fetchBaseQuery` memakai `credentials: "include"` sehingga browser mengirim dan menyimpannya sendiri. Tidak ada kode frontend yang membaca atau menulis token refresh.
-- **Alur SignIn:** `Form` → `useSignInMutation` → `dispatch(setAuth({ logged: true, username: data.username, role: data.role ?? "", accessToken: data.accessToken }))` → `navigate("/dashboard")`. Cookie refresh ikut di-set oleh respons backend.
-- **`authSlice.ts`:** `AuthState = { logged, username, role, accessToken }`, aksi `setAuth`, `setSession` (memaksa `logged = true`), `setAccessToken`, `deleteAuth`. Pemulihan sesi ada di `AppBootstrap` (bagian 2.3), bukan di slice.
+- **Alur SignIn:** `Form` → `useSignInMutation` → `dispatch(setSession({ accessToken: data.accessToken, username: data.username, role: data.role ?? "" }))` → `navigate("/dashboard")`. Cookie refresh ikut di-set oleh respons backend.
+- **`authSlice.ts`:** `AuthState = { logged, username, role, accessToken }`, aksi `setSession` (satu-satunya jalur pembentukan sesi, selalu menetapkan `logged = true`), `setAccessToken` (re-auth 401: hanya token yang diganti), dan `deleteAuth`. Pemulihan sesi ada di `AppBootstrap` (bagian 2.3), bukan di slice.
 
 ### 5.2 `features/employees`
 
@@ -444,10 +444,10 @@ Bagian ini menyebut apa yang ada, bukan menghakimi. Tidak ada yang diperbaiki ol
 2. **Satu aturan, dua gaya.** Sebagian besar cek halaman memakai `hasAccess(...)` (yang punya bypass ADMIN), sedangkan `Appraisal.tsx` dan `DetailsCriteria.tsx` masih memakai perbandingan enum langsung. Keduanya bertipe aman, tetapi pengecualian ADMIN harus diingat di dua gaya tersebut.
 3. **Otorisasi belum terpusat.** `canWriteMaster` di `src/permissions/appraisalPermissions.ts` hanya dipakai oleh spec-nya sendiri. Di backend pun `can()` pada matriks permission belum dipanggil kode produksi. Jadi modul matriks sudah ada di dua sisi tetapi belum menjadi jalur wajib.
 4. **`ActionTable` memakai `deleteFunction: any`.** Ini menghapus jaminan bahwa argumennya adalah trigger yang punya `unwrap()`, sehingga panggilan yang salah bentuk baru ketahuan saat runtime.
-5. **`downloadFile` dan `ImportModal` tidak dapat refresh 401.** Keduanya memakai `fetch` mentah dan membaca token langsung dari store, jadi keduanya melewati single-flight refresh di `apiSlice`. Token basi akan muncul sebagai error biasa.
+5. **`downloadFile` dan `ImportModal` tidak dapat refresh 401.** Keduanya memakai `fetch` mentah dan membaca token langsung dari store, jadi keduanya melewati single-flight refresh di `apiSlice`. Ini juga berlaku untuk export employees/contracts dan export hasil appraisal. Token basi akan muncul sebagai error biasa.
 6. **Route `/403` tidak pernah dituju.** Tidak ada kode yang mengarahkan ke sana; setiap halaman justru merender `<Result status="403">` sendiri.
 7. **Menu dan route adalah string terpisah.** `key` menu di `dashboard-link.tsx` dan `path` di `router.tsx` adalah literal yang sama tetapi diduplikasi, bukan berasal dari satu sumber. Dua key grup menu (`/dashboard/master-data`, `/dashboard/user`) bahkan tidak punya route sendiri.
-8. **Berkas/export menganggur.** `StatsCard` tidak punya call site; `components/DepartmentSearch.tsx` di fitur departments kosong; `CriteriaSearch` tidak dipasang; `utils/score.ts` (`calculateScore`) hanya dipakai spec-nya sendiri; export `useMeQuery` tidak dipakai (bootstrap memakai `useLazyMeQuery`).
+8. **Berkas/export menganggur.** `StatsCard` tidak punya call site; `components/DepartmentSearch.tsx` di fitur departments kosong; `CriteriaSearch` tidak dipasang; `utils/score.ts` (`calculateScore`) hanya dipakai spec-nya sendiri; hook `useMeQuery` diekspor tetapi tidak dipakai (bootstrap memakai `useLazyMeQuery`).
 9. **Debug logging tersisa.** `console.log` masih ada di `EmployeeForm`, `Department`, `Position`, `DepartmentForm`, `PositionForm`, `UserForm`, dan `CriteriaSearch`.
 10. **Cabang mati di `getAvailableActions`.** `if (status === COMPLETE && role === ADMIN)` di bagian bawah tidak pernah tercapai karena cabang `role === ADMIN` di atas sudah `return`; perilaku `reopen` untuk ADMIN tetap benar karena diambil dari cabang awal.
 11. **Form dinamis tidak punya test komponen.** `NoteForm` bergantung pada perilaku `cloneElement` milik `Form.Item`; kesalahan seperti input yang dibungkus komponen perantara tidak tertangkap build/lint dan hanya terlihat saat runtime. Dokumen ini mencatat pola yang benar (input sebagai child langsung).
@@ -460,16 +460,14 @@ Bagian ini menyebut apa yang ada, bukan menghakimi. Tidak ada yang diperbaiki ol
 
 | Rancangan di `DESIGN-FRONTEND.md` | Kondisi kode |
 |---|---|
-| Modul permission UI di `shared/permissions` | Nyatanya di `src/permissions/appraisalPermissions.ts`, dan hanya dipakai `AppraisalDetail` |
+| Modul permission UI di `shared/permissions` | Nyatanya di `src/permissions/appraisalPermissions.ts`, dipakai `AppraisalDetail` dan `AppraisalEmployeeDetail` |
 | `tokenStorage.ts` menyimpan refresh token di `sessionStorage` | Tidak ada modul itu; refresh token berupa cookie HttpOnly, access token hanya di memori Redux |
 | Bootstrap memanggil `/auth/refresh` hanya jika ada refresh token | `AppBootstrap` selalu memanggil `/auth/refresh`; tanpa cookie hasilnya 401 lalu `deleteAuth()` |
 | Login `POST /auth/login` → `{ accessToken, refreshToken, user }` | `POST /auth/signin` → `{ username, role, accessToken }`; refresh token di-set backend sebagai cookie |
 | Logout mengirim refresh token lalu menghapus `sessionStorage` | `POST /auth/logout` tanpa body; frontend tidak punya token refresh untuk dihapus |
 | Prettier belum terpasang | Prettier dan `eslint-config-prettier` sudah ada di `apps/frontend/package.json` |
 | `shared/hooks` (mis. `useDebounce`) | Belum ada |
-| `useBlocker` untuk peringatan penilaian belum disimpan | Belum dipakai |
-| State daftar (page, filter, search) disimpan di URL query string | Hanya tab karyawan yang memakai URL (`?tab=`); page dan filter masih state lokal (`useState`/AntD Form) |
-| Redux menyimpan "unsaved grid edits" | Belum ada slice seperti itu; edit penilaian masih state lokal di `AppraisalDetail` |
+| State daftar (page, filter, search) disimpan di URL query string | Hanya tab (`?tab=` di `UpdateEmployee` dan `Appraisal`) dan `CreateCriteria` (`?departmentId=`) yang memakai URL; page dan filter masih state lokal (`useState`/AntD Form) |
 | Create appraisal punya tombol "Add employee" di luar daftar eligible | Belum ada; tabel hanya berisi employee eligible dari `previewAppraisal` |
 | Appraisal detail punya komponen `Steps` lima tahap | Belum ada; hanya `Tag` status |
 | Appraisal detail punya aksi "Edit employee list" | Belum dirender; daftar employee hanya bisa diubah lewat flow create/update di backend |
@@ -487,10 +485,11 @@ Bagian yang **sudah** sesuai: RTK Query sebagai satu-satunya jalur data server, 
 2. `AppBootstrap` menahan seluruh aplikasi sampai sesi dipulihkan lewat cookie refresh HttpOnly; role di-seed di sana dan di SignIn saja.
 3. `MessageBridge` adalah satu-satunya jembatan antara konteks antd dan kode non-komponen; `errorHandling` bergantung padanya.
 4. Server state sepenuhnya di RTK Query dengan tag; hanya `auth` yang menjadi slice.
-5. Setiap fitur mengikuti pola enam bagian yang sama, dengan `ActionTable` dan `FormButton` sebagai titik temu; daily notes/appraisals/templates adalah pengecualian yang nyata.
+5. Setiap fitur mengikuti pola enam bagian yang sama, dengan `ActionTable` dan `FormButton` sebagai titik temu; daily notes/appraisals/templates adalah pengecualian yang nyata. Appraisal memakai tabel read-only + halaman detail per karyawan.
 6. **ADMIN adalah peran akses penuh:** menu menampilkan semua item, `hasAccess` selalu true, `getAvailableActions` mengembalikan semua aksi sesuai status, dan backend meloloskan ADMIN di semua endpoint/transisi.
 7. **Form dinamis daily note:** input harus menjadi **child langsung** `Form.Item` agar `value`/`onChange`/`checked` terikat; komponen perantara wajib meneruskan props tersebut.
 8. **Token:** access token hanya di memori Redux; refresh token berupa cookie HttpOnly yang diurus browser lewat `credentials: "include"`. Tidak ada `tokenStorage` maupun `sessionStorage` di frontend.
+9. **Export hasil appraisal:** tombol muncul hanya saat status COMPLETE untuk ADMIN/HR/HEAD_DEPARTMENT/MANAGER/GENERAL_MANAGER; file `.xlsx` berisi baris karyawan × kolom kriteria + Total Score + Comment, diunduh lewat `downloadFile`.
 
 **Pertanyaan latihan**
 

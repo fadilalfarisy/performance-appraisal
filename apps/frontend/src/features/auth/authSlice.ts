@@ -19,14 +19,8 @@ const authSlice = createSlice({
   name: "auth",
   initialState: initialValue,
   reducers: {
-    setAuth: (state, action: PayloadAction<AuthState>) => {
-      state.logged = action.payload.logged;
-      state.username = action.payload.username;
-      state.role = action.payload.role;
-      state.accessToken = action.payload.accessToken;
-    },
-    // Used by the bootstrap and re-auth flows: the access token is refreshed
-    // while the rest of the session is preserved.
+    // Entry point for both sign-in and bootstrap restore: a session is always
+    // logged in, so `logged` is not part of the payload.
     setSession: (
       state,
       action: PayloadAction<{
@@ -52,7 +46,7 @@ const authSlice = createSlice({
   },
 });
 
-export const { setAuth, setSession, setAccessToken, deleteAuth } = authSlice.actions;
+export const { setSession, setAccessToken, deleteAuth } = authSlice.actions;
 export const authReducer = authSlice.reducer;
 export const selectIsAuthenticated = (state: { auth: AuthState }) => state.auth.logged;
 export const selectAuthUser = (state: { auth: AuthState }) => state.auth;

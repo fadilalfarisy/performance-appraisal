@@ -7,6 +7,7 @@ import {
   UpdateDepartment,
 } from "@/features/departments";
 import { CreatePosition, Position, UpdatePosition } from "@/features/position";
+import Spin from "antd/es/spin";
 
 // Lazy-loaded layouts & components
 const DashboardLayout = lazy(
@@ -137,7 +138,7 @@ const EditDailyNote = lazy(() =>
 );
 
 const suspenseWrapper = (element: React.ReactNode) => (
-  <Suspense fallback={<div className="center-content">Loading...</div>}>
+  <Suspense fallback={<div className="center-content"><Spin /></div>}>
     {element}
   </Suspense>
 );

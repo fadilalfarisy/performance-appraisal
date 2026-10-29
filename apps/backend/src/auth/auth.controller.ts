@@ -57,11 +57,10 @@ export class AuthController {
   @Public()
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Rotate a refresh token' })
-  async refresh(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  @ApiOperation({
+    summary: 'Exchange the refresh token cookie for a new access token',
+  })
+  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const refreshToken = readRefreshTokenCookie(req);
 
     if (!refreshToken) {
@@ -72,15 +71,9 @@ export class AuthController {
     }
 
     try {
-      const result = await this.authService.refresh(
-        refreshToken,
-        this.meta(req),
-      );
-      const { refreshToken: newRefreshToken, ...data } = result.data;
+      const result = await this.authService.refresh(refreshToken);
 
-      setRefreshTokenCookie(res, newRefreshToken);
-
-      return { message: result.message, data };
+      return { message: result.message, data: result.data };
     } catch (error) {
       clearRefreshTokenCookie(res);
       throw error;

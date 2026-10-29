@@ -3,7 +3,7 @@ import { Button, Form, Input, Typography, Card } from "antd";
 import { useSignInMutation } from "@/features/auth/authApi";
 import { errorHandling } from "@/utils/errorUtils";
 import { useAppDispatch } from "@/app/hooks";
-import { setAuth } from "@/features/auth/authSlice";
+import { setSession } from "@/features/auth/authSlice";
 
 const { Title, Paragraph } = Typography;
 
@@ -21,11 +21,10 @@ export const SignIn = () => {
     try {
       const { data } = await login(values).unwrap();
       dispatch(
-        setAuth({
-          logged: true,
+        setSession({
+          accessToken: data.accessToken,
           username: data.username,
           role: data.role ?? "",
-          accessToken: data.accessToken,
         }),
       );
       navigate("/dashboard");

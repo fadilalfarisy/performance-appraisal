@@ -112,9 +112,9 @@ export class EnvironmentVariables {
 | `TZ` | teks | `Asia/Jakarta` | Zona waktu |
 | `DATABASE_URL` | teks, wajib | — | Alamat koneksi PostgreSQL |
 | `JWT_SECRET` | teks, wajib | — | Kunci tanda-tangan access token |
-| `JWT_ACCESS_EXPIRES_IN` | teks | `15m` | Umur access token |
+| `JWT_ACCESS_EXPIRES_IN` | teks | `5m` | Umur access token |
 | `JWT_REFRESH_SECRET` | teks, opsional | — | Kunci refresh token |
-| `JWT_REFRESH_EXPIRES_IN` | teks | `7d` | Umur refresh token |
+| `JWT_REFRESH_EXPIRES_IN` | teks | `1d` | Umur refresh token |
 | `CORS_ORIGIN` | teks | `http://localhost:5173` | Domain frontend yang diizinkan |
 | `SWAGGER_ENABLED` | `true`/`false` | `true` | Nyalakan dokumentasi Swagger |
 | `SCHEDULER_ENABLED` | `true`/`false` | `true` | Nyalakan job terjadwal |

@@ -14,7 +14,7 @@ The PRD and backend design do not specify these, so this document decides them. 
 |---|---|---|
 | 1 | Server data is handled by **RTK Query** (part of `@reduxjs/toolkit`). No axios, no hand-written fetch thunks. | No extra dependency; caching, loading and error states, and tag invalidation come built in. |
 | 2 | Access token lives **in memory only** (Redux state). Refresh token is kept in `sessionStorage`. | Works with the current backend design (tokens in JSON bodies) without backend changes. Closing the tab ends the session. Upgrade path: httpOnly cookie for the refresh token, which needs a backend change (see section 18). |
-| 3 | Token refresh is **single-flight**: only one refresh request at a time; other 401 requests wait for it. | The backend rotates refresh tokens and revokes all tokens on reuse. Two parallel refresh calls would log the user out. |
+| 3 | Token refresh is **single-flight**: only one refresh request at a time; other 401 requests wait for it. | Avoids duplicate refresh calls (StrictMode, remounts, several tabs). The backend does not rotate the refresh token, so a duplicate call is harmless — this is an efficiency rule, not a correctness one. |
 | 4 | Redux holds only auth state and small UI state. Server data and assessment form state are never copied into slices. | One source of truth for server data (the RTK Query cache); the per-employee form is local. |
 | 5 | Nothing non-serializable goes in Redux: dates are ISO strings, never `dayjs` objects. | Redux Toolkit's serializability check and predictable state. |
 | 6 | Permission checks in the UI mirror the backend rules (roles, status, department scope) in one tested module. The backend remains the authority. | Hide or disable actions the user cannot perform; still handle 403 and 404 gracefully. |
@@ -575,7 +575,7 @@ Priority when time is short: permissions, score, grid, import modal, re-auth. To
 
 | Item | Note |
 |---|---|
-| Duplicated browser tab copies `sessionStorage` | Both tabs share one refresh token; after rotation the other tab's token becomes a reuse and the backend may revoke the session. Acceptable for v1; the cookie option removes the issue |
+| Duplicated browser tab shares the refresh cookie | Both tabs bootstrap with the same cookie. Because the backend does not rotate the refresh token, both refreshes succeed and neither session is lost. |
 | UI permission rules drift from the backend | Mitigated by a shared table-driven test of the PRD matrix and, ideally, `allowedActions` from the API |
 | Large departments make the grid slow | Virtual table is the fallback (section 12.6) |
 | Excel import errors reported one at a time | By design (PRD: first error only); users may need several attempts. Revisit if HR finds it slow |

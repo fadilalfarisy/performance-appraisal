@@ -65,46 +65,37 @@ export class AuthService {
     };
   }
 
-  async refresh(refreshToken: string, meta: RequestMeta = {}) {
+  /**
+   * Exchanges a refresh token for a new access token. The refresh token itself
+   * is not rotated: it stays valid (and identical) until it expires or is
+   * revoked, so concurrent refreshes from one tab or several tabs all succeed
+   * instead of invalidating each other.
+   */
+  async refresh(refreshToken: string) {
     const payload = await this.verifyRefreshToken(refreshToken);
     const stored = await this.authRepository.findById(payload.jti);
 
-    if (!stored) {
-      throw new UnauthorizedException({
-        message: 'Invalid refresh token',
-        errorCode: 'AUTH_INVALID_REFRESH_TOKEN',
-      });
-    }
-
-    // Reuse detection: a revoked token presented again means the token leaked.
-    if (stored.revokedAt) {
-      await this.authRepository.revokeAllForUser(stored.userId);
-      throw new UnauthorizedException({
-        message: 'Refresh token reuse detected',
-        errorCode: 'AUTH_REFRESH_REUSE_DETECTED',
-      });
+    // Revoked means revoked: logout, deactivation, and admin actions must not
+    // be undone by refreshing.
+    if (!stored || stored.revokedAt) {
+      throw this.invalidRefreshToken();
     }
 
     if (
       stored.expiresAt.getTime() < Date.now() ||
       stored.tokenHash !== this.hash(refreshToken)
     ) {
-      throw new UnauthorizedException({
-        message: 'Invalid refresh token',
-        errorCode: 'AUTH_INVALID_REFRESH_TOKEN',
-      });
+      throw this.invalidRefreshToken();
     }
 
     const user = await this.usersRepository.findById(stored.userId);
-    const tokens = await this.issueTokens(
+    const accessToken = await this.signAccessToken(
       stored.userId,
       user?.username ?? payload.username,
       user?.role ?? null,
-      meta,
-      stored.id,
     );
 
-    return { message: 'Token refreshed', data: tokens };
+    return { message: 'Token refreshed', data: { accessToken } };
   }
 
   async logout(refreshToken: string) {
@@ -129,16 +120,8 @@ export class AuthService {
     username: string,
     role: string | null,
     meta: RequestMeta,
-    replacesId?: string,
   ): Promise<TokenPair> {
-    const accessToken = await this.jwtService.signAsync(
-      { sub: userId, username, role, typ: 'access' },
-      {
-        secret: this.accessSecret,
-        expiresIn: this.accessExpiresIn,
-        algorithm: 'HS256',
-      },
-    );
+    const accessToken = await this.signAccessToken(userId, username, role);
 
     const jti = randomUUID();
     const refreshToken = await this.jwtService.signAsync(
@@ -161,11 +144,22 @@ export class AuthService {
       userAgent: meta.userAgent ?? null,
     });
 
-    if (replacesId) {
-      await this.authRepository.revoke(replacesId, jti);
-    }
-
     return { accessToken, refreshToken };
+  }
+
+  private async signAccessToken(
+    userId: string,
+    username: string,
+    role: string | null,
+  ): Promise<string> {
+    return this.jwtService.signAsync(
+      { sub: userId, username, role, typ: 'access' },
+      {
+        secret: this.accessSecret,
+        expiresIn: this.accessExpiresIn,
+        algorithm: 'HS256',
+      },
+    );
   }
 
   private async verifyRefreshToken(refreshToken: string) {
@@ -176,20 +170,21 @@ export class AuthService {
         algorithms: ['HS256'],
       });
     } catch {
-      throw new UnauthorizedException({
-        message: 'Invalid refresh token',
-        errorCode: 'AUTH_INVALID_REFRESH_TOKEN',
-      });
+      throw this.invalidRefreshToken();
     }
 
     if (payload.typ !== 'refresh' || !payload.jti) {
-      throw new UnauthorizedException({
-        message: 'Invalid refresh token',
-        errorCode: 'AUTH_INVALID_REFRESH_TOKEN',
-      });
+      throw this.invalidRefreshToken();
     }
 
     return payload;
+  }
+
+  private invalidRefreshToken(): UnauthorizedException {
+    return new UnauthorizedException({
+      message: 'Invalid refresh token',
+      errorCode: 'AUTH_INVALID_REFRESH_TOKEN',
+    });
   }
 
   private hash(token: string): string {

@@ -315,7 +315,7 @@ erDiagram
 
 ### Autentikasi dan organisasi
 
-`USERS` menyimpan akun dan satu role. `REFRESH_TOKENS` menyimpan hash refresh token (id = JWT `jti`) dengan rotasi lewat `replaced_by` dan pencabutan lewat `revoked_at`. `USER_DEPARTMENTS` adalah scope departemen untuk role yang tidak global.
+`USERS` menyimpan akun dan satu role. `REFRESH_TOKENS` menyimpan hash refresh token (id = JWT `jti`) dan pencabutannya lewat `revoked_at`. Refresh tidak merotasi token, jadi kolom `replaced_by` tidak lagi diisi (dibiarkan tanpa migrasi). `USER_DEPARTMENTS` adalah scope departemen untuk role yang tidak global.
 
 `DEPARTMENTS` dan `POSITIONS` adalah master data. `EMPLOYEES` mereferensikan keduanya, dan `supervisor_id` adalah self-reference untuk atasan langsung. `CONTRACTS` menyimpan riwayat kontrak per karyawan.
 

@@ -28,8 +28,7 @@ Analogi: ini seperti **satpam gedung dan sistem kartu akses**. Login = menunjukk
 **Istilah baru:**
 - **JWT (JSON Web Token)** = token yang isinya (siapa, kapan kedaluwarsa) ditandatangani secara digital sehingga bisa dipercaya tanpa cek database tiap saat.
 - **HS256** = algoritma tanda tangan JWT simetris (satu kunci untuk menandatangani dan memverifikasi).
-- **Token rotation** = setiap refresh mengeluarkan refresh token baru dan mencabut yang lama.
-- **Reuse detection** = mendeteksi bila refresh token lama dipakai lagi (indikasi kebocoran).
+- **Token rotation** = setiap refresh mengeluarkan refresh token baru dan mencabut yang lama. **Tidak dipakai di sistem ini:** refresh hanya menerbitkan access token baru, sehingga beberapa tab tidak saling membatalkan.
 
 ---
 
@@ -39,7 +38,7 @@ Analogi: ini seperti **satpam gedung dan sistem kartu akses**. Login = menunjukk
 |-----------|-------|---------------|
 | `auth.module.ts` | Module | Merakit controller, service, repository, strategy |
 | `auth.controller.ts` | Controller | Endpoint `/api/auth/*` |
-| `auth.service.ts` | Service | Logika token, verifikasi password, rotasi & revocation |
+| `auth.service.ts` | Service | Logika token, verifikasi password, penerbitan & pencabutan token |
 | `auth.repository.ts` | Repository | Query tabel `refresh_tokens` |
 | `jwt.strategy.ts` | Strategy (Passport) | Memverifikasi access token & menempelkan user ke request |
 | `dto/signin.dto.ts` | DTO | Body login |
@@ -66,7 +65,7 @@ Versi teks:
 ```
 Login:  Controller → Service → UsersRepo (cek password) → issueTokens → AuthRepo (simpan refresh) → token
 Akses:  Bearer token → JwtStrategy.validate → RequestContext → Controller
-Refresh:token → verify → cek DB (hash, revoked) → rotasi → token baru
+Refresh: cookie → verify → cek DB (hash, revoked, expiry) → access token baru
 ```
 
 ---
@@ -190,29 +189,24 @@ return { message: 'Login successful', data: { username: user.username, role: use
 - **Dampaknya:** Jika pengecekan `isActive` dihapus, akun yang dinonaktifkan tetap bisa login.
 - **Analogi:** Petugas yang menolak masuk kalau identitas/password tak cocok, atau keanggotaan sudah dicabut.
 
-`refresh` + reuse detection:
+`refresh` (tanpa rotasi):
 
 ```ts
-const payload = await this.verifyRefreshToken(refreshToken);
+const payload = await this.verifyRefreshToken(refreshToken); // tanda tangan + typ + jti
 const stored = await this.authRepository.findById(payload.jti);
-if (!stored) throw new UnauthorizedException({ message: 'Invalid refresh token', errorCode: 'AUTH_INVALID_REFRESH_TOKEN' });
-
-// Reuse detection: token yang sudah dicabut muncul lagi = token bocor.
-if (stored.revokedAt) {
-  await this.authRepository.revokeAllForUser(stored.userId);
-  throw new UnauthorizedException({ message: 'Refresh token reuse detected', errorCode: 'AUTH_REFRESH_REUSE_DETECTED' });
-}
+if (!stored || stored.revokedAt) throw this.invalidRefreshToken(); // dicabut = ditolak selamanya
 if (stored.expiresAt.getTime() < Date.now() || stored.tokenHash !== this.hash(refreshToken)) {
-  throw new UnauthorizedException({ message: 'Invalid refresh token', errorCode: 'AUTH_INVALID_REFRESH_TOKEN' });
+  throw this.invalidRefreshToken();
 }
 const user = await this.usersRepository.findById(stored.userId);
-const tokens = await this.issueTokens(stored.userId, user?.username ?? payload.username, user?.role ?? null, meta, stored.id);
+const accessToken = await this.signAccessToken(stored.userId, user?.username ?? payload.username, user?.role ?? null);
+return { message: 'Token refreshed', data: { accessToken } };
 ```
 
-- **Fungsinya:** Memvalidasi refresh token di 3 lapis: tanda tangan JWT, keberadaan di DB, lalu hash & kedaluwarsa. Jika token yang **sudah dicabut** dipakai lagi, **semua** refresh token user dicabut (tanda kebocoran).
-- **Kenapa dibuat seperti ini:** Token rotation + reuse detection adalah praktik keamanan modern: mencuri satu refresh token tidak cukup, dan begitu terdeteksi, sesi penyerang & korban dimatikan.
-- **Dampaknya:** Menghapus cek `revokedAt` melumpuhkan deteksi kebocoran. Tidak memeriksa `tokenHash` membuat token curian yang diubah bisa lolos.
-- **Analogi:** Kartu keanggotaan lama yang sudah ditukar, jika muncul lagi, dianggap dipalsukan → semua kartu anggota itu diblokir.
+- **Fungsinya:** Memvalidasi refresh token di 3 lapis: tanda tangan JWT, keberadaan di DB, lalu hash & kedaluwarsa. Bila lolos, terbitkan **hanya access token baru**.
+- **Kenapa dibuat seperti ini:** Refresh token **tidak dirotasi**. Token yang sama tetap berlaku sampai kedaluwarsa atau dicabut, sehingga beberapa tab yang me-refresh bersamaan sama-sama berhasil — tidak ada reuse detection yang bisa salah menuduh.
+- **Dampaknya:** Menghapus cek `revokedAt` membuat token yang sudah logout tetap bisa dipakai. Tidak memeriksa `tokenHash` membuat token curian yang diubah bisa lolos. Karena tidak ada rotasi, pencurian token tidak terdeteksi otomatis; mitigasinya umur pendek (1 hari) dan cookie HttpOnly.
+- **Analogi:** Kartu keanggotaan yang tetap sama sampai masa berlakunya habis; kartu yang sudah dikembalikan saat keluar tetap ditolak.
 - **Istilah baru:** **jti** = id unik token (disimpan agar bisa dicabut). **tokenHash** = hash SHA-256 dari token, bukan token aslinya (aman walau DB bocor).
 
 `logout`:
@@ -244,13 +238,12 @@ const refreshToken = await this.jwtService.signAsync(
 const decoded = this.jwtService.decode(refreshToken) as { exp: number };
 await this.authRepository.create({ id: jti, userId, tokenHash: this.hash(refreshToken),
   expiresAt: new Date(decoded.exp * 1000), ip: meta.ip ?? null, userAgent: meta.userAgent ?? null });
-if (replacesId) await this.authRepository.revoke(replacesId, jti);
 ```
 
-- **Fungsinya:** Membuat access token (`typ: 'access'`) dan refresh token (`typ: 'refresh'`, dengan `jti`), menyimpan hash refresh + masa berlaku + IP/UA ke DB, dan mencabut token lama (`replacesId`) bila ini hasil rotasi.
-- **Kenapa dibuat seperti ini:** `typ` membedakan jenis token; `jti` memungkinkan pencabutan; menyimpan IP/UA membantu audit; `replacesId` menautkan rotasi (kolom `replacedBy`).
+- **Fungsinya:** Membuat access token (`typ: 'access'`) dan refresh token (`typ: 'refresh'`, dengan `jti`), lalu menyimpan hash refresh + masa berlaku + IP/UA ke DB.
+- **Kenapa dibuat seperti ini:** `typ` membedakan jenis token; `jti` memungkinkan pencabutan per sesi; menyimpan IP/UA membantu audit. Hanya dipanggil saat login — refresh tidak menerbitkan token baru.
 - **Dampaknya:** Jika `expiresIn` salah, token bisa terlalu panjang umurnya (bahaya) atau terlalu pendek (user sering diminta login).
-- **Analogi:** Menerbitkan kartu harian & kartu keanggotaan baru, mencatat kartu keanggotaan di buku besar, sekaligus menandai kartu lama "tidak berlaku".
+- **Analogi:** Menerbitkan kartu harian & kartu keanggotaan baru, lalu mencatat kartu keanggotaan di buku besar.
 
 Getter konfigurasi:
 
@@ -271,20 +264,16 @@ private get refreshSecret(): string {
 ```ts
 async create(values: RefreshTokenInsert) { await this.db.insert(refreshTokens).values(values); }
 async findById(id: string) { const [row] = await this.db.select().from(refreshTokens).where(eq(refreshTokens.id, id)).limit(1); return row ?? null; }
-async revoke(id: string, replacedBy?: string) {
-  await this.db.update(refreshTokens).set({ revokedAt: new Date(), replacedBy: replacedBy ?? null }).where(eq(refreshTokens.id, id));
-}
-async revokeAllForUser(userId: string) {
-  await this.db.update(refreshTokens).set({ revokedAt: new Date() })
-    .where(and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)));
+async revoke(id: string) {
+  await this.db.update(refreshTokens).set({ revokedAt: new Date() }).where(eq(refreshTokens.id, id));
 }
 ```
 
-- **Fungsinya:** Menyimpan token baru, mencarinya, mencabut satu, atau mencabut semua milik user.
-- **Kenapa:** Memisahkan akses DB dari logika (pola repository). `revokeAllForUser` dipakai saat mendeteksi penyalahgunaan.
-- **Dampaknya:** Jika `revoke` tidak mencatat `replacedBy`, jejak rotasi hilang (tidak fatal, tapi mengurangi audit).
-- **Analogi:** Buku besar kartu keanggotaan: mencatat kartu baru, mencari kartu, menandai kartu tertentu "dicabut", atau mencabut semua kartu satu anggota.
-- **Istilah baru:** **`isNull(...)`** = kondisi SQL `IS NULL` (di sini: yang belum dicabut).
+- **Fungsinya:** Menyimpan token baru, mencarinya, dan mencabut satu token.
+- **Kenapa:** Memisahkan akses DB dari logika (pola repository). Pencabutan per token cukup karena refresh token tidak dirotasi.
+- **Dampaknya:** Bila `revoke` tidak dipanggil saat logout, sesi di browser itu tetap hidup sampai token kedaluwarsa.
+- **Analogi:** Buku besar kartu keanggotaan: mencatat kartu baru, mencari kartu, dan menandai kartu tertentu "dicabut".
+- **Istilah baru:** **`eq(...)`** = kondisi SQL `=`. Kolom `replaced_by` tidak lagi diisi karena tidak ada rotasi.
 
 ### DTO
 
@@ -304,14 +293,14 @@ Skenario: **User login, memakai API, lalu refresh saat token habis.**
 1. Frontend `POST /api/auth/signin` dengan `{ username, password }`.
 2. `ThrottlerGuard` membatasi 5 percobaan/menit; `@Public()` melewati JwtAuthGuard.
 3. `AuthService.login` mengambil user + password hash, `bcrypt.compare`.
-4. Jika cocok & aktif → `issueTokens`: buat access token (15m) & refresh token (7d, dengan `jti`), simpan hash refresh ke DB.
+4. Jika cocok & aktif → `issueTokens`: buat access token (5m) & refresh token (1d, dengan `jti`), simpan hash refresh ke DB.
 5. Response: `{ accessToken, refreshToken, role, username }`.
-6. Frontend menyimpan access token di memori, refresh token di `sessionStorage` (aturan frontend).
+6. Frontend menyimpan access token di memori; refresh token dikirim backend sebagai cookie HttpOnly.
 7. Request berikutnya menyertakan `Authorization: Bearer <accessToken>`.
 8. `JwtAuthGuard` → `JwtStrategy.validate` memverifikasi token, cek `typ === 'access'`, ambil user dari DB, isi `RequestContext` → handler jalan.
 9. Saat access token kedaluwarsa (401), frontend `POST /api/auth/refresh` dengan refresh token.
-10. `AuthService.refresh`: verifikasi tanda tangan → cek DB (ada, tidak dicabut, hash cocok, belum kedaluwarsa) → terbitkan token baru → cabut token lama (`replacesId`).
-11. Saat login di device lain atau mendeteksi token lama dipakai lagi → `revokeAllForUser` → semua sesi dimatikan.
+10. `AuthService.refresh`: verifikasi tanda tangan → cek DB (ada, tidak dicabut, hash cocok, belum kedaluwarsa) → terbitkan **access token baru**; refresh token tidak dirotasi.
+11. Login di device lain tidak mematikan sesi lain; token dicabut hanya lewat logout (atau tindakan admin, bila diimplementasikan).
 12. `POST /api/auth/logout` mencabut refresh token.
 
 ---
@@ -333,7 +322,7 @@ Skenario: **User login, memakai API, lalu refresh saat token habis.**
 **Dampak jika diubah/dihapus:**
 - Menghapus `AuthModule` (atau strategi) → `JwtAuthGuard` global tak menemukan strategi `jwt`; semua endpoint terproteksi jadi 401 → aplikasi lumpuh.
 - Mengubah klaim token (`sub`, `typ`) tanpa menyesuaikan `JwtStrategy` → validasi gagal.
-- Mengubah aturan rotasi/reuse → perilaku keamanan sesi berubah.
+- Mengubah aturan refresh (mis. menambah rotasi) → perilaku sesi dan keamanan berubah; frontend dan test harus ikut disesuaikan.
 
 ---
 
@@ -343,13 +332,12 @@ Skenario: **User login, memakai API, lalu refresh saat token habis.**
 2. **Menyimpan refresh token asli di DB.** Yang disimpan adalah `tokenHash`; jangan simpan token polos.
 3. **Lupa `@Public()` di endpoint login.** Hasilnya 401 di endpoint yang seharusnya publik.
 4. **Mengubah masa berlaku/secret tanpa memperbarui env.** Token lama jadi tak valid / user diminta login lagi.
-5. **Menganggap login satu tempat = logout otomatis di tempat lain.** Tidak; kecuali `revokeAllForUser` dipanggil (mis. saat reuse terdeteksi).
+5. **Menganggap login satu tempat = logout otomatis di tempat lain.** Tidak; login baru hanya menambah baris `refresh_tokens`, sesi lain tetap berlaku sampai logout atau kedaluwarsa.
 
 **Pesan error yang mungkin muncul:**
 - `401 AUTH_INVALID_CREDENTIALS` → username/password salah.
 - `401 AUTH_USER_INACTIVE` → akun dinonaktifkan.
-- `401 AUTH_INVALID_REFRESH_TOKEN` → refresh token tak valid/kedaluwarsa/hash tak cocok.
-- `401 AUTH_REFRESH_REUSE_DETECTED` → token lama dipakai lagi → semua sesi dicabut.
+- `401 AUTH_INVALID_REFRESH_TOKEN` → refresh token tak valid/kedaluwarsa/dicabut/hash tak cocok.
 - `409 AUTH_USERNAME_ALREADY_EXISTS` → username dipakai.
 - `429 Too Many Requests` → kena throttle (mis. >5 login/menit).
 
@@ -368,8 +356,8 @@ Skenario: **User login, memakai API, lalu refresh saat token habis.**
 
 **Poin kunci:**
 1. Dua token: access (pendek, `typ: 'access'`) & refresh (panjang, `typ: 'refresh'`, punya `jti`), dengan secret berbeda.
-2. Refresh token disimpan sebagai **hash** di `refresh_tokens`; bisa dicabut dan dirotasi.
-3. Ada deteksi penyalahgunaan: token yang sudah dicabut dipakai lagi → semua sesi user dicabut.
+2. Refresh token disimpan sebagai **hash** di `refresh_tokens`; bisa dicabut per sesi dan tidak dirotasi.
+3. Token yang sudah dicabut (logout) ditolak dengan `AUTH_INVALID_REFRESH_TOKEN`; sesi lain tidak terpengaruh.
 4. `JwtStrategy.validate` memeriksa tipe token, keberadaan & status aktif user, lalu mengisi `RequestContext`.
 5. Endpoint auth diberi rate limit lebih ketat (`@Throttle`).
 
@@ -379,10 +367,10 @@ Skenario: **User login, memakai API, lalu refresh saat token habis.**
    → Agar keduanya tidak bisa saling dipertukarkan; kompromi satu jenis token tidak otomatis mengancam jenis lainnya.
 
 2. *Apa gunanya `jti` pada refresh token?*
-   → Id unik token yang disimpan di DB, sehingga token bisa dicari, dicabut, dan dirotasi (dan untuk mendeteksi pemakaian ulang).
+   → Id unik token yang disimpan di DB, sehingga token bisa dicari dan dicabut per sesi.
 
 3. *Apa yang terjadi bila refresh token yang sudah dicabut dipakai lagi?*
-   → Dianggap kebocoran: `revokeAllForUser` dicabut semua, lalu server menolak dengan `AUTH_REFRESH_REUSE_DETECTED`.
+   → Server menolak dengan `AUTH_INVALID_REFRESH_TOKEN`; sesi lain tidak terpengaruh.
 
 ---
 
@@ -395,13 +383,13 @@ Bagian ini memperdalam: **bagaimana token dibuat, atribut apa saja yang terlibat
 | Aspek | Access token | Refresh token |
 |-------|--------------|---------------|
 | Kegunaan | Mengakses API tiap request | Menukar access token baru saat kedaluwarsa |
-| Umur (default) | `JWT_ACCESS_EXPIRES_IN` = **15 menit** | `JWT_REFRESH_EXPIRES_IN` = **7 hari** |
+| Umur (default) | `JWT_ACCESS_EXPIRES_IN` = **5 menit** | `JWT_REFRESH_EXPIRES_IN` = **1 hari** |
 | Secret | `JWT_SECRET` | `JWT_REFRESH_SECRET` (fallback ke `JWT_SECRET`) |
 | Algoritma | HS256 | HS256 |
 | Penanda jenis | klaim `typ: 'access'` | klaim `typ: 'refresh'` |
 | Disimpan di DB? | **Tidak** (stateless) | **Ya** — hash-nya di tabel `refresh_tokens` |
 | Bisa dicabut? | Tidak (cukup kedaluwarsa) | Ya (`revokedAt`) |
-| Di frontend | **Redux (memori)** saja | **`sessionStorage`** (key `appraisal.refreshToken`) |
+| Di frontend | **Redux (memori)** saja | Cookie `appraisal_refresh_token` (HttpOnly, diurus browser) |
 | Ada `jti`? | Tidak | Ya (UUID, jadi id baris di DB) |
 
 ### 9.2 Cara Access Token Dibuat (`issueTokens`)
@@ -450,7 +438,6 @@ await this.authRepository.create({
   ip: meta.ip ?? null,
   userAgent: meta.userAgent ?? null,
 });
-if (replacesId) await this.authRepository.revoke(replacesId, jti);  // rotasi
 ```
 
 **Proses:**
@@ -458,7 +445,6 @@ if (replacesId) await this.authRepository.revoke(replacesId, jti);  // rotasi
 2. Menyusun payload: `sub`, `username`, `jti`, `typ: 'refresh'` (+ `iat`/`exp` otomatis).
 3. Menandatangani dengan `JWT_REFRESH_SECRET`.
 4. Meng-`decode` (bukan `verify`) untuk membaca `exp`, lalu menyimpan **hash SHA-256** token ke DB — token asli **tidak** disimpan.
-5. Bila ini rotasi (`replacesId`), token lama dicabut dan ditautkan (`replacedBy = jti` baru).
 
 **Atribut/klaim refresh token:**
 
@@ -476,11 +462,11 @@ if (replacesId) await this.authRepository.revoke(replacesId, jti);  // rotasi
 | Kolom | Isi | Kenapa |
 |-------|-----|--------|
 | `id` | = `jti` | Kunci utama; memungkinkan pencarian & pencabutan per token |
-| `user_id` | id user | Untuk `revokeAllForUser` |
+| `user_id` | id user | Mengelompokkan sesi per user |
 | `token_hash` | SHA-256 hex dari token | Verifikasi keaslian **tanpa** menyimpan token asli (aman bila DB bocor) |
 | `expires_at` | dari klaim `exp` | Cek kedaluwarsa di sisi server |
-| `revoked_at` | timestamp / NULL | Penanda token sudah dicabut (logout/rotasi/reuse) |
-| `replaced_by` | `jti` pengganti | Menautkan rantai rotasi |
+| `revoked_at` | timestamp / NULL | Penanda token sudah dicabut (logout) |
+| `replaced_by` | kosong | Tidak lagi diisi: rotasi dihapus |
 | `created_at` | otomatis | Waktu dibuat |
 | `ip` | IP saat login | Audit |
 | `user_agent` | UA saat login | Audit |
@@ -490,9 +476,9 @@ if (replacesId) await this.authRepository.revoke(replacesId, jti);  // rotasi
 | Env | Dipakai untuk | Default |
 |-----|---------------|---------|
 | `JWT_SECRET` | Menandatangani & memverifikasi **access** token | — (wajib) |
-| `JWT_ACCESS_EXPIRES_IN` | Umur access token | `15m` |
+| `JWT_ACCESS_EXPIRES_IN` | Umur access token | `5m` |
 | `JWT_REFRESH_SECRET` | Menandatangani & memverifikasi **refresh** token | fallback ke `JWT_SECRET` |
-| `JWT_REFRESH_EXPIRES_IN` | Umur refresh token | `7d` |
+| `JWT_REFRESH_EXPIRES_IN` | Umur refresh token | `1d` |
 
 ### 9.5 Diagram Sekuens
 
@@ -518,7 +504,7 @@ sequenceDiagram
     AS->>AR: create({id=jti, tokenHash, expiresAt, ip, userAgent})
     AR->>DB: INSERT refresh_tokens
     AS-->>FE: 200 {accessToken, refreshToken, username, role}
-    FE->>FE: accessToken -> Redux (memori)<br/>refreshToken -> sessionStorage
+    FE->>FE: accessToken -> Redux (memori)<br/>refreshToken -> cookie HttpOnly
 ```
 
 **B. Akses API (memakai access token)**
@@ -542,7 +528,7 @@ sequenceDiagram
     C-->>FE: 200 data
 ```
 
-**C. Refresh (rotasi token) + deteksi pemakaian ulang**
+**C. Refresh (tanpa rotasi)**
 
 ```mermaid
 sequenceDiagram
@@ -552,33 +538,30 @@ sequenceDiagram
     participant AR as AuthRepository
     participant DB as PostgreSQL
 
-    FE->>AC: POST /api/auth/refresh {refreshToken}
-    AC->>AS: refresh(token, meta)
+    FE->>AC: POST /api/auth/refresh (cookie HttpOnly)
+    AC->>AS: refresh(token)
     AS->>AS: verifyRefreshToken (HS256, cek typ==='refresh' & ada jti)
     AS->>AR: findById(jti)
     AR->>DB: SELECT refresh_tokens
     DB-->>AS: stored (revokedAt?, tokenHash, expiresAt, userId)
-    alt stored.revokedAt != NULL (token lama dipakai lagi)
-        AS->>AR: revokeAllForUser(userId)
-        AS-->>FE: 401 AUTH_REFRESH_REUSE_DETECTED
+    alt baris tidak ada atau revokedAt != NULL
+        AS-->>FE: 401 AUTH_INVALID_REFRESH_TOKEN
     else token valid
         AS->>AS: cek expiresAt & tokenHash cocok
-        AS->>AS: issueTokens(..., replacesId = stored.id)
-        AS->>AR: create(refresh baru) + revoke(stored.id, jtiBaru)
-        AR->>DB: INSERT + UPDATE
-        AS-->>FE: 200 {accessToken baru, refreshToken baru}
+        AS->>AS: signAccessToken(...)
+        AS-->>FE: 200 {accessToken baru}; cookie tidak berubah
     end
 ```
 
 ### 9.6 Ringkasan Alur di Frontend
 
 - **Access token**: disimpan **hanya di memori** (Redux `authSlice.accessToken`) → tidak bisa dicuri lewat XSS persistent karena hilang saat tab ditutup.
-- **Refresh token**: disimpan di **`sessionStorage`** (key `appraisal.refreshToken`) → hilang saat tab/browser ditutup.
+- **Refresh token**: disimpan di cookie **HttpOnly** `appraisal_refresh_token` (path `/api/auth`) → JavaScript tidak bisa membaca/menulisnya; browser mengirimnya otomatis.
 - **Menempelkan token**: `prepareHeaders` di `apiSlice` menambahkan `Authorization: Bearer <accessToken>` pada setiap request.
-- **Auto-refresh**: saat respons `401`, `baseQueryWithReauth` memanggil `/auth/refresh`. Refresh bersifat **single-flight** — beberapa 401 bersamaan berbagi satu permintaan refresh (`refreshPromise`). Bila sukses, request awal diulang; bila gagal, `tokenStorage.clear()` + `deleteAuth()` (user diminta login lagi).
+- **Auto-refresh**: saat respons `401`, `baseQueryWithReauth` memanggil `/auth/refresh`. Refresh bersifat **single-flight** — beberapa 401 bersamaan berbagi satu permintaan refresh (`refreshPromise`). Bila sukses, request awal diulang; bila gagal, `deleteAuth()` (user diminta login lagi).
 
 ### 9.7 Kenapa "stateless access + stateful refresh"?
 
 - Access token **stateless** → verifikasi cepat, tanpa query DB tiap request (hanya `findById` untuk cek user masih aktif).
-- Refresh token **stateful** → memberi kemampuan **mencabut sesi** (logout, rotasi, deteksi kebocoran) yang tidak bisa dilakukan token stateless.
+- Refresh token **stateful** → memberi kemampuan **mencabut sesi** (logout) yang tidak bisa dilakukan token stateless.
 - Kombinasi ini adalah pola umum: kartu harian cepat (access) + buku keanggotaan yang bisa diblokir (refresh).

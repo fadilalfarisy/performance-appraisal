@@ -51,9 +51,9 @@ cp apps/frontend/.env.example apps/frontend/.env
 | `TZ` | `Asia/Jakarta` | Scheduler / period dates |
 | `DATABASE_URL` | `postgresql://appraisal:appraisal@localhost:5432/appraisal` | Must match the compose service |
 | `JWT_SECRET` | a 32+ char secret | Access-token secret |
-| `JWT_ACCESS_EXPIRES_IN` | `15m` | |
+| `JWT_ACCESS_EXPIRES_IN` | `5m` | |
 | `JWT_REFRESH_SECRET` | a different secret | Optional; falls back to `JWT_SECRET` |
-| `JWT_REFRESH_EXPIRES_IN` | `7d` | |
+| `JWT_REFRESH_EXPIRES_IN` | `1d` | |
 | `CORS_ORIGIN` | `http://localhost:5173` | Frontend origin |
 | `SWAGGER_ENABLED` | `true` | Set `false` in production |
 | `SCHEDULER_ENABLED` | `true` | Day-1 appraisal job |
