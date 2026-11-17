@@ -434,7 +434,7 @@ Layout:
 - Table: time, user (or `SYSTEM`), role, action, entity, entity id. Server-side pagination; page sizes include 100.
 - Action codes render through a frontend label map, falling back to the raw code for unknown actions.
 - Expandable row shows before, after, metadata, IP, and request id as read-only formatted JSON. Masked values appear as the backend returns them.
-- Export uses the same filters and the same download helper. Opening the page does not write an audit entry; exporting does.
+- Export uses the same filters and the same download helper (PRD 5.6). Opening the page does not write an audit entry; exporting does.
 
 ### 10.9 Daily notes (ADMIN, HEAD_DEPARTMENT, SUPERVISOR)
 

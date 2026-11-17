@@ -200,7 +200,7 @@ Skenario sistem: **Scheduler appraisal.** `runScheduler` memanggil `audit.record
 
 **Tidak bergantung pada module fitur apa pun** (hanya `db` & common types). Ini module yayasan.
 
-**Dipakai oleh (hampir semua):** Users, Auth (perlu konfirmasi—lihat bagian 7), Departments, Positions, Employees, Contracts, Criteria, Appraisals, Imports — semuanya memanggil `AuditService.record`. `AuditService` diekspos (juga global).
+**Dipakai oleh (hampir semua):** Users, Departments, Positions, Employees, Contracts, Criteria, Appraisals, Imports — semuanya memanggil `AuditService.record`. Auth belum memakainya (lihat bagian 7).
 
 **Dampak jika diubah/dihapus:**
 - Menghapus module/service → semua service yang audit gagal DI; aplikasi mungkin tak bisa start.
@@ -226,9 +226,9 @@ Skenario sistem: **Scheduler appraisal.** `runScheduler` memanggil `audit.record
 
 ## 7. Catatan Kualitas Kode
 
-- **Read path belum diimplementasikan.** Saat ini `AuditRepository` hanya punya `insert` dan tidak ada controller baca. Desainnya sudah ditetapkan: `GET /audit-logs` dan `GET /audit-logs/export`, hanya untuk ADMIN (PRD 5.6, DESIGN-BACKEND 14). Membaca daftar tidak diaudit; setiap export menulis satu entri `AUDIT_LOG_EXPORTED`.
+- **Read path belum diimplementasikan.** Saat ini `AuditRepository` hanya punya `insert` dan tidak ada controller baca. Desainnya sudah ditetapkan: `GET /audit-logs` dan `GET /audit-logs/export`, hanya untuk ADMIN (PRD 5.6, DESIGN-BACKEND 14). Membaca daftar tidak diaudit; setiap export audit trail menulis satu entri `AUDIT_LOG_EXPORTED`.
 - **Auth belum menulis audit.** `AuthService`/`JwtStrategy` tidak memanggil `AuditService`, padahal PRD 5.6 dan DESIGN-BACKEND 12.1 mewajibkan login, logout, dan login gagal tercatat.
-- **`DailyNotesService` sudah menulis audit.** `DAILY_NOTE_CREATED`, `DAILY_NOTE_UPDATED`, dan `DAILY_NOTE_DELETED` ditulis dalam transaksi yang sama dengan perubahannya; pernyataan lama di dokumen ini sudah tidak berlaku.
+- **`DailyNotesService` menulis audit.** `DAILY_NOTE_CREATED`, `DAILY_NOTE_UPDATED`, dan `DAILY_NOTE_DELETED` ditulis dalam transaksi yang sama dengan perubahannya.
 - **Deny-list berbasis pola nama kunci.** Kunci sensitif yang tak mengandung kata kunci (mis. `pin`, `otp`, `cvv`, `nid`) akan lolos. Saran: perluas `DENY_LIST` sesuai daftar PII proyek.
 - **Tidak ada masalah keamanan kritis pada mekanismenya.** Masking terpusat + tabel append-only + grant DB adalah praktik yang baik.
 

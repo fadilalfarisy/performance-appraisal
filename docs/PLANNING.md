@@ -74,7 +74,7 @@ Approach: full PRD alignment (PRD fields, not just behavior), done in stages so 
 
 ## Phase 6 — Audit and retention
 
-- [ ] Build `GET /audit-logs` with filters (user, entity, action, date range) and export (P1).
+- [ ] Build `GET /audit-logs` with filters (actor type, user, entity, entity id, action, date range) for ADMIN, plus export (audited; reading is not).
 - [ ] Add the audit partition maintenance job and the documented purge procedure.
 
 ## Phase 7 — Frontend foundation

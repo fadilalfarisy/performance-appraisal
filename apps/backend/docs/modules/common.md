@@ -419,7 +419,7 @@ export const PERMISSIONS: Record<Permission, UserRole[]> = {
   'appraisal:approve': [UserRole.MANAGER],
   'appraisal:complete': [UserRole.GENERAL_MANAGER],
   'note:manage': [UserRole.HEAD_DEPARTMENT, UserRole.SUPERVISOR],
-  'audit:read': [UserRole.ADMIN, UserRole.HR],
+  'audit:read': [UserRole.ADMIN],       // PRD v0.10: ADMIN only (kode berjalan masih [ADMIN, HR] sampai endpoint baca audit dibuat)
   // ...
 };
 

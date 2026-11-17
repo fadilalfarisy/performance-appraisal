@@ -208,7 +208,7 @@ Record for every meaningful action:
 - **When:** timestamp.
 - **Origin:** IP address (P1).
 
-Covered actions: login and logout, create/update/deactivate of any master data, user and role changes, criteria set versioning, appraisal creation, edits, soft deletion, status transitions, rejections and reopening, daily note create/edit/delete, scheduler runs, and every import and export.
+Covered actions: login, logout, failed login, create/update/deactivate of any master data, user and role changes, criteria set versioning, appraisal creation, edits, soft deletion, status transitions, rejections and reopening, daily note create/edit/delete, scheduler runs, and every import and export.
 
 Rules:
 - Sensitive values (passwords, password hashes, tokens) are **masked** in before/after data.
@@ -216,7 +216,7 @@ Rules:
 - Audit records are retained for **12 months**. Records older than 12 months are removed only by an administrator working directly in the database, using a documented purge procedure (e.g. dropping monthly partitions or a reviewed script).
 - The application's database user has insert and select permission only on the audit table (no update or delete).
 - Each purge is recorded outside the audit table (date, operator, cutoff date, number of records removed).
-- Admin can search and filter by user, entity, action, and date range, and export the result. Exporting the trail is audited; reading it is not.
+- Admin can search and filter by actor type, user, entity, action, and date range, and export the result. Exporting the trail is audited; reading it is not.
 
 ### 5.7 Excel Import and Export (P0 unless noted)
 
