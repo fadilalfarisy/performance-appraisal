@@ -13,7 +13,7 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "seed": "ts-node -r tsconfig-paths/register src/db/seed.ts",
-    "seed:employees": "ts-node -r tsconfig-paths/register src/db/seed-employees.ts",
+    "seed:prod": "node dist/db/seed.js",
     "migrate": "ts-node -r tsconfig-paths/register src/db/migrate.ts",
     "migrate:prod": "node dist/db/migrate.js",
     "test": "jest",

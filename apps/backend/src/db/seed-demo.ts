@@ -1,15 +1,11 @@
-import 'dotenv/config';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
 import { eq } from 'drizzle-orm';
+import type { Database } from './db.type';
 import * as schema from './schema';
 
 /**
- * Generates dummy master data. Idempotent: existing employee numbers are
- * skipped, and departments/positions are only created when none exist.
- *
- *   pnpm --filter backend seed:employees          # 300 (default)
- *   SEED_EMPLOYEE_COUNT=500 pnpm --filter backend seed:employees
+ * Generates dummy employees and contracts for development. Idempotent: existing
+ * employee numbers are skipped. Departments and positions must already exist
+ * (seed.ts creates them); never called in production (see seed.plan.ts).
  */
 
 const FIRST_NAMES = [
@@ -47,75 +43,44 @@ function randomDate(startYear: number, endYear: number): string {
   return toDate(new Date(Date.UTC(year, month, day)));
 }
 
-async function main() {
-  const count = Number(
-    process.env.SEED_EMPLOYEE_COUNT ?? process.argv[2] ?? 300,
-  );
-
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  const db = drizzle(pool, { schema });
-
-  // ── Departments ────────────────────────────────────────────────────────────
-  let departments = await db
+export async function seedDemoMasterData(
+  db: Database,
+  count: number,
+): Promise<void> {
+  const departments = await db
     .select({ id: schema.departments.id })
     .from(schema.departments)
     .where(eq(schema.departments.isDeleted, false));
 
-  if (departments.length === 0) {
-    departments = await db
-      .insert(schema.departments)
-      .values(
-        [
-          'Production',
-          'Finance',
-          'Human Resource',
-          'Information Technology',
-          'Marketing',
-        ].map((name, index) => ({
-          code: `DEP${String(index + 1).padStart(3, '0')}`,
-          name,
-        })),
-      )
-      .returning({ id: schema.departments.id });
-    console.log(`Created ${departments.length} departments`);
-  }
-
-  // ── Positions ──────────────────────────────────────────────────────────────
-  let positions = await db
+  const positions = await db
     .select({ id: schema.positions.id })
     .from(schema.positions)
     .where(eq(schema.positions.isDeleted, false));
 
-  if (positions.length === 0) {
-    const defs: Array<[string, number]> = [
-      ['Staff', 1],
-      ['Senior Staff', 2],
-      ['Supervisor', 3],
-      ['Manager', 4],
-      ['Head of Department', 5],
-    ];
-    positions = await db
-      .insert(schema.positions)
-      .values(
-        defs.map(([name, level], index) => ({
-          code: `POS${String(index + 1).padStart(3, '0')}`,
-          name,
-          level,
-        })),
-      )
-      .returning({ id: schema.positions.id });
-    console.log(`Created ${positions.length} positions`);
+  if (departments.length === 0 || positions.length === 0) {
+    throw new Error(
+      'Demo employees need at least one department and one position; run the reference seed first',
+    );
   }
 
   // ── Employees ──────────────────────────────────────────────────────────────
   const existing = await db
     .select({ number: schema.employees.employeeNumber })
     .from(schema.employees);
+
+  const remaining = count - existing.length;
+  if (remaining <= 0) {
+    console.log(
+      `Seed: ${existing.length} demo employees already exist (target ${count}), skipped`,
+    );
+    return;
+  }
+
   const usedNumbers = new Set(existing.map((row) => row.number));
 
   const rows: (typeof schema.employees.$inferInsert)[] = [];
   let sequence = 1;
-  while (rows.length < count) {
+  while (rows.length < remaining) {
     const employeeNumber = `EMP${String(sequence).padStart(4, '0')}`;
     sequence += 1;
     if (usedNumbers.has(employeeNumber)) continue;
@@ -140,7 +105,7 @@ async function main() {
       id: schema.employees.id,
       joinDate: schema.employees.joinDate,
     });
-  console.log(`Inserted ${insertedEmployees.length} employees`);
+  console.log(`Seed: inserted ${insertedEmployees.length} demo employees`);
 
   // ── Contracts (one per new employee, so they can be appraised) ──────────────
   const contracts: (typeof schema.contracts.$inferInsert)[] =
@@ -160,15 +125,6 @@ async function main() {
       };
     });
 
-  if (contracts.length > 0) {
-    await db.insert(schema.contracts).values(contracts);
-    console.log(`Inserted ${contracts.length} contracts`);
-  }
-
-  await pool.end();
+  await db.insert(schema.contracts).values(contracts);
+  console.log(`Seed: inserted ${contracts.length} demo contracts`);
 }
-
-main().catch((error) => {
-  console.error('Seed employees failed', error);
-  process.exit(1);
-});

@@ -47,10 +47,6 @@ export class EnvironmentVariables {
 
   @IsIn(['true', 'false'])
   @IsOptional()
-  SWAGGER_ENABLED: string = 'true';
-
-  @IsIn(['true', 'false'])
-  @IsOptional()
   SCHEDULER_ENABLED: string = 'true';
 
   @IsNumberString()

@@ -24,7 +24,7 @@ async function bootstrap() {
     }),
   );
 
-  if (configService.get<string>('SWAGGER_ENABLED') === 'true') {
+  if (configService.get<string>('NODE_ENV') === 'development') {
     const config = new DocumentBuilder()
       .setTitle('Performance Appraisal API')
       .setDescription('API documentation for Performance Appraisal system')

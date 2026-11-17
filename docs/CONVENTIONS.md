@@ -1,8 +1,8 @@
 # Coding Conventions: Employee Performance Appraisal System
 
-**Based on:** PRD v0.4, `DESIGN-BACKEND.md` v0.3, `DESIGN-FRONTEND.md` v0.3, and the current `apps/*` source.
+**Based on:** PRD v0.10, `DESIGN-BACKEND.md` v0.8, `DESIGN-FRONTEND.md` v1.1, and the current `apps/*` source.
 **Scope:** naming, file and folder structure, and code style for `apps/backend` and `apps/frontend`.
-**Status:** Draft v1.0
+**Status:** Draft v1.1
 
 **Precedence:** the PRD wins on behavior, the design docs win on architecture, and this document standardizes naming, structure, and style. If they disagree, fix the doc here first, then the code.
 
@@ -93,7 +93,9 @@ apps/backend/src/
     schema.ts                 # Drizzle tables
     db.module.ts
     db.type.ts
-    seed.ts
+    seed.ts                   # env-aware seeder entrypoint
+    seed.plan.ts              # decides what to seed from NODE_ENV
+    seed-demo.ts              # dev-only demo employees/contracts
   <feature>/                  # plural, kebab-case: users, roles, departments, daily-records
     <feature>.module.ts
     <feature>.controller.ts
@@ -149,6 +151,7 @@ Rules:
 - Document every endpoint and DTO field with `@nestjs/swagger` (`@ApiTags`, `@ApiOperation`, `@ApiProperty` / `@ApiPropertyOptional`).
 - Import `PartialType`, `OmitType`, and similar helpers from `@nestjs/swagger`, not `@nestjs/mapped-types`.
 - DTOs are for transport only. Never return a raw database row; map to a response DTO.
+- List DTOs extend the shared pagination DTO: `page` defaults to 1, `limit` defaults to 10 with a maximum of 100. Do not invent per-feature pagination defaults.
 
 ### 4.5 Repository and data rules
 

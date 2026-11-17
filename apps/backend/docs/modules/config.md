@@ -107,7 +107,7 @@ export class EnvironmentVariables {
 
 | Env | Aturan | Default | Arti |
 |-----|--------|---------|------|
-| `NODE_ENV` | salah satu dari development/test/production | `development` | Mode aplikasi |
+| `NODE_ENV` | salah satu dari development/test/production | `development` | Mode aplikasi; juga menentukan Swagger aktif |
 | `PORT` | angka (teks) | `3000` | Port server |
 | `TZ` | teks | `Asia/Jakarta` | Zona waktu |
 | `DATABASE_URL` | teks, wajib | — | Alamat koneksi PostgreSQL |
@@ -116,7 +116,6 @@ export class EnvironmentVariables {
 | `JWT_REFRESH_SECRET` | teks, opsional | — | Kunci refresh token |
 | `JWT_REFRESH_EXPIRES_IN` | teks | `1d` | Umur refresh token |
 | `CORS_ORIGIN` | teks | `http://localhost:5173` | Domain frontend yang diizinkan |
-| `SWAGGER_ENABLED` | `true`/`false` | `true` | Nyalakan dokumentasi Swagger |
 | `SCHEDULER_ENABLED` | `true`/`false` | `true` | Nyalakan job terjadwal |
 | `IMPORT_MAX_FILE_SIZE_MB` | angka (teks) | `5` | Batas ukuran file impor |
 | `IMPORT_MAX_ROWS` | angka (teks) | `5000` | Batas baris impor |
@@ -125,7 +124,9 @@ export class EnvironmentVariables {
 - **Dampaknya:** Mengubah default (mis. `PORT`) mengubah perilaku saat env tidak diisi. Menghapus field wajib dari skema melonggarkan validasi (berisiko).
 - **Analogi:** Daftar pengaturan alat kantor di papan kontrol: mana yang wajib disetel, mana yang sudah ada nilai pabriknya.
 
-> Perlu konfirmasi: `.env.example` memuat juga `SEED_ADMIN_USERNAME` dan `SEED_ADMIN_PASSWORD`, tetapi keduanya **tidak dideklarasikan** di `EnvironmentVariables`. Dugaan: ini hanya dipakai skrip seeding (`db/seed*.ts`) dan sengaja tidak divalidasi. Bukan bug, tapi perlu konfirmasi apakah memang disengaja.
+> `SWAGGER_ENABLED` sudah dihapus: Swagger kini hanya aktif saat `NODE_ENV=development`.
+
+> `SEED_*` (`SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD`, `SEED_EMPLOYEE_COUNT`) juga **tidak dideklarasikan** di `EnvironmentVariables`. Ini disengaja: hanya skrip seeding (`db/seed.ts` via `db/seed.plan.ts`) yang membacanya, sehingga server tidak ikut gagal boot bila nilainya kosong.
 
 #### Bagian 3 — Fungsi `validateEnv`
 
@@ -184,7 +185,7 @@ Skenario: **Menjalankan `pnpm --filter backend dev`.**
 **Diekspos ke module lain:** Karena `isGlobal: true`, semua module bisa menyuntikkan `ConfigService` tanpa mengimpot ConfigModule lagi.
 
 **Contoh pemakai:**
-- `main.ts` → `ConfigService.get('CORS_ORIGIN')`, `get('PORT')`, `get('SWAGGER_ENABLED')`.
+- `main.ts` → `ConfigService.get('CORS_ORIGIN')`, `get('PORT')`, `get('NODE_ENV')` (untuk gerbang Swagger).
 - `auth` (`jwt.strategy.ts`, `auth.service.ts`) → `JWT_SECRET`, `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_SECRET`, `JWT_REFRESH_EXPIRES_IN`.
 - `imports` → `IMPORT_MAX_FILE_SIZE_MB`, `IMPORT_MAX_ROWS`.
 - `appraisals` (scheduler) → `SCHEDULER_ENABLED`.
@@ -207,7 +208,6 @@ Skenario: **Menjalankan `pnpm --filter backend dev`.**
 **Pesan error yang mungkin muncul:**
 - `Environment validation failed: DATABASE_URL should not be empty` → env wajib belum diisi.
 - `Environment validation failed: PORT must be a number string` → `PORT` diisi bukan angka.
-- `Environment validation failed: SWAGGER_ENABLED must be one of the following values: true, false` → nilai bukan `true`/`false`.
 
 ---
 

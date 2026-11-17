@@ -12,7 +12,7 @@ import {
   useUpdateEmployeeMutation,
 } from "../employeesApi";
 import { EmployeeForm } from "../components/EmployeeForm";
-import { Contract } from "@/features/contract";
+import { ContractList } from "@/features/contract";
 
 export const UpdateEmployee = () => {
   const { id } = useParams();
@@ -65,7 +65,7 @@ export const UpdateEmployee = () => {
             {
               key: "contracts",
               label: "Contracts",
-              children: <Contract />,
+              children: <ContractList />,
             },
           ]}
         />

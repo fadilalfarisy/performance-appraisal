@@ -1,7 +1,7 @@
 # Alur Aplikasi Frontend, per Komponen
 
 **Berdasarkan:** kode di `apps/frontend` pada repositori ini (diperbarui 27 Oktober 2026).
-**Cakupan:** `apps/frontend` saja. Untuk rancangan/desain lihat `docs/DESIGN-FRONTEND.md`; untuk aturan produk lihat `docs/PRD.md` (khususnya PRD v0.9 untuk peran dan otorisasi).
+**Cakupan:** `apps/frontend` saja. Untuk rancangan/desain lihat `docs/DESIGN-FRONTEND.md`; untuk aturan produk lihat `docs/PRD.md` (khususnya PRD v0.10 untuk peran dan otorisasi).
 **Sifat dokumen:** ini menggambarkan **apa yang benar-benar ada di kode**, bukan yang direncanakan. Bagian 10 mendaftar tempat kode berbeda dari `DESIGN-FRONTEND.md`.
 
 **Perubahan terbaru yang sudah tercermin di dokumen ini:** sesi dipulihkan lewat cookie refresh HttpOnly (tidak ada `tokenStorage`, access token hanya di memori); logout tanpa argumen; `ImportModal` tidak lagi mengunduh template dan menampilkan error inline; pembuatan draft criteria lewat modal + route shim; daftar department/position/user punya pencarian klien yang benar; daily notes punya search employee + department + date; appraisal punya riwayat status, default tab per role, halaman detail per karyawan dengan daily note sum berbasis window kontrak, dan export hasil `.xlsx` saat COMPLETE; ADMIN adalah peran akses penuh.
@@ -66,7 +66,7 @@ Tujuh lapis ini berjalan sebelum satu halaman pun tampil.
 
 **Alur:**
 
-1. Panggil `refresh()` → `POST /auth/refresh`. Permintaan ini membawa cookie lewat `credentials: "include"`; refresh token disimpan backend sebagai cookie HttpOnly, jadi JavaScript tidak pernah membaca atau menulisnya. **Tidak ada** `tokenStorage` dan tidak ada pengecekan token di frontend. Backend **tidak merotasi** refresh token: yang diterbitkan hanya access token baru (lihat `DESIGN-BACKEND.md` 8.1). Request ini tetap **single-flight** lewat `refreshRequestRef` agar effect yang dijalankan ulang (StrictMode, Fast Refresh, remount) tidak mengirim POST ganda; sifatnya efisiensi, bukan syarat kebenaran.
+1. Panggil `refresh()` → `POST /auth/refresh`. Permintaan ini membawa cookie lewat `credentials: "include"`; refresh token disimpan backend sebagai cookie HttpOnly, jadi JavaScript tidak pernah membaca atau menulisnya. **Tidak ada** `tokenStorage` dan tidak ada pengecekan token di frontend. Backend **tidak merotasi** refresh token: yang diterbitkan hanya access token baru (lihat `DESIGN-BACKEND.md` 8.1), sehingga bootstrap tidak perlu single-flight — dua permintaan refresh sekaligus sama-sama sah.
 2. Sukses → `if (cancelled) return;` lalu `dispatch(setAccessToken(data.accessToken))`, supaya `GET /auth/me` berikutnya sudah membawa header Bearer.
 3. `await loadMe().unwrap()` → `if (cancelled) return;` lalu `me.data.roles?.[0]` divalidasi `isUserRole` → `dispatch(setSession({ accessToken, username, role }))`; `setSession` menetapkan `logged = true`.
 4. Gagal di langkah 1-3 (tidak ada cookie, cookie kedaluwarsa, atau `/auth/me` menolak) → `dispatch(deleteAuth())`, sehingga `logged` tetap `false`.
@@ -158,7 +158,7 @@ Singleton-nya ada di `src/utils/message.ts` (`setMessageApi` / `getMessageApi`).
 2. **Halaman** — tombol dan kolom aksi umumnya memakai `hasAccess(roles.X, auth.role)`, yang selalu `true` untuk ADMIN. Beberapa tempat masih memakai perbandingan enum langsung (`Appraisal.tsx` untuk tombol Create/Delete, `DetailsCriteria.tsx` untuk edit ACTIVE).
 3. **Route** — tidak ada pemeriksaan.
 
-Backend tetap otoritasnya; lapisan ini hanya soal tampilan. ADMIN juga diloloskan backend di semua endpoint dan transisi. Aturan produknya ada di PRD v0.9 (5.5, 5.8, 5.9).
+Backend tetap otoritasnya; lapisan ini hanya soal tampilan. ADMIN juga diloloskan backend di semua endpoint dan transisi. Aturan produknya ada di PRD v0.10 (5.5, 5.6, 5.8, 5.9).
 
 Tipe role dijaga di tiga titik: `AuthState.role: UserRole | ""`, grup di `role-access.ts` bertipe `readonly UserRole[]`, dan `isUserRole` memvalidasi nilai dari `/auth/me` sebelum masuk ke store. Salah ketik nama role kini gagal saat compile, bukan diam-diam menolak akses.
 
@@ -472,6 +472,7 @@ Bagian ini menyebut apa yang ada, bukan menghakimi. Tidak ada yang diperbaiki ol
 | Appraisal detail punya komponen `Steps` lima tahap | Belum ada; hanya `Tag` status |
 | Appraisal detail punya aksi "Edit employee list" | Belum dirender; daftar employee hanya bisa diubah lewat flow create/update di backend |
 | Create appraisal punya filter + select-all khusus di tabel employee | Belum ada; tabel hanya `rowSelection` biasa (semua terpilih default) |
+| Route `/audit-logs` dan layar Audit Trail (ADMIN) | Belum ada; route, menu, tag `AuditLog`, dan `features/audit` belum dibuat |
 
 Bagian yang **sudah** sesuai: RTK Query sebagai satu-satunya jalur data server, access token hanya di memori, dan token refresh single-flight. Rancangan menyebut refresh token di `sessionStorage`, sedangkan kode sudah memakai cookie HttpOnly (opsi upgrade yang disebut rancangan), jadi baris itu tidak lagi berlaku dan `tokenStorage.ts` tidak ada.
 

@@ -43,7 +43,7 @@ Semua panah adalah **komposisi/pemanggilan**, bukan aliran data. Aliran request 
 2. `app.setGlobalPrefix('api')` — semua endpoint berada di `/api/...`.
 3. CORS: `origin` dari `CORS_ORIGIN`, `credentials: true`, method GET/HEAD/PUT/PATCH/POST/DELETE.
 4. `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true })` — properti asing ditolak, query/body ditransformasi ke tipe DTO.
-5. Swagger hanya jika `SWAGGER_ENABLED === 'true'`; UI di `/api`.
+5. Swagger hanya jika `NODE_ENV === 'development'`; UI di `/api`.
 6. Listen ke `PORT` (default 3000).
 
 ### 2.2 `src/app.module.ts`
@@ -139,7 +139,7 @@ Dipakai oleh Employees, Appraisals, Dashboard, dan daily notes untuk HEAD_DEPART
 ### 3.3 Validasi
 
 - `ValidationPipe` global: `whitelist`, `forbidNonWhitelisted`, `transform`.
-- DTO di `src/**/dto/` memakai `class-validator`/`class-transformer`; query umum mewarisi `QueryDto` (`page=1`, `limit=10`, max 50, `orderBy`, `search`).
+- DTO di `src/**/dto/` memakai `class-validator`/`class-transformer`; query umum mewarisi `QueryDto` (`page=1`, `limit=10`, max 100, `orderBy`, `search`).
 - Validasi aturan bisnis yang tidak bisa dilakukan DTO ada di fungsi murni:
   - `criteria.validation.ts` — total bobot 100, skala, deskripsi skor, unique code/label/key, aturan field.
   - `daily-note.validation.ts` — required/tipe/opsi field terhadap criteria set yang di-pin.
@@ -169,7 +169,7 @@ Urutan `resolve`:
 - `AuditService.record(executor, entry)` menulis ke `audit_logs`; sebaiknya memakai executor transaksi yang sama dengan perubahan.
 - `maskSensitive` recursive memasking key yang cocok `password`, `token`, `secret`, `authorization`, `cookie`.
 - Tabel audit append-only; aplikasi hanya insert (grant DB juga membatasi).
-- Tidak ada endpoint baca audit di kode saat ini.
+- Endpoint baca belum ada di kode. Desainnya ditetapkan: `GET /audit-logs` dan `GET /audit-logs/export`, hanya ADMIN (PRD 5.6, DESIGN-BACKEND 14).
 
 ### 3.7 Transaksi, soft delete, dan repository
 
@@ -200,7 +200,7 @@ Urutan `resolve`:
 ### 4.2 `AuditModule`
 
 - `AuditService` + `AuditRepository`, global.
-- Dipakai hampir semua service tulis; `auth` tidak memakainya.
+- Dipakai hampir semua service tulis; `auth` belum memakainya (desain mewajibkan login, logout, dan login gagal diaudit).
 - `audit_logs` dibuat oleh custom migration dan dipartisi berdasarkan `occurred_at`; migration hanya membuat partition default.
 
 ### 4.3 `ImportService`
@@ -234,8 +234,8 @@ Pipeline bersama untuk Employees dan Contracts:
 
 ### 4.7 Seed dan skrip
 
-- `pnpm --filter backend seed` — admin awal + criteria set v1 (idempotent).
-- `pnpm --filter backend seed:employees` — departemen/posisi/employee/kontrak dummy (idempotent untuk employee number).
+- `pnpm --filter backend seed` — seeder master data, perilakunya ditentukan `NODE_ENV` (idempotent). Non-produksi: criteria set global v1 + departemen/posisi + admin + karyawan & kontrak dummy. Produksi: hanya criteria set global, plus admin bila `SEED_ADMIN_PASSWORD` asli di-set.
+- `pnpm --filter backend seed:prod` — versi build (`node dist/db/seed.js`) untuk image produksi.
 - `pnpm --filter backend migrate` — menjalankan migrasi lewat `src/db/migrate.ts`.
 - `pnpm --filter backend test` — Jest unit test; tidak ada e2e/Supertest test di repo.
 
@@ -250,7 +250,7 @@ Pipeline bersama untuk Employees dan Contracts:
 - **Refresh:** baca cookie → verify JWT refresh (`typ=refresh`, ada `jti`) → cari `refresh_tokens` by jti → tolak bila tidak ada/dicabut/kedaluwarsa/hash berbeda → terbitkan **hanya access token baru** (cookie tetap).
 - **Logout:** baca cookie, clear cookie, revoke `jti` bila valid.
 - **Me:** mengembalikan `req.user` yang diisi `JwtStrategy`.
-- **Catatan:** login/refresh/logout tidak membuat audit entry.
+- **Catatan:** login/refresh/logout belum membuat audit entry; PRD 5.6 mewajibkan login, logout, dan login gagal diaudit.
 
 ### 5.2 `users`
 
@@ -360,7 +360,7 @@ ADMIN selalu lolos pengecekan role transisi lewat `findTransition`.
 
 ### 5.11 `audit`
 
-- Hanya `AuditService`/`AuditRepository`; tidak ada controller/endpoint baca.
+- Hanya `AuditService`/`AuditRepository`; controller baca belum ada. Desain: `GET /audit-logs` dan `GET /audit-logs/export`, hanya ADMIN (PRD 5.6).
 - `audit_logs` append-only, dipartisi, dan dimasking.
 - Dipanggil di dalam transaksi perubahan.
 
@@ -466,12 +466,12 @@ Modul yang menyimpang dari pola: Contracts punya overlap guard + import/export, 
 Bagian ini menyebut apa yang ada, bukan menghakimi.
 
 1. **`can()` belum dipakai.** Matriks permission di `common/permissions/permissions.ts` hanya dipakai spec; produksi memakai `@Roles`/`RolesGuard`.
-2. **Tidak ada endpoint baca audit.** `audit_logs` hanya ditulis; endpoint `GET /audit-logs` ada di desain, bukan di kode.
+2. **Endpoint baca audit belum diimplementasikan.** `audit_logs` hanya ditulis; desainnya sudah ditetapkan (ADMIN) dan masuk backlog implementasi.
 3. **Beberapa endpoint baca tidak memakai scope.** Contracts, Departments, Positions, dan Criteria dapat dibaca semua user login; berbeda dari Employees/Appraisals/Dashboard.
 4. **Export employees tidak mengikuti filter.** `GET /employees/export` mengirim semua employee; Contracts export memakai query filter.
 5. **Batas file import berbeda.** Controller Multer memakai 20 MB, service menolak di atas `IMPORT_MAX_FILE_SIZE_MB` (default 5 MB).
 6. **Nested contracts pada create employee tidak pre-check overlap.** Jalur ini mengandalkan exclusion constraint DB; jalur Contracts punya pre-check.
-7. **Auth tidak diaudit.** Login/refresh/logout tidak memanggil `AuditService`.
+7. **Auth belum diaudit.** Login/refresh/logout belum memanggil `AuditService`; PRD 5.6 mewajibkan login, logout, dan login gagal tercatat.
 8. **ResponseInterceptor mengabaikan message controller.** `AuthController` mengembalikan `message`, tetapi interceptor memakai default `"Action completed succesfully"` (typo).
 9. **Decorator tidak terpakai.** `CurrentUser`, `ResponseMessage`, dan `ApiSuccess` tidak dipakai di kode produksi.
 10. **`@UseGuards` di DepartmentsController dikomentari.** Guard global tetap berjalan, tetapi komentar itu menyesatkan.

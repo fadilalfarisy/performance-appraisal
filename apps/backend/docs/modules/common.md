@@ -59,7 +59,8 @@ Dua di antaranya adalah module NestJS asli (`ContextModule` dan `ScopeModule`, k
 | `interceptors/response.interceptor.ts` | Interceptor | Menyeragamkan bentuk response sukses |
 | `permissions/permissions.ts` | Data + helper | Matriks izin (PRD 5.8) sebagai data |
 | `permissions/permissions.spec.ts` | Test | Menguji matriks izin |
-| `query/query.dto.ts` | DTO | Parameter query paginasi standar |
+| `query/query.dto.ts` | DTO | Parameter query paginasi standar (limit default 10, maksimal 100) |
+| `query/query.dto.spec.ts` | Test | Menguji default dan batas paginasi |
 | `utils/period.util.ts` | Util | Bantu hitung periode bulan |
 | `utils/response.util.ts` | Util | Helper bentuk response (`ok`, `paginated`) |
 | `utils/string.util.ts` | Util | Helper string (`capitalizeString`) |
@@ -465,7 +466,7 @@ export class QueryDto implements PaginationQuery {
   @IsOptional() @IsInt() @Min(1) @Type(() => Number)
   page: number = 1;
 
-  @IsOptional() @IsInt() @Min(1) @Max(50) @Type(() => Number)
+  @IsOptional() @IsInt() @Min(1) @Max(100) @Type(() => Number)
   limit: number = 10;
 
   @IsOptional() @IsIn(['asc', 'desc'])
@@ -476,9 +477,9 @@ export class QueryDto implements PaginationQuery {
 }
 ```
 
-- **Fungsinya:** Bentuk parameter query standar untuk paginasi & pencarian. `@Type(() => Number)` mengubah `"2"` (dari URL) menjadi angka 2. `@Max(50)` membatasi limit agar server tidak kebanjiran data.
+- **Fungsinya:** Bentuk parameter query standar untuk paginasi & pencarian. `@Type(() => Number)` mengubah `"2"` (dari URL) menjadi angka 2. `@Max(100)` membatasi limit agar server tidak kebanjiran data.
 - **Kenapa dibuat seperti ini:** Semua endpoint list pakai bentuk sama → konsisten dan tervalidasi otomatis oleh `ValidationPipe` global.
-- **Dampaknya:** Kalau `@Max(50)` dinaikkan terlalu tinggi, satu request bisa menarik data besar (beban DB).
+- **Dampaknya:** Kalau `@Max(100)` dinaikkan terlalu tinggi, satu request bisa menarik data besar (beban DB).
 - **Analogi:** Formulir pesanan baku: halaman ke berapa, seberapa banyak per halaman, urutannya, kata kuncinya.
 
 ### `utils/period.util.ts`
@@ -545,7 +546,7 @@ Skenario: **HR memanggil `GET /api/employees?page=1` untuk melihat daftar karyaw
 2. **ClsModule middleware** membuat request id & menyimpan IP ke konteks (`RequestContextService.getIp()` siap dipakai).
 3. **JwtAuthGuard** memeriksa: route bukan `@Public()` → token access JWT diverifikasi memakai strategi `'jwt'`. Setelah valid, user ditempelkan ke `request.user`.
 4. **RolesGuard** membaca metadata `@Roles('ADMIN','HR')` di controller; user HR → diizinkan (`requiredRoles.some(...)`).
-5. **ValidationPipe** mengubah query `page=1` menjadi instance `QueryDto` bertipe angka, dan memvalidasi `limit <= 50`.
+5. **ValidationPipe** mengubah query `page=1` menjadi instance `QueryDto` bertipe angka, dan memvalidasi `limit <= 100`.
 6. **Controller** memakai `@CurrentUser() user` dan memanggil service. Service memakai `ScopeService.getDepartmentScope(user)` untuk menyaring data departemen, dan/atau `permissions.can()` untuk memutuskan aksi.
 7. **Service → Repository → PostgreSQL** (Drizzle) mengambil data.
 8. **Service** mengembalikan `paginated(data, { total, page, limit })`.

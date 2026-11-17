@@ -149,12 +149,6 @@ export function getAvailableActions(
     );
   }
 
-  if (status === AppraisalStatus.COMPLETE && role === UserRole.ADMIN) {
-    actions.push(
-      action("reopen", { commentRequired: true, danger: true }),
-    );
-  }
-
   return actions;
 }
 

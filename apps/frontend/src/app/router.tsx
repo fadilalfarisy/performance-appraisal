@@ -53,16 +53,6 @@ const Criteria = lazy(() =>
     default: module.Criteria,
   })),
 );
-const CreateCriteria = lazy(() =>
-  import("@/features/criteria").then((module) => ({
-    default: module.CreateCriteria,
-  })),
-);
-const CreateCriteriaVersion = lazy(() =>
-  import("@/features/criteria").then((module) => ({
-    default: module.CreateCriteriaVersion,
-  })),
-);
 const DetailsCriteria = lazy(() =>
   import("@/features/criteria").then((module) => ({
     default: module.DetailsCriteria,
@@ -197,14 +187,6 @@ export default createBrowserRouter(
                 {
                   index: true,
                   element: suspenseWrapper(<Criteria />),
-                },
-                {
-                  path: "create",
-                  element: suspenseWrapper(<CreateCriteria />),
-                },
-                {
-                  path: ":id/version/create",
-                  element: suspenseWrapper(<CreateCriteriaVersion />),
                 },
                 {
                   path: ":id",

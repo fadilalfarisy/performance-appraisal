@@ -18,9 +18,7 @@ export const roles = {
   ],
 } as const satisfies Record<string, readonly UserRole[]>;
 
-export type RoleGroup = keyof typeof roles;
-
-export const ALL_ROLES: readonly UserRole[] = Object.values(UserRole);
+export const ALL_ROLES: readonly UserRole[] = [...new Set(Object.values(UserRole))];
 
 /** Satu-satunya cara memeriksa grup akses. `""` berarti belum login. */
 export const hasAccess = (

@@ -6,7 +6,7 @@
 - `db/schema.ts` (semua tabel & relasi)
 - `db/audit-logs.schema.ts`
 - `db/helpers/soft-delete.ts`
-- `db/migrate.ts`, `db/seed.ts`, `db/seed-employees.ts`
+- `db/migrate.ts`, `db/seed.ts`, `db/seed.plan.ts`, `db/seed-demo.ts`
 - Migrasi SQL: `drizzle/0000_init.sql`, `drizzle/0001_constraints.sql`, `drizzle/0002_drop_contract_status.sql`
 
 ## Daftar Isi
@@ -46,8 +46,9 @@ Analogi: ini seperti **ruang arsip pusat gedung**. Semua divisi (module) tidak m
 | `audit-logs.schema.ts` | Skema (khusus) | Definisi tabel `audit_logs` untuk query (tidak digenerate Drizzle) |
 | `helpers/soft-delete.ts` | Util | Helper `notDeleted()` untuk filter baris terhapus |
 | `migrate.ts` | Skrip CLI | Menjalankan migrasi di produksi |
-| `seed.ts` | Skrip CLI | Membuat admin & criteria set v1 (idempotent) |
-| `seed-employees.ts` | Skrip CLI | Membuat data dummy departemen/posisi/karyawan/kontrak |
+| `seed.ts` | Skrip CLI | Seeder master data; perilakunya ditentukan `NODE_ENV` (idempotent) |
+| `seed.plan.ts` | Logika murni | `resolveSeedPlan()` — memutuskan apa yang boleh di-seed per environment |
+| `seed-demo.ts` | Skrip/library | Generator karyawan & kontrak dummy (hanya development) |
 | `drizzle/*.sql` | Migrasi | SQL (termasuk constraint & partisi yang tak bisa ekspresikan Drizzle) |
 
 Diagram alur:
@@ -283,31 +284,35 @@ main().catch((error) => { console.error('Migration failed', error); process.exit
 ### `seed.ts`
 
 ```ts
-const INITIAL_CRITERIA = [
-  { code: 'QUALITY', name: 'Quality of Work' },
-  { code: 'QUANTITY', name: 'Quantity of Work' },
-  { code: 'DISCIPLINE', name: 'Discipline' },
-  { code: 'RESPONSIBILITY', name: 'Responsibility' },
-  { code: 'INSTRUCTIONS', name: 'Running of Instructions' },
-];
-// 1) buat admin bila belum ada (bcrypt.hash)
-// 2) buat criteria set v1 ACTIVE + 5 kriteria + deskripsi skor 1..5
+// seed.plan.ts menentukan langkah yang boleh jalan dari NODE_ENV
+// development/test: referensi + admin + 300 karyawan & kontrak demo
+// production      : referensi + admin hanya bila SEED_ADMIN_PASSWORD asli di-set
 ```
 
-- **Fungsinya:** Mengisi data awal: user admin dan set kriteria v1 (dengan bobot placeholder 20 masing-masing).
-- **Kenapa dibuat seperti ini:** **Idempotent** — aman dijalankan berkali-kali; ia cek dulu apakah data sudah ada. Password di-hash dengan `bcrypt` (bukan plaintext).
-- **Dampaknya:** Kalau dihapus, environment baru tidak punya admin/kriteria awal dan fitur penilaian tak bisa dimulai. Kalau idempotensi hilang, menjalankan ulang bisa menimbulkan duplikat.
-- **Analogi:** Set pengisian awal ruang arsip: kalau rak sudah ada, tidak dipasang lagi.
+- **Fungsinya:** Satu entrypoint seeding master data. Langkah dijalankan berurutan: (1) criteria set global v1 `ACTIVE` + 5 kriteria + deskripsi skor 1..5, (2) departemen & posisi placeholder (hanya non-produksi, hanya bila belum ada), (3) user admin, (4) karyawan & kontrak dummy (hanya non-produksi).
+- **Kenapa dibuat seperti ini:** **Idempotent** — aman dijalankan berkali-kali; ia cek dulu apakah data sudah ada, dan generator karyawan mengisi sampai total mencapai `SEED_EMPLOYEE_COUNT` (bukan menambah N baru setiap run). Password di-hash dengan `bcrypt` (bukan plaintext). Keputusan environment dipisah ke `seed.plan.ts` (fungsi murni) supaya bisa diuji tanpa database.
+- **Kenapa produksi dibatasi:** master data tidak boleh hard delete, jadi baris placeholder di produksi akan tertinggal permanen. Admin di produksi butuh password asli; password kosong maupun placeholder `.env.example` dianggap "tidak di-set", sehingga tidak ada akun privileged dengan password yang bisa ditebak.
+- **Dampaknya:** Kalau dihapus, environment baru tidak punya kriteria awal dan fitur penilaian tak bisa dimulai. Kalau idempotensi hilang, menjalankan ulang bisa menimbulkan duplikat.
+- **Analogi:** Set pengisian awal ruang arsip: kalau rak sudah ada, tidak dipasang lagi — dan saat gedung sudah dipakai sungguhan, hanya perlengkapan wajib yang ditambahkan, bukan contoh buku latihan.
 - **Istilah baru:** **Idempotent** = operasi yang hasilnya sama walau dijalankan berulang. **bcrypt hash** = mengubah password jadi kode acak satu arah, tak bisa dibalik.
 
-### `seed-employees.ts`
+### `seed.plan.ts`
 
-- **Fungsinya:** Membuat data dummy: 5 departemen, 5 posisi, N karyawan (`SEED_EMPLOYEE_COUNT`/argumen, default 300), plus satu kontrak per karyawan.
-- **Kenapa dibuat seperti ini:** Memudahkan pengujian/demo. Juga idempotent: nomor karyawan yang sudah ada dilewati; departemen/posisi hanya dibuat kalau belum ada.
-- **Dampaknya:** Menjalankannya di database produksi akan menambah data palsu — jangan dilakukan.
-- **Analogi:** Mengisi contoh buku di rak perpustakaan untuk latihan.
+```ts
+export function resolveSeedPlan(env: NodeJS.ProcessEnv = process.env): SeedPlan;
+```
 
-> Perlu konfirmasi: `seed-employees.ts` menetapkan kontrak `PERMANENT`/`FIXED_TERM`, padahal migrasi `0002` menghapus kolom `status` kontrak. Karena itu seeding memakai tanggal (`endDate` diisi hanya untuk yang bukan permanen atau sebaliknya) — tampak sudah disesuaikan. Verifikasi: kolom `contract_type` menyimpan tipe, sedangkan "aktif/tidak" kini diturunkan dari tanggal (lihat komentar migrasi 0002).
+- **Fungsinya:** Menerjemahkan `NODE_ENV`, `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD`, dan `SEED_EMPLOYEE_COUNT` menjadi rencana seeding (`referenceData`, `demoData`, `admin`, `adminPassword`, `demoEmployeeCount`, `warnings`).
+- **Kenapa dibuat seperti ini:** Tanpa I/O, sehingga aturan "apa yang boleh masuk produksi" bisa diuji langsung lewat `seed.plan.spec.ts` (Jest, tanpa database).
+- **Dampaknya:** `NODE_ENV` selain `development|test|production` membuat script berhenti dengan error, bukan diam-diam memilih mode yang salah.
+
+### `seed-demo.ts`
+
+- **Fungsinya:** Membuat N karyawan dummy (nomor `EMP0001`…, nama/gender/tanggal/alamat acak) plus satu kontrak per karyawan (`PERMANENT` tanpa `endDate`, atau `FIXED_TERM` berakhir 1–3 bulan).
+- **Kenapa dibuat seperti ini:** Memudahkan pengujian/demo; departemen dan posisi dipakai dari data yang sudah ada, dan jumlah karyawan dihitung terhadap total target sehingga re-run tidak menumpuk data. Hanya dipanggil saat `plan.demoData` bernilai true.
+- **Dampaknya:** Tidak bisa dipanggil sebelum ada minimal satu departemen dan satu posisi (akan melempar error yang jelas). Tidak pernah berjalan di produksi.
+
+> Catatan kontrak demo: `contract_type` menyimpan tipe (`PERMANENT`/`FIXED_TERM`), sedangkan "aktif/tidak" diturunkan dari tanggal (`endDate` hanya diisi untuk `FIXED_TERM`). Ini konsisten dengan migrasi `0002` yang menghapus kolom `status` kontrak.
 
 ### Migrasi SQL Kustom (`drizzle/`)
 
@@ -383,7 +388,7 @@ Skenario: **Menyimpan appraisal baru (beserta audit) dalam satu transaksi.**
 2. **Hand-edit migrasi lama atau `meta/`.** Dilarang AGENTS.md; bisa merusak jejak migrasi.
 3. **Memakai `drizzle-kit push` di database bersama.** Dilarang; bisa menghapus/mengubah data tanpa terkendali.
 4. **Lupa `notDeleted()` di query.** Data terhapus muncul lagi.
-5. **Menjalankan `seed:employees` di produksi.** Menimbulkan data dummy yang sulit dibersihkan.
+5. **Menjalankan `seed` di produksi tanpa memahami mode-nya.** Seeder sekarang aman: produksi hanya menulis criteria set dan admin (bila `SEED_ADMIN_PASSWORD` asli di-set), tanpa data dummy. Yang harus dihindari adalah mengisi password admin placeholder di produksi.
 
 **Pesan error yang mungkin muncul:**
 - `ECONNREFUSED 127.0.0.1:5432` → PostgreSQL belum jalan / `DATABASE_URL` salah.

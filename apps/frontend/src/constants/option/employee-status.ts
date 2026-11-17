@@ -12,6 +12,6 @@ export const employeeStatusOption = [
 ];
 
 export const employeeStatusColor: Record<string, string> = {
-  ACTIVE: "blue", // green
-  INACTIVE: "red", // gold
+  ACTIVE: "blue",
+  INACTIVE: "red",
 };

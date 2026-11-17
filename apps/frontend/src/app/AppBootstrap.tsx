@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Spin } from "antd";
-import type { ApiResponse, RefreshResponse } from "@appraisal/types";
 import { useAppDispatch } from "@/app/hooks";
 import {
   deleteAuth,
@@ -20,33 +19,20 @@ export const AppBootstrap = ({ children }: { children: ReactNode }) => {
   const [refresh] = useRefreshMutation();
   const [loadMe] = useLazyMeQuery();
   const [ready, setReady] = useState(false);
-  // Single-flight: concurrent runs (StrictMode, Fast Refresh, or a remount)
-  // share one request instead of firing duplicate refreshes. The backend no
-  // longer rotates the refresh token, so this avoids extra calls rather than
-  // protecting correctness.
-  const refreshRequestRef = useRef<Promise<ApiResponse<RefreshResponse>> | null>(
-    null,
-  );
 
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       try {
-        if (!refreshRequestRef.current) {
-          refreshRequestRef.current = refresh()
-            .unwrap()
-            .finally(() => {
-              refreshRequestRef.current = null;
-            });
-        }
-        const { data } = await refreshRequestRef.current;
+        const { data } = await refresh().unwrap();
+        
         if (cancelled) return;
         dispatch(setAccessToken(data.accessToken));
 
         const me = await loadMe().unwrap();
-        if (cancelled) return;
 
+        if (cancelled) return;
         const roleValue = me.data?.roles?.[0];
         dispatch(
           setSession({

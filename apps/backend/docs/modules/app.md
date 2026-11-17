@@ -137,7 +137,7 @@ app.useGlobalPipes(
 **Bagian 5 — Dokumentasi Swagger**
 
 ```ts
-if (configService.get<string>('SWAGGER_ENABLED') === 'true') {
+if (configService.get<string>('NODE_ENV') === 'development') {
   const config = new DocumentBuilder()
     .setTitle('Performance Appraisal API')
     .setDescription('API documentation for Performance Appraisal system')
@@ -150,8 +150,8 @@ if (configService.get<string>('SWAGGER_ENABLED') === 'true') {
 }
 ```
 
-- **Fungsinya:** Membuat halaman dokumentasi interaktif untuk semua endpoint, dapat dimatikan lewat env `SWAGGER_ENABLED`.
-- **Kenapa dibuat seperti ini:** Memudahkan developer mencoba API tanpa Postman. Menyala hanya saat dibutuhkan (aman untuk produksi karena bisa dimatikan).
+- **Fungsinya:** Membuat halaman dokumentasi interaktif untuk semua endpoint, aktif hanya saat `NODE_ENV=development`.
+- **Kenapa dibuat seperti ini:** Memudahkan developer mencoba API tanpa Postman. Digerbangi `NODE_ENV`, bukan flag terpisah, supaya tidak mungkin lupa mematikan dokumentasi di produksi. Konsekuensinya `NODE_ENV=test` dan `production` sama-sama tidak menampilkan Swagger; `NODE_ENV` yang tidak diisi memakai default `development`, jadi Swagger tetap tampil.
 - **Dampaknya:** Kalau `addBearerAuth` dihapus, tombol "Authorize" untuk token JWT hilang dari Swagger.
 - **Analogi:** Papan petunjuk arah di lobi yang bisa dilipat saat gedung tutup.
 

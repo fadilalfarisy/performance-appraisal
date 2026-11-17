@@ -4,20 +4,16 @@ import { useSignInMutation } from "@/features/auth/authApi";
 import { errorHandling } from "@/utils/errorUtils";
 import { useAppDispatch } from "@/app/hooks";
 import { setSession } from "@/features/auth/authSlice";
+import type { SignInRequest } from "@appraisal/types";
 
 const { Title, Paragraph } = Typography;
-
-type SignInForm = {
-  username: string;
-  password: string;
-};
 
 export const SignIn = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const [login, { isLoading }] = useSignInMutation();
 
-  const onFinish = async (values: SignInForm) => {
+  const onFinish = async (values: SignInRequest) => {
     try {
       const { data } = await login(values).unwrap();
       dispatch(

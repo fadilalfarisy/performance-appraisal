@@ -10,3 +10,8 @@ export const genderOption = [
     value: GenderEnum.FEMALE,
   },
 ];
+
+export const genderColor: Record<string, string> = {
+  MALE: "blue",
+  FEMALE: "red",
+};

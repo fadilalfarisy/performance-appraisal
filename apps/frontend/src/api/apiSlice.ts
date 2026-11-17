@@ -79,6 +79,7 @@ const baseQueryWithReauth: BaseQueryFn<
 
 export const apiSlice = createApi({
   reducerPath: "api",
+  keepUnusedDataFor: 3600,
   baseQuery: baseQueryWithReauth,
   tagTypes: [
     "Criteria",

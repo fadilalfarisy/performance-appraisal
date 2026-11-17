@@ -20,6 +20,7 @@ import { apiSlice } from "@/api/apiSlice";
 import { downloadFile } from "@/api/downloadFile";
 import type { EmployeeResponse } from "@appraisal/types";
 import { employeeStatusColor } from "@/constants/option/employee-status";
+import { genderColor } from "@/constants/option/gender";
 
 dayjs.extend(isBetween);
 
@@ -76,23 +77,8 @@ export const Employee = () => {
   } = useGetEmployeeQuery(queryParams);
   const [deleteEmployee] = useDeleteEmployeeMutation();
 
-  const employees = Array.isArray(initialValueEmployee?.data)
-    ? initialValueEmployee.data
-    : [];
-
-  const totalItems = useMemo(() => {
-    const payload = initialValueEmployee as any;
-
-    return (
-      payload?.meta?.total ??
-      payload?.meta?.totalItems ??
-      payload?.pagination?.total ??
-      payload?.pagination?.totalItems ??
-      payload?.total ??
-      payload?.count ??
-      employees.length
-    );
-  }, [employees.length, initialValueEmployee]);
+  const employees = initialValueEmployee?.data ?? [];
+  const totalItems = initialValueEmployee?.meta?.total ?? 0;
 
   const handleSearch = (values: EmployeeSearchValues) => {
     setSearchValues(values);
@@ -127,6 +113,13 @@ export const Employee = () => {
     {
       title: "Name",
       dataIndex: "fullName",
+    },
+    {
+      title: "Gender",
+      dataIndex: "gender",
+      render: (value) => (
+        <Tag color={genderColor[value] ?? "default"}>{value}</Tag>
+      ),
     },
     {
       title: "Department",
@@ -235,7 +228,7 @@ export const Employee = () => {
             pageSize: pagination.pageSize,
             total: totalItems,
             showSizeChanger: true,
-            pageSizeOptions: ["3", "10", "20", "50"],
+            pageSizeOptions: ["3", "10", "20", "50", "100"],
             onChange: (page, pageSize) => handleTableChange(page, pageSize),
           }}
         />

@@ -107,3 +107,13 @@ Check each app's `package.json` for exact script names if a command fails.
 - Format with Prettier and fix ESLint issues before finishing.
 - Run `pnpm -r lint && pnpm -r build` before declaring a task done.
 - Docker is used for containers. Do not change Dockerfiles or compose files unless the task requires it.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs are tracked as markdown files under `.scratch/<feature>/` in this repo. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` at the repo root and one `docs/adr/` folder. See `docs/agents/domain.md`.
