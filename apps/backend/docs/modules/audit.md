@@ -226,9 +226,9 @@ Skenario sistem: **Scheduler appraisal.** `runScheduler` memanggil `audit.record
 
 ## 7. Catatan Kualitas Kode
 
-- **Belum ada endpoint baca audit.** Meskipun ada izin `'audit:read'` ([ADMIN, HR]) di matriks `permissions.ts`, **tidak ada controller** untuk membaca `audit_logs`. *Perlu konfirmasi:* apakah pembacaan audit akan ditambahkan nanti atau memang diakses lewat alat lain (mis. query DB langsung).
-- **Auth tidak menulis audit.** `AuthService`/`JwtStrategy` tidak memanggil `AuditService` (mis. login/logout tak tercatat). Padahal peristiwa autentikasi biasanya penting untuk audit keamanan. *Perlu konfirmasi.*
-- **`DailyNotesService` tidak menulis audit** (lihat module `daily-notes`). Ini celah kepatuhan dibanding aturan "every write creates an audit entry".
+- **Read path belum diimplementasikan.** Saat ini `AuditRepository` hanya punya `insert` dan tidak ada controller baca. Desainnya sudah ditetapkan: `GET /audit-logs` dan `GET /audit-logs/export`, hanya untuk ADMIN (PRD 5.6, DESIGN-BACKEND 14). Membaca daftar tidak diaudit; setiap export menulis satu entri `AUDIT_LOG_EXPORTED`.
+- **Auth belum menulis audit.** `AuthService`/`JwtStrategy` tidak memanggil `AuditService`, padahal PRD 5.6 dan DESIGN-BACKEND 12.1 mewajibkan login, logout, dan login gagal tercatat.
+- **`DailyNotesService` sudah menulis audit.** `DAILY_NOTE_CREATED`, `DAILY_NOTE_UPDATED`, dan `DAILY_NOTE_DELETED` ditulis dalam transaksi yang sama dengan perubahannya; pernyataan lama di dokumen ini sudah tidak berlaku.
 - **Deny-list berbasis pola nama kunci.** Kunci sensitif yang tak mengandung kata kunci (mis. `pin`, `otp`, `cvv`, `nid`) akan lolos. Saran: perluas `DENY_LIST` sesuai daftar PII proyek.
 - **Tidak ada masalah keamanan kritis pada mekanismenya.** Masking terpusat + tabel append-only + grant DB adalah praktik yang baik.
 

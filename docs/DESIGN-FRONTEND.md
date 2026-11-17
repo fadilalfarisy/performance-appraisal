@@ -1,8 +1,8 @@
 # Frontend Design: Employee Performance Appraisal System
 
-**Based on:** PRD v0.9, `DESIGN-BACKEND.md` v0.7, and the installed dependencies in `apps/frontend/package.json`
+**Based on:** PRD v0.10, `DESIGN-BACKEND.md` v0.8, and the installed dependencies in `apps/frontend/package.json`
 **Scope:** `apps/frontend` only (React 18, Vite 7, TypeScript 5.7, Redux Toolkit, Ant Design 5, `@ant-design/icons`, dayjs, react-router-dom 6).
-**Status:** Draft v1.0 (per-employee assessment page, contract-window daily note sum, aligned with PRD v0.9. Previous: ADMIN sees every menu, button, and appraisal action; Templates screen under Master Data, daily notes screen, criteria-editor form fields, appraisal list tabs)
+**Status:** Draft v1.1 (audit trail is ADMIN-only with a 7-day default window, aligned with PRD v0.10. Previous: per-employee assessment page, contract-window daily note sum; ADMIN sees every menu, button, and appraisal action; Templates screen under Master Data, daily notes screen, criteria-editor form fields, appraisal list tabs)
 
 ---
 
@@ -217,7 +217,7 @@ Global toasts use the Ant Design `App` context (`App.useApp()`), not static `mes
 | `/daily-notes/create` | New daily note (dynamic form) | ADMIN, HEAD_DEPARTMENT, SUPERVISOR |
 | `/daily-notes/:id/edit` | Edit a daily note | ADMIN, HEAD_DEPARTMENT, SUPERVISOR |
 | `/users` | User management | ADMIN |
-| `/audit-logs` | Audit trail | ADMIN, HR |
+| `/audit-logs` | Audit trail | ADMIN |
 | `/403`, `*` | Forbidden, Not found | |
 
 The route table holds `path`, `element` (lazy loaded with `React.lazy`), `roles`, `menuLabel`, `menuIcon`. The same table builds the side menu, so a role never sees a menu item it cannot open.
@@ -263,7 +263,7 @@ Department scope: the user's departments come from `GET /auth/me`. If the backen
 | Criteria | ✓ | ✓ | ✓ (read) | ✓ (read) | ✓ (read) |
 | Daily notes | | | ✓ | | |
 | Users | ✓ | | | | |
-| Audit trail | ✓ | ✓ | | | |
+| Audit trail | ✓ | | | | |
 
 Daily notes are also shown to `SUPERVISOR` (owns their subordinates) and to ADMIN, which has full access. They are hidden from HR, MANAGER, and GM, matching PRD 5.8.
 
@@ -428,12 +428,13 @@ Layout:
 - Save sends the filled ratings plus the comment through `PUT /appraisals/:id/ratings`; partial saves are allowed. Submitting the appraisal still requires every rating to be filled.
 - After save, RTK Query invalidates `Appraisals`; the detail page and the appraisal table refetch.
 
-### 10.8 Audit trail (ADMIN, HR)
+### 10.8 Audit trail (ADMIN)
 
-- Filters: user, entity, action, date range (`RangePicker`), search.
-- Table: time, user, role, action, entity, entity id.
-- Expandable row shows before and after values as read-only formatted JSON. Masked values appear as the backend returns them.
-- Export is P1 and uses the same download helper.
+- Default window: the last 7 days. Filters: date range (`RangePicker`), user, entity, entity id, action, actor type, and search (username, employee number, entity id).
+- Table: time, user (or `SYSTEM`), role, action, entity, entity id. Server-side pagination; page sizes include 100.
+- Action codes render through a frontend label map, falling back to the raw code for unknown actions.
+- Expandable row shows before, after, metadata, IP, and request id as read-only formatted JSON. Masked values appear as the backend returns them.
+- Export uses the same filters and the same download helper. Opening the page does not write an audit entry; exporting does.
 
 ### 10.9 Daily notes (ADMIN, HEAD_DEPARTMENT, SUPERVISOR)
 

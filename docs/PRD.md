@@ -1,6 +1,7 @@
 # PRD: Employee Performance Appraisal System
 
-**Status:** Draft v0.9
+**Status:** Draft v0.10
+**Changes from v0.9:** The audit trail (5.6) is readable by ADMIN only; HR no longer has read access. Reading the trail is not itself audited, while exporting it is. Audit coverage explicitly includes login, logout, failed login, and every export. List pagination uses one shared page-size limit: default 10, maximum 100.
 **Changes from v0.8:** Appraisal ratings are edited on a per-employee detail page for HEAD_DEPARTMENT and ADMIN, not inline in the appraisal table. The daily note sum is calculated over the employee's qualifying contract period (contract start to contract end), is informational, and is visible only to ADMIN and HEAD_DEPARTMENT. A renewed contract starts a new note window. When an appraisal is COMPLETE, authorized roles can download the result as `.xlsx` (employee rows × criteria columns, total score, comment).
 **Changes from v0.7:** ADMIN has full access to every action in the system, including all appraisal workflow actions (create, edit employee list, rate, import ratings, every transition, send back, delete, and reopen) and daily activity notes.
 **Changes from v0.6:** Criteria sets are now scoped per department with `DRAFT`, `ACTIVE`, and `ARCHIVED` statuses (one active set per department, plus an optional global set used as fallback). HR selects the criteria set when creating an appraisal; Supervisor and Head Department select it when recording a daily note. Active criteria may be edited only by ADMIN and only for code, name, description, scale, score descriptions, and form fields; weights and the criterion list are locked.
@@ -215,7 +216,7 @@ Rules:
 - Audit records are retained for **12 months**. Records older than 12 months are removed only by an administrator working directly in the database, using a documented purge procedure (e.g. dropping monthly partitions or a reviewed script).
 - The application's database user has insert and select permission only on the audit table (no update or delete).
 - Each purge is recorded outside the audit table (date, operator, cutoff date, number of records removed).
-- HR and Admin can search and filter by user, entity, action, and date range, and export the result (P1).
+- Admin can search and filter by user, entity, action, and date range, and export the result. Exporting the trail is audited; reading it is not.
 
 ### 5.7 Excel Import and Export (P0 unless noted)
 
@@ -277,7 +278,7 @@ C = create, R = read, U = update, D = delete (soft), A = perform status transiti
 | Import assessment ratings | X | - | X (own dept) | - | - | - |
 | Export appraisal result | X | X | X (own dept) | X (scope) | X | - |
 | Import / export employees and contracts | X | X | - | - | - | - |
-| Audit trail | R | R | - | - | - | - |
+| Audit trail | R | - | - | - | - | - |
 | Daily activity notes (create / edit / delete) | CRUD | - | CRUD (own dept) | - | - | CRUD (own subordinates) |
 | View individual daily notes | R | - | R (own dept) | - | - | R (own subordinates) |
 | Daily note sum on appraisal | R | - | R (own dept) | - | - | - |
@@ -340,7 +341,7 @@ Acceptance criteria:
 2. **Appraisal creation:** either the scheduler creates DRAFT appraisals on day 1 of each month for all departments, or HR chooses a department and date manually. HR reviews the employee list and changes DRAFT to PENDING.
 3. **Assessment:** Head Department fills the table (or downloads the template, fills it in Excel, and imports it back) and submits.
 4. **Approval:** Manager approves or sends back with a comment → General Manager completes or sends back with a comment.
-5. **Reporting:** HR exports appraisal results; HR or Admin reviews the audit trail when needed.
+5. **Reporting:** HR exports appraisal results; Admin reviews the audit trail when needed.
 6. **Daily activity:** Supervisor or Head Department records a note for each employee every day using the form generated from the selected criteria set; the values accumulate and appear as the daily note sum on the department's appraisal.
 
 ## 8. Dependencies, Assumptions, and Risks
