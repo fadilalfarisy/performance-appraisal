@@ -11,11 +11,11 @@ export class QueryDto implements PaginationQuery {
   @Type(() => Number)
   page: number = 1;
 
-  @ApiPropertyOptional({ example: 10 })
+  @ApiPropertyOptional({ example: 10, maximum: 100 })
   @IsOptional()
   @IsInt()
   @Min(1)
-  @Max(50)
+  @Max(100)
   @Type(() => Number)
   limit: number = 10;
 
