@@ -8,6 +8,10 @@ import { hasAccess, roles } from "@/constants/role-access";
 import type { AuditLogResponse } from "@appraisal/types";
 import { formatDateTime, toISOString } from "@/utils/dateUtils";
 import { useGetAuditLogsQuery } from "../auditApi";
+import {
+  AuditTrailSearch,
+  type AuditTrailFilters,
+} from "../components/AuditTrailSearch";
 
 const PAGE_SIZE_OPTIONS = ["10", "20", "50", "100"];
 
@@ -16,6 +20,7 @@ export const AuditTrail = () => {
   const canRead = hasAccess(roles.administrator, auth.role);
 
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10 });
+  const [filters, setFilters] = useState<AuditTrailFilters>({});
 
   const defaultWindow = useMemo(() => {
     const to = dayjs().endOf("day");
@@ -30,11 +35,17 @@ export const AuditTrail = () => {
   const queryParams = useMemo(
     () => ({
       ...defaultWindow,
+      ...filters,
       page: pagination.current,
       limit: pagination.pageSize,
     }),
-    [defaultWindow, pagination.current, pagination.pageSize],
+    [defaultWindow, filters, pagination.current, pagination.pageSize],
   );
+
+  const handleSearch = (values: AuditTrailFilters) => {
+    setFilters(values);
+    setPagination((current) => ({ ...current, current: 1 }));
+  };
 
   const { data, isError, isFetching } = useGetAuditLogsQuery(queryParams, {
     skip: !canRead,
@@ -102,6 +113,7 @@ export const AuditTrail = () => {
         title="Audit Trail"
         description="Recent activity across the system. The last 7 days are shown by default."
       />
+      <AuditTrailSearch onSearch={handleSearch} />
       <Table<AuditLogResponse>
         dataSource={rows}
         rowKey="id"

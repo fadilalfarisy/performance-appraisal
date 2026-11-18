@@ -1,11 +1,16 @@
 import type { PaginationQuery } from './common';
 
+export type AuditActorType = 'USER' | 'SYSTEM';
+
 export interface AuditLogQuery extends PaginationQuery {
   occurredFrom?: string;
   occurredTo?: string;
+  userId?: string;
+  entity?: string;
+  entityId?: string;
+  action?: string;
+  actorType?: AuditActorType;
 }
-
-export type AuditActorType = 'USER' | 'SYSTEM';
 
 export interface AuditLogResponse {
   id: number;
