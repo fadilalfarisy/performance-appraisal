@@ -20,7 +20,11 @@ import type { Response } from 'express';
 import { UserRole } from '@appraisal/types';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ApiResponse } from '../common/utils/response.util';
-import { ContractsService } from './contracts.service';
+import {
+  CONTRACTS_EXPORT_FILENAME,
+  CONTRACTS_TEMPLATE_FILENAME,
+  ContractsService,
+} from './contracts.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
 import { ContractQueryDto } from './dto/contract-query.dto';
@@ -53,7 +57,10 @@ export class ContractsController {
   ): Promise<void> {
     const buffer = await this.contractsService.exportContracts(query);
     res.setHeader('Content-Type', XLSX_MIME);
-    res.setHeader('Content-Disposition', 'attachment; filename="contracts.xlsx"');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${CONTRACTS_EXPORT_FILENAME}"`,
+    );
     res.send(buffer);
   }
 
@@ -65,7 +72,7 @@ export class ContractsController {
     res.setHeader('Content-Type', XLSX_MIME);
     res.setHeader(
       'Content-Disposition',
-      'attachment; filename="contracts-template.xlsx"',
+      `attachment; filename="${CONTRACTS_TEMPLATE_FILENAME}"`,
     );
     res.send(buffer);
   }

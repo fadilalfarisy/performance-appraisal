@@ -7,9 +7,13 @@ describe('ContractsService overlap guard', () => {
   let repository: {
     findById: jest.Mock;
     findOverlapping: jest.Mock;
+    findAllWithCount: jest.Mock;
+    findForExport: jest.Mock;
     createAndSave: jest.Mock;
     updateAndSave: jest.Mock;
   };
+  let audit: { record: jest.Mock };
+  let excel: { buildExport: jest.Mock; buildTemplate: jest.Mock };
 
   const existing = {
     id: 'contract-old',
@@ -30,6 +34,8 @@ describe('ContractsService overlap guard', () => {
     repository = {
       findById: jest.fn().mockResolvedValue(existing),
       findOverlapping: jest.fn().mockResolvedValue(null),
+      findAllWithCount: jest.fn().mockResolvedValue([[], 0]),
+      findForExport: jest.fn().mockResolvedValue([]),
       createAndSave: jest.fn().mockResolvedValue({
         ...dto,
         id: 'contract-new',
@@ -44,7 +50,11 @@ describe('ContractsService overlap guard', () => {
         callback({}),
       ),
     };
-    const audit = { record: jest.fn() };
+    audit = { record: jest.fn() };
+    excel = {
+      buildExport: jest.fn().mockResolvedValue(Buffer.from('xlsx')),
+      buildTemplate: jest.fn().mockResolvedValue(Buffer.from('xlsx')),
+    };
     const requestContext = {
       getUser: jest.fn(() => null),
       getIp: jest.fn(() => null),
@@ -58,7 +68,7 @@ describe('ContractsService overlap guard', () => {
       requestContext as never,
       {} as never,
       {} as never,
-      {} as never,
+      excel as never,
     );
   });
 
@@ -99,5 +109,47 @@ describe('ContractsService overlap guard', () => {
       'contract-old',
       {},
     );
+  });
+
+  it('audits the contract export with filters and row count', async () => {
+    repository.findForExport.mockResolvedValue([{}, {}, {}]);
+
+    await service.exportContracts({
+      employeeId: 'emp-1',
+      page: 1,
+      limit: 10,
+    } as never);
+
+    expect(audit.record).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        action: 'CONTRACTS_EXPORTED',
+        entity: 'contract',
+        metadata: {
+          file: 'contracts.xlsx',
+          filters: { employeeId: 'emp-1' },
+          rows: 3,
+        },
+      }),
+    );
+  });
+
+  it('audits the contracts template download', async () => {
+    await service.buildTemplate();
+
+    expect(audit.record).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        action: 'CONTRACTS_TEMPLATE_EXPORTED',
+        metadata: { file: 'contracts-template.xlsx' },
+      }),
+    );
+  });
+
+  it('does not audit when the contract export fails', async () => {
+    excel.buildExport.mockRejectedValueOnce(new Error('boom'));
+
+    await expect(service.exportContracts({} as never)).rejects.toThrow('boom');
+    expect(audit.record).not.toHaveBeenCalled();
   });
 });

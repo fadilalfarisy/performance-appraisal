@@ -18,7 +18,11 @@ import type { Response } from 'express';
 import { UserRole } from '@appraisal/types';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ApiResponse } from '../common/utils/response.util';
-import { EmployeesService } from './employees.service';
+import {
+  EMPLOYEES_EXPORT_FILENAME,
+  EMPLOYEES_TEMPLATE_FILENAME,
+  EmployeesService,
+} from './employees.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { QueryEmployeeDto } from './dto/query-employee.dto';
@@ -47,7 +51,10 @@ export class EmployeesController {
   async export(@Res() res: Response): Promise<void> {
     const buffer = await this.employeesService.exportEmployees();
     res.setHeader('Content-Type', XLSX_MIME);
-    res.setHeader('Content-Disposition', 'attachment; filename="employees.xlsx"');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${EMPLOYEES_EXPORT_FILENAME}"`,
+    );
     res.send(buffer);
   }
 
@@ -59,7 +66,7 @@ export class EmployeesController {
     res.setHeader('Content-Type', XLSX_MIME);
     res.setHeader(
       'Content-Disposition',
-      'attachment; filename="employees-template.xlsx"',
+      `attachment; filename="${EMPLOYEES_TEMPLATE_FILENAME}"`,
     );
     res.send(buffer);
   }

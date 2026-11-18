@@ -17,6 +17,7 @@ describe('AppraisalsService employee detail and contract window', () => {
   let criteriaService: { findOne: jest.Mock };
   let scopeService: { assertDepartmentAccess: jest.Mock };
   let excel: { buildResult: jest.Mock };
+  let audit: { record: jest.Mock };
 
   const criterion = {
     id: 'crit-1',
@@ -109,7 +110,7 @@ describe('AppraisalsService employee detail and contract window', () => {
     const dbService = {
       transaction: jest.fn(async (callback: (tx: unknown) => unknown) => callback({})),
     };
-    const audit = { record: jest.fn() };
+    audit = { record: jest.fn() };
     const requestContext = {
       getUser: jest.fn(() => null),
       getIp: jest.fn(() => null),
@@ -204,6 +205,30 @@ describe('AppraisalsService employee detail and contract window', () => {
 
     await expect(service.exportResult('appr-1')).rejects.toThrow('only be exported when COMPLETE');
     expect(excel.buildResult).not.toHaveBeenCalled();
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('audits the COMPLETE result export', async () => {
+    repository.findAppraisal.mockResolvedValue({
+      ...appraisal,
+      status: AppraisalStatus.COMPLETE,
+    });
+
+    await service.exportResult('appr-1');
+
+    expect(audit.record).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        action: 'APPRAISAL_RESULT_EXPORTED',
+        entity: 'appraisal',
+        entityId: 'appr-1',
+        metadata: {
+          file: 'appraisal-result.xlsx',
+          appraisalId: 'appr-1',
+          period: '2026-01-01',
+        },
+      }),
+    );
   });
 
   it('builds the result export when the appraisal is COMPLETE', async () => {

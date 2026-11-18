@@ -17,7 +17,10 @@ import type { Response } from 'express';
 import { UserRole, type AppraisalEmployeeDetailResponse } from '@appraisal/types';
 import { Roles } from '../common/decorators/roles.decorator';
 import { ApiResponse } from '../common/utils/response.util';
-import { AppraisalsService } from './appraisals.service';
+import {
+  APPRAISAL_RESULT_FILENAME,
+  AppraisalsService,
+} from './appraisals.service';
 import { PreviewAppraisalDto } from './dto/preview-appraisal.dto';
 import { CreateAppraisalDto } from './dto/create-appraisal.dto';
 import { UpdateAppraisalEmployeesDto } from './dto/update-appraisal-employees.dto';
@@ -88,7 +91,7 @@ export class AppraisalsController {
     res.setHeader('Content-Type', XLSX_MIME);
     res.setHeader(
       'Content-Disposition',
-      'attachment; filename="appraisal-result.xlsx"',
+      `attachment; filename="${APPRAISAL_RESULT_FILENAME}"`,
     );
     res.send(buffer);
   }

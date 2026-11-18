@@ -22,6 +22,9 @@ import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { QueryEmployeeDto } from './dto/query-employee.dto';
 import { EmployeePayload } from './interfaces/employee.interface';
 
+export const EMPLOYEES_EXPORT_FILENAME = 'employees.xlsx';
+export const EMPLOYEES_TEMPLATE_FILENAME = 'employees-template.xlsx';
+
 const SORT_COLUMNS: Record<string, string> = {
   employeeNumber: 'e.employee_number',
   fullName: 'e.full_name',
@@ -241,11 +244,35 @@ export class EmployeesService {
 
   async exportEmployees(): Promise<Buffer> {
     const rows = await this.employeesRepository.findForExport();
-    return this.excel.buildExport(rows);
+    const buffer = await this.excel.buildExport(rows);
+    await this.recordExport('EMPLOYEES_EXPORTED', {
+      file: EMPLOYEES_EXPORT_FILENAME,
+      filters: {},
+      rows: rows.length,
+    });
+    return buffer;
   }
 
   async buildTemplate(): Promise<Buffer> {
-    return this.excel.buildTemplate();
+    const buffer = await this.excel.buildTemplate();
+    await this.recordExport('EMPLOYEES_TEMPLATE_EXPORTED', {
+      file: EMPLOYEES_TEMPLATE_FILENAME,
+    });
+    return buffer;
+  }
+
+  private async recordExport(
+    action: string,
+    metadata: Record<string, unknown> = {},
+  ): Promise<void> {
+    await this.dbService.transaction((tx) =>
+      this.audit.record(tx, {
+        action,
+        entity: 'employee',
+        metadata,
+        ...auditActor(this.requestContext),
+      }),
+    );
   }
 
   async importEmployees(

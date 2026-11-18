@@ -9,9 +9,11 @@ describe('EmployeesService', () => {
     findOneWithRelations: jest.Mock;
     findAllWithRelationAndQuery: jest.Mock;
     countEmployees: jest.Mock;
+    findForExport: jest.Mock;
   };
   let contractsRepository: { createAndSave: jest.Mock };
   let audit: { record: jest.Mock };
+  let excel: { buildExport: jest.Mock; buildTemplate: jest.Mock };
 
   const employeeRow = {
     id: 'emp-1',
@@ -45,9 +47,14 @@ describe('EmployeesService', () => {
       findOneWithRelations: jest.fn(),
       findAllWithRelationAndQuery: jest.fn().mockResolvedValue([]),
       countEmployees: jest.fn().mockResolvedValue(0),
+      findForExport: jest.fn().mockResolvedValue([]),
     };
     contractsRepository = { createAndSave: jest.fn() };
     audit = { record: jest.fn() };
+    excel = {
+      buildExport: jest.fn().mockResolvedValue(Buffer.from('xlsx')),
+      buildTemplate: jest.fn().mockResolvedValue(Buffer.from('xlsx')),
+    };
     const dbService = {
       transaction: jest.fn(async (cb: (tx: unknown) => unknown) => cb({})),
     };
@@ -83,7 +90,7 @@ describe('EmployeesService', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
+      excel as never,
     );
   });
 
@@ -170,6 +177,40 @@ describe('EmployeesService', () => {
     expect(audit.record).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ action: 'EMPLOYEE_CREATED' }),
+    );
+  });
+
+  it('audits the employee export with the row count', async () => {
+    employeesRepository.findForExport.mockResolvedValue([{}, {}]);
+
+    await service.exportEmployees();
+
+    expect(audit.record).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        action: 'EMPLOYEES_EXPORTED',
+        entity: 'employee',
+        metadata: { file: 'employees.xlsx', filters: {}, rows: 2 },
+      }),
+    );
+  });
+
+  it('does not audit when the employee export fails', async () => {
+    excel.buildExport.mockRejectedValueOnce(new Error('boom'));
+
+    await expect(service.exportEmployees()).rejects.toThrow('boom');
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('audits template downloads without file content', async () => {
+    await service.buildTemplate();
+
+    expect(audit.record).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        action: 'EMPLOYEES_TEMPLATE_EXPORTED',
+        metadata: { file: 'employees-template.xlsx' },
+      }),
     );
   });
 });

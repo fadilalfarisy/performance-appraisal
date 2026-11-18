@@ -21,6 +21,9 @@ import { ContractQueryDto } from './dto/contract-query.dto';
 import { ContractPayload } from './interfaces/contract.interface';
 import type { ImportResult } from '@appraisal/types';
 
+export const CONTRACTS_EXPORT_FILENAME = 'contracts.xlsx';
+export const CONTRACTS_TEMPLATE_FILENAME = 'contracts-template.xlsx';
+
 @Injectable()
 export class ContractsService {
   constructor(
@@ -126,11 +129,48 @@ export class ContractsService {
 
   async exportContracts(query: ContractQueryDto): Promise<Buffer> {
     const rows = await this.contractsRepository.findForExport(query);
-    return this.excel.buildExport(rows);
+    const buffer = await this.excel.buildExport(rows);
+    await this.recordExport('CONTRACTS_EXPORTED', {
+      file: CONTRACTS_EXPORT_FILENAME,
+      filters: this.exportFilters(query),
+      rows: rows.length,
+    });
+    return buffer;
   }
 
   async buildTemplate(): Promise<Buffer> {
-    return this.excel.buildTemplate();
+    const buffer = await this.excel.buildTemplate();
+    await this.recordExport('CONTRACTS_TEMPLATE_EXPORTED', {
+      file: CONTRACTS_TEMPLATE_FILENAME,
+    });
+    return buffer;
+  }
+
+  private async recordExport(
+    action: string,
+    metadata: Record<string, unknown> = {},
+  ): Promise<void> {
+    await this.dbService.transaction((tx) =>
+      this.audit.record(tx, {
+        action,
+        entity: 'contract',
+        metadata,
+        ...auditActor(this.requestContext),
+      }),
+    );
+  }
+
+  private exportFilters(query: ContractQueryDto): Record<string, unknown> {
+    const filters: Record<string, unknown> = {};
+
+    for (const [key, value] of Object.entries(query)) {
+      if (key === 'page' || key === 'limit' || key === 'orderBy') continue;
+      if (value !== undefined && value !== null && value !== '') {
+        filters[key] = value;
+      }
+    }
+
+    return filters;
   }
 
   async importContracts(

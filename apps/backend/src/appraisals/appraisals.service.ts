@@ -35,6 +35,8 @@ import { SaveRatingsDto } from './dto/save-ratings.dto';
 import { AppraisalTransitionDto } from './dto/appraisal-transition.dto';
 import { AppraisalQueryDto } from './dto/appraisal-query.dto';
 
+export const APPRAISAL_RESULT_FILENAME = 'appraisal-result.xlsx';
+
 type EligibleEmployee = Awaited<
   ReturnType<AppraisalsRepository['findEligible']>
 >[number];
@@ -251,7 +253,7 @@ export class AppraisalsService {
       this.repository.departmentName(appraisal.departmentId),
     ]);
 
-    return this.excel.buildResult({
+    const buffer = await this.excel.buildResult({
       appraisal: {
         period: appraisal.period,
         status: appraisal.status,
@@ -262,6 +264,22 @@ export class AppraisalsService {
       employees,
       ratings,
     });
+
+    await this.dbService.transaction((tx) =>
+      this.audit.record(tx, {
+        action: 'APPRAISAL_RESULT_EXPORTED',
+        entity: 'appraisal',
+        entityId: id,
+        metadata: {
+          file: APPRAISAL_RESULT_FILENAME,
+          appraisalId: id,
+          period: appraisal.period,
+        },
+        ...auditActor(this.requestContext),
+      }),
+    );
+
+    return buffer;
   }
 
   async history(
