@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { UserRole } from '@appraisal/types';
 import { ApiResponse, ok } from '../common/utils/response.util';
 import { DbService } from '../db/db.service';
 import { AuditService } from '../audit/audit.service';
@@ -82,7 +83,8 @@ export class UsersService {
     id: string,
     dto: UpdateUserDto,
   ): Promise<ApiResponse<UserPayload>> {
-    await this.findOneOrFail(id);
+    const beforeRow = await this.findOneOrFail(id);
+    const beforeDepartments = await this.usersRepository.departmentsByUserId(id);
 
     await this.dbService.transaction(async (tx) => {
       const values: UserUpdate = {};
@@ -96,11 +98,28 @@ export class UsersService {
       if (dto.departmentIds !== undefined) {
         await this.usersRepository.setDepartments(id, dto.departmentIds, tx);
       }
+
+      const before = this.auditState(
+        beforeRow,
+        beforeDepartments.map((department) => department.id),
+      );
+      const after = {
+        ...before,
+        ...(dto.role !== undefined ? { role: dto.role } : {}),
+        ...(dto.employeeId !== undefined
+          ? { employeeId: dto.employeeId ?? null }
+          : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+        ...(dto.departmentIds !== undefined
+          ? { departmentIds: [...dto.departmentIds].sort() }
+          : {}),
+      };
+
       await this.audit.record(tx, {
         action: 'USER_UPDATED',
         entity: 'user',
         entityId: id,
-        after: values,
+        ...this.changedFields(before, after),
         ...auditActor(this.requestContext),
       });
     });
@@ -146,7 +165,8 @@ export class UsersService {
   }
 
   async remove(id: string): Promise<void> {
-    await this.findOneOrFail(id);
+    const row = await this.findOneOrFail(id);
+    const departments = await this.usersRepository.departmentsByUserId(id);
 
     await this.dbService.transaction(async (tx) => {
       await this.usersRepository.softDelete(id, tx);
@@ -154,12 +174,51 @@ export class UsersService {
         action: 'USER_DELETED',
         entity: 'user',
         entityId: id,
+        before: this.auditState(
+          row,
+          departments.map((department) => department.id),
+        ),
         ...auditActor(this.requestContext),
       });
     });
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
+
+  private auditState(
+    row: {
+      username: string;
+      role: string;
+      isActive: boolean;
+      employee: { id: string | null } | null;
+    },
+    departmentIds: string[],
+  ) {
+    return {
+      username: row.username,
+      role: row.role as UserRole,
+      employeeId: row.employee?.id ?? null,
+      isActive: row.isActive,
+      departmentIds: [...departmentIds].sort(),
+    };
+  }
+
+  private changedFields(
+    before: Record<string, unknown>,
+    after: Record<string, unknown>,
+  ) {
+    const changedBefore: Record<string, unknown> = {};
+    const changedAfter: Record<string, unknown> = {};
+
+    for (const key of Object.keys(after)) {
+      if (JSON.stringify(before[key]) !== JSON.stringify(after[key])) {
+        changedBefore[key] = before[key];
+        changedAfter[key] = after[key];
+      }
+    }
+
+    return { before: changedBefore, after: changedAfter };
+  }
 
   private async findOneOrFail(id: string) {
     const row = await this.usersRepository.findById(id);

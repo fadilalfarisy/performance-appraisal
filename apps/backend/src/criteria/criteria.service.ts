@@ -335,7 +335,33 @@ export class CriteriaService {
     validateFields(fields);
 
     await this.dbService.transaction(async (tx) => {
+      const found = await this.criteriaRepository.findActiveSet(
+        set.departmentId,
+        tx,
+      );
+      // findActiveSet falls back to the global set; only archive what this
+      // activation actually replaces (same department scope).
+      const previous =
+        found?.departmentId === set.departmentId ? found : null;
+
       await this.criteriaRepository.archiveActive(set.departmentId, tx);
+
+      if (previous) {
+        await this.audit.record(tx, {
+          action: 'CRITERIA_SET_ARCHIVED',
+          entity: 'criteria_set',
+          entityId: previous.id,
+          before: { status: previous.status },
+          after: { status: 'ARCHIVED' },
+          metadata: {
+            replacedBy: id,
+            version: previous.version,
+            departmentId: previous.departmentId,
+          },
+          ...auditActor(this.requestContext),
+        });
+      }
+
       await this.criteriaRepository.activate(
         id,
         this.requestContext.getUser()?.userId ?? null,
