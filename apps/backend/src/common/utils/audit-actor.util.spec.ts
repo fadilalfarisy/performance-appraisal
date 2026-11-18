@@ -21,6 +21,7 @@ const user: AuthenticatedUser = {
   userId: 'user-1',
   username: 'budi',
   employeeId: 'emp-1',
+  employeeNumber: 'E-001',
   roles: ['ADMIN', 'HR'],
 };
 
@@ -34,7 +35,7 @@ describe('auditActor', () => {
       userId: 'user-1',
       username: 'budi',
       role: 'ADMIN',
-      employeeNumber: 'emp-1',
+      employeeNumber: 'E-001',
       ipAddress: '10.0.0.1',
       requestId: 'req-1',
     });

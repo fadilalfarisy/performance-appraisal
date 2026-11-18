@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { DB_CONNECTION } from '../db/db.constants';
-import type { Database } from '../db/db.type';
+import type { Database, DbExecutor } from '../db/db.type';
 import { refreshTokens } from '../db/schema';
 
 export type RefreshTokenInsert = typeof refreshTokens.$inferInsert;
@@ -10,8 +10,11 @@ export type RefreshTokenInsert = typeof refreshTokens.$inferInsert;
 export class AuthRepository {
   constructor(@Inject(DB_CONNECTION) private readonly db: Database) {}
 
-  async create(values: RefreshTokenInsert): Promise<void> {
-    await this.db.insert(refreshTokens).values(values);
+  async create(
+    values: RefreshTokenInsert,
+    executor: DbExecutor = this.db,
+  ): Promise<void> {
+    await executor.insert(refreshTokens).values(values);
   }
 
   async findById(id: string) {
@@ -23,8 +26,8 @@ export class AuthRepository {
     return row ?? null;
   }
 
-  async revoke(id: string): Promise<void> {
-    await this.db
+  async revoke(id: string, executor: DbExecutor = this.db): Promise<void> {
+    await executor
       .update(refreshTokens)
       .set({ revokedAt: new Date() })
       .where(eq(refreshTokens.id, id));

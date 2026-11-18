@@ -22,7 +22,11 @@ export class UsersRepository {
     username: users.username,
     role: users.role,
     isActive: users.isActive,
-    employee: { id: employees.id, fullName: employees.fullName },
+    employee: {
+      id: employees.id,
+      fullName: employees.fullName,
+      employeeNumber: employees.employeeNumber,
+    },
   };
 
   async findAll(executor: DbExecutor = this.db) {
@@ -51,8 +55,10 @@ export class UsersRepository {
         password: users.password,
         role: users.role,
         isActive: users.isActive,
+        employee: { employeeNumber: employees.employeeNumber },
       })
       .from(users)
+      .leftJoin(employees, eq(users.employeeId, employees.id))
       .where(and(eq(users.username, username), notDeleted(users)))
       .limit(1);
     return row ?? null;
@@ -128,8 +134,8 @@ export class UsersRepository {
     return row ?? null;
   }
 
-  async updateLastLogin(id: string) {
-    await this.db
+  async updateLastLogin(id: string, executor: DbExecutor = this.db) {
+    await executor
       .update(users)
       .set({ lastLoginAt: new Date() })
       .where(eq(users.id, id));

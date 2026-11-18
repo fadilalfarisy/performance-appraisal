@@ -214,14 +214,24 @@ return { message: 'Token refreshed', data: { accessToken } };
 ```ts
 try {
   const payload = await this.jwtService.verifyAsync<{ jti?: string }>(refreshToken, { secret: this.refreshSecret, algorithms: ['HS256'] });
-  if (payload.jti) await this.authRepository.revoke(payload.jti);
+  const jti = payload.jti;
+  if (jti) {
+    const stored = await this.authRepository.findById(jti);
+    if (!stored?.revokedAt) {
+      const user = stored ? await this.usersRepository.findById(stored.userId) : null;
+      await this.db.transaction(async (tx) => {
+        if (stored) await this.authRepository.revoke(jti, tx);
+        await this.audit.record(tx, { action: 'AUTH_LOGOUT', entity: 'user', userId: stored?.userId ?? payload.sub ?? null, ... });
+      });
+    }
+  }
 } catch { /* token tidak valid/kedaluwarsa = sudah logout */ }
 return { message: 'Logout successful', data: null };
 ```
 
-- **Fungsinya:** Mencabut refresh token. Bila token tak valid, tetap dianggap sukses (idempotent).
-- **Kenapa:** Logout sebaiknya selalu "berhasil" dari sudut pengguna; token yang tak valid memang tak bisa dipakai.
-- **Analogi:** Mengembalikan kartu akses; walau kartunya sudah rusak, pengguna tetap dianggap sudah keluar.
+- **Fungsinya:** Mencabut refresh token dan menulis `AUTH_LOGOUT` dalam transaksi yang sama. Bila token tak valid atau sudah dicabut, tetap dianggap sukses tanpa menulis entri ganda.
+- **Kenapa:** Logout sebaiknya selalu "berhasil" dari sudut pengguna; token yang tak valid memang tak bisa dipakai. Entri ganda akan mengotori feed.
+- **Analogi:** Mengembalikan kartu akses; walau kartunya sudah rusak, pengguna tetap dianggap sudah keluar, dan buku tamu hanya dicatat sekali.
 
 `issueTokens` (inti):
 
@@ -346,7 +356,7 @@ Skenario: **User login, memakai API, lalu refresh saat token habis.**
 ## 7. Catatan Kualitas Kode
 
 - **`refreshSecret` fallback ke `accessSecret`.** Berfungsi, tapi di produksi keduanya harus berbeda (AGENTS.md: "separate secrets"). Saran: di produksi, wajibkan `JWT_REFRESH_SECRET` (validasi env), atau tolak start bila kosong.
-- **Tidak ada audit log untuk login/logout.** Modul ini tidak memanggil `AuditService`. AGENTS.md menekankan audit untuk perubahan, tetapi peristiwa login biasanya juga penting diaudit. *Perlu konfirmasi* apakah direncanakan.
+- **Audit auth sudah aktif.** `AUTH_LOGIN` dan `AUTH_LOGOUT` ditulis dalam transaksi yang sama dengan perubahan auth; `AUTH_LOGIN_FAILED` bersifat best-effort agar kegagalan audit tidak mengubah respons 401. Tidak ada password/hash/token yang disimpan.
 - **`me` mengembalikan `req.user` langsung.** Karena `req.user` berasal dari `JwtStrategy.validate` (bukan data sensitif), ini aman.
 - **Password `bcrypt` cost 10** konsisten dengan UsersService. Baik.
 

@@ -24,7 +24,7 @@ export function auditActor(
     userId: user?.userId ?? null,
     username: user?.username ?? null,
     role: user?.roles?.[0] ?? null,
-    employeeNumber: user?.employeeId ?? null,
+    employeeNumber: user?.employeeNumber ?? null,
     ipAddress: context.getIp() ?? null,
     requestId: context.getRequestId() ?? null,
   };

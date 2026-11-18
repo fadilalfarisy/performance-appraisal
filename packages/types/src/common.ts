@@ -28,5 +28,6 @@ export interface AuthenticatedUser {
   userId: string;
   username: string;
   employeeId: string | null;
+  employeeNumber: string | null;
   roles: string[];
 }

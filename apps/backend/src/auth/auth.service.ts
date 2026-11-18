@@ -7,6 +7,12 @@ import * as bcrypt from 'bcrypt';
 import { UsersRepository } from '../users/users.repository';
 import { AuthRepository } from './auth.repository';
 import { SignInDto } from './dto/signin.dto';
+import { DbService } from '../db/db.service';
+import type { DbExecutor } from '../db/db.type';
+import { AuditService } from '../audit/audit.service';
+import { RequestContextService } from '../common/context/request-context.service';
+import { auditActor } from '../common/utils/audit-actor.util';
+import type { AuthUser } from './interfaces/auth-user.interface';
 
 export interface RequestMeta {
   ip?: string;
@@ -25,6 +31,9 @@ export class AuthService {
     private readonly authRepository: AuthRepository,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly db: DbService,
+    private readonly audit: AuditService,
+    private readonly requestContext: RequestContextService,
   ) {}
 
   async login(signIn: SignInDto, meta: RequestMeta = {}) {
@@ -33,6 +42,7 @@ export class AuthService {
     );
 
     if (!user || !(await bcrypt.compare(signIn.password, user.password))) {
+      await this.recordFailedLogin(signIn.username, user?.id ?? null);
       throw new UnauthorizedException({
         message: 'Please check your login credentials',
         errorCode: 'AUTH_INVALID_CREDENTIALS',
@@ -40,20 +50,30 @@ export class AuthService {
     }
 
     if (!user.isActive) {
+      await this.recordFailedLogin(user.username, user.id);
       throw new UnauthorizedException({
         message: 'This account is inactive',
         errorCode: 'AUTH_USER_INACTIVE',
       });
     }
 
-    await this.usersRepository.updateLastLogin(user.id);
-
-    const tokens = await this.issueTokens(
-      user.id,
-      user.username,
-      user.role,
-      meta,
-    );
+    const tokens = await this.db.transaction(async (tx) => {
+      await this.usersRepository.updateLastLogin(user.id, tx);
+      const issued = await this.issueTokens(
+        user.id,
+        user.username,
+        user.role,
+        meta,
+        tx,
+      );
+      await this.audit.record(tx, {
+        action: 'AUTH_LOGIN',
+        entity: 'user',
+        entityId: user.id,
+        ...this.actorFor(user),
+      });
+      return issued;
+    });
 
     return {
       message: 'Login successful',
@@ -102,17 +122,76 @@ export class AuthService {
     try {
       const payload = await this.jwtService.verifyAsync<{
         jti?: string;
+        sub?: string;
+        username?: string;
       }>(refreshToken, {
         secret: this.refreshSecret,
         algorithms: ['HS256'],
       });
-      if (payload.jti) {
-        await this.authRepository.revoke(payload.jti);
+
+      const jti = payload.jti;
+      if (jti) {
+        const stored = await this.authRepository.findById(jti);
+
+        // Already revoked means already logged out: do not audit it twice.
+        if (!stored?.revokedAt) {
+          const user = stored
+            ? await this.usersRepository.findById(stored.userId)
+            : null;
+          const userId = stored?.userId ?? payload.sub ?? null;
+
+          await this.db.transaction(async (tx) => {
+            if (stored) {
+              await this.authRepository.revoke(jti, tx);
+            }
+            await this.audit.record(tx, {
+              ...auditActor(this.requestContext),
+              action: 'AUTH_LOGOUT',
+              entity: 'user',
+              entityId: userId,
+              userId,
+              username: user?.username ?? payload.username ?? null,
+              role: user?.role ?? null,
+              employeeNumber: user?.employee?.employeeNumber ?? null,
+            });
+          });
+        }
       }
     } catch {
-      // An invalid or expired token is already effectively logged out.
+      // Logout stays best-effort: it always reports success, as before.
     }
+
     return { message: 'Logout successful', data: null };
+  }
+
+  private async recordFailedLogin(
+    username: string,
+    userId: string | null,
+  ): Promise<void> {
+    try {
+      await this.db.transaction((tx) =>
+        this.audit.record(tx, {
+          ...auditActor(this.requestContext),
+          action: 'AUTH_LOGIN_FAILED',
+          entity: 'user',
+          entityId: userId,
+          userId,
+          username,
+        }),
+      );
+    } catch {
+      // Audit must never change the response of a failed login.
+    }
+  }
+
+  private actorFor(user: AuthUser) {
+    return {
+      ...auditActor(this.requestContext),
+      userId: user.id,
+      username: user.username,
+      role: user.role ?? null,
+      employeeNumber: user.employee?.employeeNumber ?? null,
+    };
   }
 
   private async issueTokens(
@@ -120,6 +199,7 @@ export class AuthService {
     username: string,
     role: string | null,
     meta: RequestMeta,
+    executor: DbExecutor,
   ): Promise<TokenPair> {
     const accessToken = await this.signAccessToken(userId, username, role);
 
@@ -135,14 +215,17 @@ export class AuthService {
 
     const decoded = this.jwtService.decode(refreshToken) as { exp: number };
 
-    await this.authRepository.create({
-      id: jti,
-      userId,
-      tokenHash: this.hash(refreshToken),
-      expiresAt: new Date(decoded.exp * 1000),
-      ip: meta.ip ?? null,
-      userAgent: meta.userAgent ?? null,
-    });
+    await this.authRepository.create(
+      {
+        id: jti,
+        userId,
+        tokenHash: this.hash(refreshToken),
+        expiresAt: new Date(decoded.exp * 1000),
+        ip: meta.ip ?? null,
+        userAgent: meta.userAgent ?? null,
+      },
+      executor,
+    );
 
     return { accessToken, refreshToken };
   }

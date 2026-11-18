@@ -259,7 +259,7 @@ Skenario sistem: **Scheduler appraisal.** `runScheduler` memanggil `audit.record
 ## 7. Catatan Kualitas Kode
 
 - **Read path tersedia untuk ADMIN.** `GET /audit-logs` mengembalikan daftar berpaginasi dengan filter lengkap; `GET /audit-logs/export` mengunduh `.xlsx` dengan filter yang sama. Membaca daftar tidak diaudit; export menulis satu entri `AUDIT_LOG_EXPORTED` berisi filter dan jumlah baris.
-- **Auth belum menulis audit.** `AuthService`/`JwtStrategy` tidak memanggil `AuditService`, padahal PRD 5.6 dan DESIGN-BACKEND 12.1 mewajibkan login, logout, dan login gagal tercatat.
+- **Auth menulis audit.** `AUTH_LOGIN` dan `AUTH_LOGOUT` ditulis dalam transaksi yang sama dengan `users.last_login`/`refresh_tokens`; `AUTH_LOGIN_FAILED` ditulis best-effort agar kegagalan audit tidak mengubah respons 401. Tidak ada password atau token yang disimpan.
 - **`DailyNotesService` menulis audit.** `DAILY_NOTE_CREATED`, `DAILY_NOTE_UPDATED`, dan `DAILY_NOTE_DELETED` ditulis dalam transaksi yang sama dengan perubahannya.
 - **Deny-list berbasis pola nama kunci.** Kunci sensitif yang tak mengandung kata kunci (mis. `pin`, `otp`, `cvv`, `nid`) akan lolos. Saran: perluas `DENY_LIST` sesuai daftar PII proyek.
 - **Tidak ada masalah keamanan kritis pada mekanismenya.** Masking terpusat + tabel append-only + grant DB adalah praktik yang baik.
