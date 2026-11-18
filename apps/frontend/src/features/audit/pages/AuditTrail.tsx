@@ -8,6 +8,8 @@ import { hasAccess, roles } from "@/constants/role-access";
 import type { AuditLogResponse } from "@appraisal/types";
 import { formatDateTime, toISOString } from "@/utils/dateUtils";
 import { useGetAuditLogsQuery } from "../auditApi";
+import { actionLabel } from "../auditActions";
+import { AuditLogDetails } from "../components/AuditLogDetails";
 import {
   AuditTrailSearch,
   type AuditTrailFilters,
@@ -87,7 +89,11 @@ export const AuditTrail = () => {
       dataIndex: "role",
       render: (value: string | null) => value ?? "-",
     },
-    { title: "Action", dataIndex: "action" },
+    {
+      title: "Action",
+      dataIndex: "action",
+      render: (value: string) => actionLabel(value),
+    },
     {
       title: "Entity",
       dataIndex: "entity",
@@ -120,6 +126,9 @@ export const AuditTrail = () => {
         loading={isFetching}
         scroll={{ x: "max-content" }}
         columns={columns}
+        expandable={{
+          expandedRowRender: (record) => <AuditLogDetails record={record} />,
+        }}
         pagination={{
           current: data?.meta?.page ?? pagination.current,
           pageSize: data?.meta?.limit ?? pagination.pageSize,
