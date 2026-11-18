@@ -1,9 +1,20 @@
 import { Injectable } from '@nestjs/common';
+import type {
+  ApiResponse,
+  AuditActorType,
+  AuditLogQuery,
+  AuditLogResponse,
+} from '@appraisal/types';
 import type { DbExecutor } from '../db/db.type';
-import { AuditRepository } from './audit.repository';
+import { paginated } from '../common/utils/response.util';
+import {
+  DEFAULT_LIMIT,
+  DEFAULT_PAGE,
+} from '../common/query/query.dto';
+import { AuditRepository, type AuditLogRow } from './audit.repository';
 import { maskSensitive } from './audit.mask';
 
-export type AuditActorType = 'USER' | 'SYSTEM';
+export type { AuditActorType } from '@appraisal/types';
 
 export interface AuditEntry {
   actorType?: AuditActorType;
@@ -45,5 +56,42 @@ export class AuditService {
       ipAddress: entry.ipAddress ?? null,
       requestId: entry.requestId ?? null,
     });
+  }
+
+  async findAll(
+    query: AuditLogQuery,
+  ): Promise<ApiResponse<AuditLogResponse[]>> {
+    const page = query.page ?? DEFAULT_PAGE;
+    const limit = query.limit ?? DEFAULT_LIMIT;
+    const [rows, total] = await this.repository.findAllWithCount({
+      ...query,
+      page,
+      limit,
+    });
+
+    return paginated(
+      rows.map((row) => this.toResponse(row)),
+      { total, page, limit },
+    );
+  }
+
+  private toResponse(row: AuditLogRow): AuditLogResponse {
+    return {
+      id: row.id,
+      occurredAt: row.occurredAt.toISOString(),
+      actorType: row.actorType as AuditActorType,
+      userId: row.userId,
+      username: row.username,
+      role: row.role,
+      employeeNumber: row.employeeNumber,
+      action: row.action,
+      entity: row.entity,
+      entityId: row.entityId,
+      before: row.beforeData,
+      after: row.afterData,
+      metadata: row.metadata,
+      ipAddress: row.ipAddress,
+      requestId: row.requestId,
+    };
   }
 }

@@ -6,6 +6,7 @@ import {
   BuildFilled,
   FileDoneOutlined,
   FileAddOutlined,
+  AuditOutlined,
 } from "@ant-design/icons";
 import { UserRole } from "@appraisal/types";
 import { ALL_ROLES, roles } from "@/constants/role-access";
@@ -90,6 +91,12 @@ export const menuItem: MenuItem[] = [
         roles: roles.administrator,
       },
     ],
+  },
+  {
+    key: "/dashboard/audit-logs",
+    icon: <AuditOutlined />,
+    label: "Audit Trail",
+    roles: roles.administrator,
   },
 ];
 

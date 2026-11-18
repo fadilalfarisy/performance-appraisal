@@ -41,7 +41,7 @@ export const PERMISSIONS: Record<Permission, UserRole[]> = {
   'appraisal:complete': [UserRole.GENERAL_MANAGER],
   'appraisal:reopen': [UserRole.ADMIN],
   'note:manage': [UserRole.HEAD_DEPARTMENT, UserRole.SUPERVISOR],
-  'audit:read': [UserRole.ADMIN, UserRole.HR],
+  'audit:read': [UserRole.ADMIN],
 };
 
 export function can(

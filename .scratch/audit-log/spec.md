@@ -69,7 +69,7 @@ Semua di `apps/backend/src/audit/`, mengikuti pola modul lain (controller HTTP s
 
 - Route `audit-logs` sebagai child `dashboard` di `src/app/router.tsx`, page lazy-loaded.
 - Menu item "Audit Trail" di `src/constants/dashboard-link.tsx`, `roles: [ADMIN]`, key `/audit-logs`.
-- Tag RTK Query baru `AuditLog` di `src/api/apiSlice.ts`; endpoint di `src/features/audit/auditApi.ts` (query list + export via `downloadFile`).
+- Tag RTK Query baru `AuditLogs` di `src/api/apiSlice.ts`; endpoint di `src/features/audit/auditApi.ts` (query list + export via `downloadFile`).
 - Halaman `src/features/audit/pages/AuditTrail.tsx`, pola sama dengan `Employee.tsx`:
   - Filter component `AuditTrailSearch.tsx`: `DatePicker.RangePicker` (default 7 hari terakhir), `Select` user, `Input` entity, `Select` action, `Select` actor type, `Input.Search`.
   - Kolom: waktu (`formatDateTime`), aktor (`username`, `SYSTEM` bila `userId` null), role, action, entity, entity id.

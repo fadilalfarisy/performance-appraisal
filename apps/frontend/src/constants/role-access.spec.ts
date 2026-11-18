@@ -85,9 +85,13 @@ describe("filteredMenuByRole", () => {
 
   it("shows ADMIN every section", () => {
     const keys = menuKeys(UserRole.ADMIN);
-    expect(keys).toHaveLength(EVERYONE + 3);
+    expect(keys).toHaveLength(EVERYONE + 4);
     expect(keys).toEqual(
-      expect.arrayContaining(["/dashboard/master-data", "/dashboard/user"]),
+      expect.arrayContaining([
+        "/dashboard/master-data",
+        "/dashboard/user",
+        "/dashboard/audit-logs",
+      ]),
     );
     expect(keys).toContain("/dashboard/daily-notes");
   });
@@ -106,12 +110,13 @@ describe("filteredMenuByRole", () => {
     }
   });
 
-  it("hides Master Data and Manage User from the other roles", () => {
+  it("hides Master Data, Manage User, and Audit Trail from the other roles", () => {
     const others = Object.values(UserRole).filter((r) => r !== UserRole.ADMIN);
     for (const userRole of others) {
       const keys = menuKeys(userRole);
       expect(keys).not.toContain("/dashboard/master-data");
       expect(keys).not.toContain("/dashboard/user");
+      expect(keys).not.toContain("/dashboard/audit-logs");
     }
   });
 

@@ -144,7 +144,7 @@ Rules:
 - One `baseApi = createApi({ baseQuery: baseQueryWithReauth, tagTypes: [...], endpoints: () => ({}) })`.
 - Each feature adds endpoints with `baseApi.injectEndpoints`.
 - `fetchBaseQuery` sets `baseUrl = VITE_HOST_API` and adds `Authorization: Bearer <accessToken>` from the store.
-- Tag types: `User`, `Department`, `Position`, `Employee`, `Contract`, `CriteriaSet`, `Appraisal`, `AuditLog`.
+- Tag types: `User`, `Department`, `Position`, `Employee`, `Contract`, `CriteriaSet`, `Appraisal`, `AuditLogs`.
 
 ### 5.2 Re-authentication
 

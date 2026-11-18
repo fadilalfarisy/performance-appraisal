@@ -36,8 +36,10 @@ Analogi: ini seperti **buku catatan notaris** yang mencatat setiap transaksi pen
 | Nama file | Jenis | Peran singkat |
 |-----------|-------|---------------|
 | `audit.module.ts` | Module (`@Global`) | Menyediakan `AuditService` global |
-| `audit.service.ts` | Service | `record()` — menyusun & menyimpan entri audit (dengan masking) |
-| `audit.repository.ts` | Repository | `insert()` ke `audit_logs` (hanya insert) |
+| `audit.controller.ts` | Controller | `GET /audit-logs` (ADMIN) |
+| `dto/audit-log-query.dto.ts` | DTO | Paginasi + filter rentang tanggal |
+| `audit.service.ts` | Service | `record()` — menyusun & menyimpan entri audit (dengan masking); `findAll()` — daftar berpaginasi |
+| `audit.repository.ts` | Repository | `insert()` ke `audit_logs` dan `findAllWithCount()` untuk daftar |
 | `audit.mask.ts` | Pure function | `maskSensitive()` menyamarkan kunci sensitif secara rekursif |
 | `audit.mask.spec.ts` | Test | Uji penyamaran |
 
@@ -226,7 +228,7 @@ Skenario sistem: **Scheduler appraisal.** `runScheduler` memanggil `audit.record
 
 ## 7. Catatan Kualitas Kode
 
-- **Read path belum diimplementasikan.** Saat ini `AuditRepository` hanya punya `insert` dan tidak ada controller baca. Desainnya sudah ditetapkan: `GET /audit-logs` dan `GET /audit-logs/export`, hanya untuk ADMIN (PRD 5.6, DESIGN-BACKEND 14). Membaca daftar tidak diaudit; setiap export audit trail menulis satu entri `AUDIT_LOG_EXPORTED`.
+- **Read path tersedia untuk ADMIN.** `GET /audit-logs` mengembalikan daftar berpaginasi dengan filter rentang tanggal; filter lain dan export menyusul. Membaca daftar tidak diaudit; export nanti menulis satu entri `AUDIT_LOG_EXPORTED`.
 - **Auth belum menulis audit.** `AuthService`/`JwtStrategy` tidak memanggil `AuditService`, padahal PRD 5.6 dan DESIGN-BACKEND 12.1 mewajibkan login, logout, dan login gagal tercatat.
 - **`DailyNotesService` menulis audit.** `DAILY_NOTE_CREATED`, `DAILY_NOTE_UPDATED`, dan `DAILY_NOTE_DELETED` ditulis dalam transaksi yang sama dengan perubahannya.
 - **Deny-list berbasis pola nama kunci.** Kunci sensitif yang tak mengandung kata kunci (mis. `pin`, `otp`, `cvv`, `nid`) akan lolos. Saran: perluas `DENY_LIST` sesuai daftar PII proyek.

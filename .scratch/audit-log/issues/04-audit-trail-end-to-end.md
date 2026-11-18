@@ -7,7 +7,7 @@
 **Status:** ready-for-agent
 
 - [ ] Endpoint daftar audit hanya dapat dipanggil ADMIN; role lain menerima 403.
-- [ ] Tanpa filter, hasil dibatasi 7 hari terakhir dan diurutkan waktu terbaru lalu id terbaru.
+- [ ] UI membuka dengan jendela 7 hari terakhir (API tanpa filter mengembalikan semua, sesuai DESIGN-BACKEND 12.3) dan mengurutkan waktu terbaru lalu id terbaru.
 - [ ] Respons memakai envelope paginasi yang sama dengan endpoint daftar lain (data + meta total/page/limit/totalPages).
 - [ ] Route dan menu "Audit Trail" hanya muncul untuk ADMIN; mengunjungi route tanpa hak mendapat halaman 403.
 - [ ] Kolom tabel: waktu (format tanggal-waktu rumah), aktor (username, atau SYSTEM bila tidak ada user), role, action, entity, entity id.

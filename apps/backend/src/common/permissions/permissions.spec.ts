@@ -20,6 +20,8 @@ describe('permissions matrix', () => {
     [UserRole.ADMIN, 'appraisal:reopen', true],
     [UserRole.SUPERVISOR, 'note:manage', true],
     [UserRole.HR, 'note:manage', false],
+    [UserRole.ADMIN, 'audit:read', true],
+    [UserRole.HR, 'audit:read', false],
     [null, 'employee:manage', false],
   ];
 
