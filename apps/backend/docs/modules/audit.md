@@ -36,10 +36,11 @@ Analogi: ini seperti **buku catatan notaris** yang mencatat setiap transaksi pen
 | Nama file | Jenis | Peran singkat |
 |-----------|-------|---------------|
 | `audit.module.ts` | Module (`@Global`) | Menyediakan `AuditService` global |
-| `audit.controller.ts` | Controller | `GET /audit-logs` (ADMIN) |
-| `dto/audit-log-query.dto.ts` | DTO | Paginasi + filter rentang tanggal |
-| `audit.service.ts` | Service | `record()` — menyusun & menyimpan entri audit (dengan masking); `findAll()` — daftar berpaginasi |
-| `audit.repository.ts` | Repository | `insert()` ke `audit_logs` dan `findAllWithCount()` untuk daftar |
+| `audit.controller.ts` | Controller | `GET /audit-logs` dan `GET /audit-logs/export` (ADMIN) |
+| `dto/audit-log-query.dto.ts` | DTO | Paginasi + filter audit |
+| `audit.service.ts` | Service | `record()` — menyusun & menyimpan entri audit (dengan masking); `findAll()` — daftar berpaginasi; `export()` — file `.xlsx` + entri export |
+| `audit.repository.ts` | Repository | `insert()`, `findAllWithCount()`, dan `findForExport()` |
+| `audit.excel.ts` | Service | Menyusun workbook `Audit Trail` dan menyanitasi sel |
 | `audit.mask.ts` | Pure function | `maskSensitive()` menyamarkan kunci sensitif secara rekursif |
 | `audit.mask.spec.ts` | Test | Uji penyamaran |
 
@@ -68,7 +69,8 @@ Fitur (transaksi tx) → AuditService.record(tx, entry) → mask → AuditReposi
 ```ts
 @Global()
 @Module({
-  providers: [AuditService, AuditRepository],
+  controllers: [AuditController],
+  providers: [AuditService, AuditRepository, AuditExcelService],
   exports: [AuditService],
 })
 export class AuditModule {}
@@ -82,7 +84,7 @@ export class AuditModule {}
 ### `audit.service.ts`
 
 ```ts
-export type AuditActorType = 'USER' | 'SYSTEM';
+export type { AuditActorType } from '@appraisal/types';
 
 export interface AuditEntry {
   actorType?: AuditActorType;
@@ -95,7 +97,12 @@ export interface AuditEntry {
 
 @Injectable()
 export class AuditService {
-  constructor(private readonly repository: AuditRepository) {}
+  constructor(
+    private readonly repository: AuditRepository,
+    private readonly db: DbService,
+    private readonly excel: AuditExcelService,
+    private readonly requestContext: RequestContextService,
+  ) {}
 
   async record(executor: DbExecutor, entry: AuditEntry): Promise<void> {
     await this.repository.insert(executor, {
@@ -114,6 +121,10 @@ export class AuditService {
       requestId: entry.requestId ?? null,
     });
   }
+
+  async findAll(query: AuditLogQuery): Promise<ApiResponse<AuditLogResponse[]>> { /* paginated */ }
+
+  async export(query: AuditLogQuery): Promise<{ buffer: Buffer; filename: string }> { /* file + AUDIT_LOG_EXPORTED */ }
 }
 ```
 
@@ -131,17 +142,36 @@ export class AuditService {
 ```ts
 @Injectable()
 export class AuditRepository {
+  constructor(@Inject(DB_CONNECTION) private readonly db: Database) {}
+
   async insert(executor: DbExecutor, values: AuditLogInsert): Promise<void> {
     await executor.insert(auditLogs).values(values);
   }
+
+  async findAllWithCount(query: AuditLogQuery) { /* filter + page */ }
+
+  async findForExport(query: AuditLogQuery) { /* filter, tanpa page */ }
 }
 ```
 
-- **Fungsinya:** Satu-satunya operasi: `INSERT` ke `audit_logs`.
+- **Fungsinya:** Tiga operasi baca/tulis: `insert`, `findAllWithCount` (daftar berpaginasi), dan `findForExport` (seluruh hasil filter untuk file).
 - **Kenapa dibuat seperti ini:** **Tidak ada** `update`/`delete`. Ini menegakkan sifat append-only di tingkat aplikasi, selaras dengan grant DB (`app_user` hanya `SELECT`+`INSERT`). Sesuai AGENTS.md "audit rows are never updated or deleted by the app".
 - **Dampaknya:** Kalau ada kebutuhan koreksi audit, **tidak bisa** lewat aplikasi (memang disengaja). Menambah method update/delete akan melanggar aturan.
 - **Analogi:** Pena permanen, bukan pensil; tidak ada penghapus di meja notaris.
 - **Istilah baru:** `auditLogs` didefinisikan di `db/audit-logs.schema.ts` (bukan `schema.ts`) karena tabelnya dibuat via migrasi SQL kustom (berpartisi + grant terbatas).
+
+### `audit.excel.ts`
+
+```ts
+const HEADERS = [ /* occurred_at … metadata */ ];
+
+export class AuditExcelService {
+  async buildExport(rows: AuditLogRow[]): Promise<Buffer> { /* workbook .xlsx */ }
+}
+```
+
+- **Fungsinya:** Menyusun workbook `Audit Trail` dari baris audit dan menyanitasi sel yang dimulai `=`, `+`, `-`, atau `@` lewat `sanitizeCell` di `common/utils/excel.util.ts`.
+- **Dampaknya:** Tanpa sanitasi, nilai seperti `=SUM(...)` bisa dieksekusi Excel saat file dibuka.
 
 ### `audit.mask.ts`
 
@@ -228,7 +258,7 @@ Skenario sistem: **Scheduler appraisal.** `runScheduler` memanggil `audit.record
 
 ## 7. Catatan Kualitas Kode
 
-- **Read path tersedia untuk ADMIN.** `GET /audit-logs` mengembalikan daftar berpaginasi dengan filter rentang tanggal; filter lain dan export menyusul. Membaca daftar tidak diaudit; export nanti menulis satu entri `AUDIT_LOG_EXPORTED`.
+- **Read path tersedia untuk ADMIN.** `GET /audit-logs` mengembalikan daftar berpaginasi dengan filter lengkap; `GET /audit-logs/export` mengunduh `.xlsx` dengan filter yang sama. Membaca daftar tidak diaudit; export menulis satu entri `AUDIT_LOG_EXPORTED` berisi filter dan jumlah baris.
 - **Auth belum menulis audit.** `AuthService`/`JwtStrategy` tidak memanggil `AuditService`, padahal PRD 5.6 dan DESIGN-BACKEND 12.1 mewajibkan login, logout, dan login gagal tercatat.
 - **`DailyNotesService` menulis audit.** `DAILY_NOTE_CREATED`, `DAILY_NOTE_UPDATED`, dan `DAILY_NOTE_DELETED` ditulis dalam transaksi yang sama dengan perubahannya.
 - **Deny-list berbasis pola nama kunci.** Kunci sensitif yang tak mengandung kata kunci (mis. `pin`, `otp`, `cvv`, `nid`) akan lolos. Saran: perluas `DENY_LIST` sesuai daftar PII proyek.

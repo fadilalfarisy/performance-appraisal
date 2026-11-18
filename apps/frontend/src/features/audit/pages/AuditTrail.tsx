@@ -1,10 +1,13 @@
 import { useMemo, useState } from "react";
 import type { TableColumnsType, TablePaginationConfig } from "antd";
-import { Result, Table, Tag } from "antd";
+import { Button, Result, Table, Tag } from "antd";
+import { DownloadOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { TitlePage } from "@/components";
 import { useAppSelector } from "@/app/hooks";
 import { hasAccess, roles } from "@/constants/role-access";
+import { downloadFile } from "@/api/downloadFile";
+import { errorHandling } from "@/utils/errorUtils";
 import type { AuditLogResponse } from "@appraisal/types";
 import { formatDateTime, toISOString } from "@/utils/dateUtils";
 import { useGetAuditLogsQuery } from "../auditApi";
@@ -47,6 +50,23 @@ export const AuditTrail = () => {
   const handleSearch = (values: AuditTrailFilters) => {
     setFilters(values);
     setPagination((current) => ({ ...current, current: 1 }));
+  };
+
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      await downloadFile(
+        "/audit-logs/export",
+        { ...defaultWindow, ...filters },
+        "audit-trail.xlsx",
+      );
+    } catch (error) {
+      errorHandling(error);
+    } finally {
+      setExporting(false);
+    }
   };
 
   const { data, isError, isFetching } = useGetAuditLogsQuery(queryParams, {
@@ -118,7 +138,15 @@ export const AuditTrail = () => {
       <TitlePage
         title="Audit Trail"
         description="Recent activity across the system. The last 7 days are shown by default."
-      />
+      >
+        <Button
+          icon={<DownloadOutlined />}
+          loading={exporting}
+          onClick={handleExport}
+        >
+          Export
+        </Button>
+      </TitlePage>
       <AuditTrailSearch onSearch={handleSearch} />
       <Table<AuditLogResponse>
         dataSource={rows}

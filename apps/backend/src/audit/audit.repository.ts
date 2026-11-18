@@ -101,4 +101,15 @@ export class AuditRepository {
 
     return [rows, Number(total?.count ?? 0)] as const;
   }
+
+  async findForExport(query: AuditLogQuery) {
+    const filters = buildAuditFilters(query);
+    const where = filters.length > 0 ? and(...filters) : undefined;
+
+    return this.db
+      .select()
+      .from(auditLogs)
+      .where(where)
+      .orderBy(desc(auditLogs.occurredAt), desc(auditLogs.id));
+  }
 }

@@ -6,12 +6,16 @@ import type {
   AuditLogResponse,
 } from '@appraisal/types';
 import type { DbExecutor } from '../db/db.type';
+import { DbService } from '../db/db.service';
+import { RequestContextService } from '../common/context/request-context.service';
+import { auditActor } from '../common/utils/audit-actor.util';
 import { paginated } from '../common/utils/response.util';
 import {
   DEFAULT_LIMIT,
   DEFAULT_PAGE,
 } from '../common/query/query.dto';
 import { AuditRepository, type AuditLogRow } from './audit.repository';
+import { AuditExcelService } from './audit.excel';
 import { maskSensitive } from './audit.mask';
 
 export type { AuditActorType } from '@appraisal/types';
@@ -32,9 +36,25 @@ export interface AuditEntry {
   requestId?: string | null;
 }
 
+const EXPORT_FILTER_KEYS = [
+  'occurredFrom',
+  'occurredTo',
+  'userId',
+  'entity',
+  'entityId',
+  'action',
+  'actorType',
+  'search',
+] as const;
+
 @Injectable()
 export class AuditService {
-  constructor(private readonly repository: AuditRepository) {}
+  constructor(
+    private readonly repository: AuditRepository,
+    private readonly db: DbService,
+    private readonly excel: AuditExcelService,
+    private readonly requestContext: RequestContextService,
+  ) {}
 
   /**
    * Records an audit entry. Pass the same transaction executor as the change it
@@ -73,6 +93,40 @@ export class AuditService {
       rows.map((row) => this.toResponse(row)),
       { total, page, limit },
     );
+  }
+
+  async export(
+    query: AuditLogQuery,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    const rows = await this.repository.findForExport(query);
+    const buffer = await this.excel.buildExport(rows);
+    const filename = `audit-trail-${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+    await this.db.transaction((tx) =>
+      this.record(tx, {
+        action: 'AUDIT_LOG_EXPORTED',
+        entity: 'audit_log',
+        metadata: {
+          file: filename,
+          filters: this.exportFilters(query),
+          rows: rows.length,
+        },
+        ...auditActor(this.requestContext),
+      }),
+    );
+
+    return { buffer, filename };
+  }
+
+  private exportFilters(query: AuditLogQuery): Record<string, string> {
+    const filters: Record<string, string> = {};
+
+    for (const key of EXPORT_FILTER_KEYS) {
+      const value = query[key];
+      if (value) filters[key] = value;
+    }
+
+    return filters;
   }
 
   private toResponse(row: AuditLogRow): AuditLogResponse {

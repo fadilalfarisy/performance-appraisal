@@ -21,10 +21,29 @@ const row = {
 
 const repository = {
   findAllWithCount: jest.fn(),
+  findForExport: jest.fn(),
+  insert: jest.fn(),
+};
+
+const db = {
+  transaction: jest.fn((callback: (tx: string) => Promise<unknown>) =>
+    callback('tx'),
+  ),
+};
+
+const excel = { buildExport: jest.fn() };
+
+const requestContext = {
+  getUser: jest.fn(() => null),
+  getIp: jest.fn(() => null),
+  getRequestId: jest.fn(() => null),
 };
 
 const service = new AuditService(
   repository as unknown as AuditRepository,
+  db as never,
+  excel as never,
+  requestContext as never,
 );
 
 describe('AuditService.findAll', () => {
@@ -78,5 +97,68 @@ describe('AuditService.findAll', () => {
       limit: 10,
       totalPages: 0,
     });
+  });
+
+  it('does not record an audit entry when reading the list', async () => {
+    repository.findAllWithCount.mockResolvedValue([[row], 1]);
+    const record = jest.spyOn(service, 'record').mockResolvedValue();
+
+    await service.findAll({});
+
+    expect(record).not.toHaveBeenCalled();
+  });
+});
+
+describe('AuditService.export', () => {
+  beforeEach(() => {
+    repository.findForExport.mockReset();
+    excel.buildExport.mockReset();
+    jest.restoreAllMocks();
+  });
+
+  it('builds the file and records one export entry with its filters', async () => {
+    repository.findForExport.mockResolvedValue([row]);
+    excel.buildExport.mockResolvedValue(Buffer.from('xlsx'));
+    const record = jest.spyOn(service, 'record').mockResolvedValue();
+
+    const { buffer, filename } = await service.export({
+      occurredFrom: '2026-11-01',
+      actorType: 'USER',
+      page: 2,
+      limit: 10,
+    });
+
+    expect(buffer.toString()).toBe('xlsx');
+    expect(filename).toMatch(/^audit-trail-\d{4}-\d{2}-\d{2}\.xlsx$/);
+    expect(excel.buildExport).toHaveBeenCalledWith([row]);
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledWith(
+      'tx',
+      expect.objectContaining({
+        action: 'AUDIT_LOG_EXPORTED',
+        entity: 'audit_log',
+        metadata: {
+          file: filename,
+          filters: { occurredFrom: '2026-11-01', actorType: 'USER' },
+          rows: 1,
+        },
+      }),
+    );
+  });
+
+  it('still records the export when the result is empty', async () => {
+    repository.findForExport.mockResolvedValue([]);
+    excel.buildExport.mockResolvedValue(Buffer.from('xlsx'));
+    const record = jest.spyOn(service, 'record').mockResolvedValue();
+
+    await service.export({});
+
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledWith(
+      'tx',
+      expect.objectContaining({
+        metadata: { file: expect.any(String), filters: {}, rows: 0 },
+      }),
+    );
   });
 });
