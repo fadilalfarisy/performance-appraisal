@@ -422,7 +422,7 @@ flowchart LR
 Setiap fitur CRUD tersusun dari enam bagian yang sama:
 
 1. `features/X/index.ts` — barrel yang dipakai `router.tsx` untuk lazy import.
-2. `features/X/xApi.ts` — satu `apiSlice.injectEndpoints` dengan tag dari daftar tetap (`Criteria`, `Employees`, `Contracts`, `Users`, `Departments`, `Positions`, `Appraisals`, `DailyNotes`). Konvensinya: `getX` (query, `providesTags`), `getXById` (argumen `string | undefined`), `createX` / `updateX` (`{ id, body }`) / `deleteX` (argumen `string`), semuanya `invalidatesTags`.
+2. `features/X/xApi.ts` — satu `apiSlice.injectEndpoints` dengan tag dari daftar tetap (`Criteria`, `Employees`, `Contracts`, `Users`, `Departments`, `Positions`, `Appraisals`, `DailyNotes`, `AuditLogs`). Konvensinya: `getX` (query, `providesTags`), `getXById` (argumen `string | undefined`), `createX` / `updateX` (`{ id, body }`) / `deleteX` (argumen `string`), semuanya `invalidatesTags`.
 3. `pages/X.tsx` — `TitlePage` + tombol aksi ber-gate + `Table` + kolom Action berisi `ActionTable`.
 4. `pages/CreateX.tsx` — pembungkus tipis: `TitlePage` + `<XForm createForm formFunction={useCreateXMutation} />`.
 5. `pages/UpdateX.tsx` — `useGetXByIdQuery` lalu `<XForm createForm={false} formFunction={useUpdateXMutation} initialValues={...} />`.
@@ -472,7 +472,6 @@ Bagian ini menyebut apa yang ada, bukan menghakimi. Tidak ada yang diperbaiki ol
 | Appraisal detail punya komponen `Steps` lima tahap | Belum ada; hanya `Tag` status |
 | Appraisal detail punya aksi "Edit employee list" | Belum dirender; daftar employee hanya bisa diubah lewat flow create/update di backend |
 | Create appraisal punya filter + select-all khusus di tabel employee | Belum ada; tabel hanya `rowSelection` biasa (semua terpilih default) |
-| Route `/audit-logs` dan layar Audit Trail (ADMIN) | Belum ada; route, menu, tag `AuditLog`, dan `features/audit` belum dibuat |
 
 Bagian yang **sudah** sesuai: RTK Query sebagai satu-satunya jalur data server, access token hanya di memori, dan token refresh single-flight. Rancangan menyebut refresh token di `sessionStorage`, sedangkan kode sudah memakai cookie HttpOnly (opsi upgrade yang disebut rancangan), jadi baris itu tidak lagi berlaku dan `tokenStorage.ts` tidak ada.
 

@@ -77,6 +77,11 @@ const Template = lazy(() =>
     default: module.Template,
   })),
 );
+const AuditTrail = lazy(() =>
+  import("@/features/audit").then((module) => ({
+    default: module.AuditTrail,
+  })),
+);
 
 const ErrorPage = lazy(() =>
   import("@/features/errors/GeneralError").then((module) => ({
@@ -295,6 +300,10 @@ export default createBrowserRouter(
             {
               path: "templates",
               element: suspenseWrapper(<Template />),
+            },
+            {
+              path: "audit-logs",
+              element: suspenseWrapper(<AuditTrail />),
             },
           ],
         },

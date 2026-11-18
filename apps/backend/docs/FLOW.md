@@ -169,7 +169,7 @@ Urutan `resolve`:
 - `AuditService.record(executor, entry)` menulis ke `audit_logs`; sebaiknya memakai executor transaksi yang sama dengan perubahan.
 - `maskSensitive` recursive memasking key yang cocok `password`, `token`, `secret`, `authorization`, `cookie`.
 - Tabel audit append-only; aplikasi hanya insert (grant DB juga membatasi).
-- Endpoint baca belum ada di kode. Desainnya ditetapkan: `GET /audit-logs` dan `GET /audit-logs/export`, hanya ADMIN (PRD 5.6, DESIGN-BACKEND 14).
+- `GET /audit-logs` (ADMIN) membaca `audit_logs`: filter rentang tanggal, urut `occurred_at` lalu `id` terbaru, berpaginasi. Export belum ada.
 
 ### 3.7 Transaksi, soft delete, dan repository
 
@@ -200,7 +200,7 @@ Urutan `resolve`:
 ### 4.2 `AuditModule`
 
 - `AuditService` + `AuditRepository`, global.
-- Dipakai hampir semua service tulis; `auth` belum memakainya (desain mewajibkan login, logout, dan login gagal diaudit).
+- Dipakai hampir semua service tulis; `auth` memakainya untuk login, logout, dan login gagal.
 - `audit_logs` dibuat oleh custom migration dan dipartisi berdasarkan `occurred_at`; migration hanya membuat partition default.
 
 ### 4.3 `ImportService`
@@ -250,7 +250,7 @@ Pipeline bersama untuk Employees dan Contracts:
 - **Refresh:** baca cookie → verify JWT refresh (`typ=refresh`, ada `jti`) → cari `refresh_tokens` by jti → tolak bila tidak ada/dicabut/kedaluwarsa/hash berbeda → terbitkan **hanya access token baru** (cookie tetap).
 - **Logout:** baca cookie, clear cookie, revoke `jti` bila valid.
 - **Me:** mengembalikan `req.user` yang diisi `JwtStrategy`.
-- **Catatan:** login/refresh/logout belum membuat audit entry; PRD 5.6 mewajibkan login, logout, dan login gagal diaudit.
+- **Catatan:** login menulis `AUTH_LOGIN`, logout `AUTH_LOGOUT`, dan login gagal `AUTH_LOGIN_FAILED` (best-effort). Login/logout berjalan dalam transaksi yang sama dengan perubahan datanya.
 
 ### 5.2 `users`
 
@@ -360,7 +360,7 @@ ADMIN selalu lolos pengecekan role transisi lewat `findTransition`.
 
 ### 5.11 `audit`
 
-- Hanya `AuditService`/`AuditRepository`; controller baca belum ada. Desain: `GET /audit-logs` dan `GET /audit-logs/export`, hanya ADMIN (PRD 5.6).
+- `AuditController` menyediakan `GET /audit-logs` (ADMIN) dan `GET /audit-logs/export`; `AuditRepository` punya `insert`, `findAllWithCount`, dan `findForExport`. Filter: rentang tanggal, user, entity, entity id, action, actor type, dan search.
 - `audit_logs` append-only, dipartisi, dan dimasking.
 - Dipanggil di dalam transaksi perubahan.
 
@@ -466,12 +466,12 @@ Modul yang menyimpang dari pola: Contracts punya overlap guard + import/export, 
 Bagian ini menyebut apa yang ada, bukan menghakimi.
 
 1. **`can()` belum dipakai.** Matriks permission di `common/permissions/permissions.ts` hanya dipakai spec; produksi memakai `@Roles`/`RolesGuard`.
-2. **Endpoint baca audit belum diimplementasikan.** `audit_logs` hanya ditulis; desainnya sudah ditetapkan (ADMIN) dan masuk backlog implementasi.
+2. **Export audit dibangun di memori.** `exceljs` menulis seluruh hasil ke buffer, belum streaming; volume besar bisa menekan memori.
 3. **Beberapa endpoint baca tidak memakai scope.** Contracts, Departments, Positions, dan Criteria dapat dibaca semua user login; berbeda dari Employees/Appraisals/Dashboard.
 4. **Export employees tidak mengikuti filter.** `GET /employees/export` mengirim semua employee; Contracts export memakai query filter.
 5. **Batas file import berbeda.** Controller Multer memakai 20 MB, service menolak di atas `IMPORT_MAX_FILE_SIZE_MB` (default 5 MB).
 6. **Nested contracts pada create employee tidak pre-check overlap.** Jalur ini mengandalkan exclusion constraint DB; jalur Contracts punya pre-check.
-7. **Auth belum diaudit.** Login/refresh/logout belum memanggil `AuditService`; PRD 5.6 mewajibkan login, logout, dan login gagal tercatat.
+7. **Refresh tidak diaudit.** `POST /auth/refresh` tidak menulis audit; hanya login, logout, dan login gagal yang dicatat.
 8. **ResponseInterceptor mengabaikan message controller.** `AuthController` mengembalikan `message`, tetapi interceptor memakai default `"Action completed succesfully"` (typo).
 9. **Decorator tidak terpakai.** `CurrentUser`, `ResponseMessage`, dan `ApiSuccess` tidak dipakai di kode produksi.
 10. **`@UseGuards` di DepartmentsController dikomentari.** Guard global tetap berjalan, tetapi komentar itu menyesatkan.
@@ -490,13 +490,10 @@ Bagian ini menyebut apa yang ada, bukan menghakimi.
 
 | Rancangan | Kondisi kode |
 |---|---|
-| `GET /audit-logs` | Belum ada controller baca audit |
 | `POST /auth/login` | Kode memakai `POST /auth/signin` |
 | `GET /appraisals/:id/assessment-template` dan `POST /:id/assessment-import` | Belum ada; hanya export result |
 | Export employees mengikuti filter | Export employees mengirim semua baris |
 | Semua endpoint baca memakai scope | Contracts/Departments/Positions/Criteria tidak memakai `ScopeService` |
-| Setiap export diaudit | Export employees/contracts/appraisal tidak menulis audit |
-| Auth (login/logout) masuk audit | AuthService tidak memanggil AuditService |
 | Matriks permission dipakai kode | `can()` belum dipanggil produksi |
 | Partition audit bulanan otomatis | Migration hanya membuat partition default |
 | Batas import satu nilai | Multer 20 MB vs service 5 MB |
