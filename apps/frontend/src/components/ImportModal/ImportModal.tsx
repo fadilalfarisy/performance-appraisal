@@ -3,6 +3,7 @@ import { Modal, Button, Alert, Upload, App } from "antd";
 import { InboxOutlined } from "@ant-design/icons";
 import type { UploadFile } from "antd";
 import { store } from "@/app/store";
+import { invalidateAuditLogs } from "@/api/apiSlice";
 import { errorHandling } from "@/utils/errorUtils";
 import type { ImportFirstError, ImportResult } from "@appraisal/types";
 
@@ -61,6 +62,8 @@ export const ImportModal = ({
       message.success(
         `Imported: ${body.data.created} created, ${body.data.updated} updated, ${body.data.skipped} skipped`,
       );
+      // The import bypassed RTK Query, so refresh the audit list explicitly.
+      invalidateAuditLogs(store.dispatch);
       onSuccess?.(body.data as ImportResult);
       reset();
       onClose();

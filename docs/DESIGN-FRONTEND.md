@@ -180,11 +180,13 @@ Global toasts use the Ant Design `App` context (`App.useApp()`), not static `mes
 | Action | Invalidates |
 |---|---|
 | Create, update, deactivate master data | List tag and item tag of that entity |
-| Import (employees, contracts) | The entity's list tag |
+| Import (employees, contracts) | The entity's list tag and `AuditLogs` |
 | Save ratings, assessment import | `Appraisal` item tag |
 | Workflow transition, send back, reopen | `Appraisal` item and list tags (status and history change) |
 | Activate criteria set | `CriteriaSet` list, active set, and appraisal "create" previews |
 | Create, update, delete daily note | `DailyNotes` list tag |
+| Any write (POST/PUT/PATCH/DELETE) | `AuditLogs`, because a write may add an entry. A server-rejected write counts (a failed login writes one); a network error does not. `/auth/refresh` is excluded because it writes no audit. |
+| Any export or template download | `AuditLogs`, because every export is audited |
 
 ## 6. Authentication and session
 

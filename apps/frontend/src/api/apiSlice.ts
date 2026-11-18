@@ -7,6 +7,7 @@ import {
 } from "@reduxjs/toolkit/query/react";
 import type { ApiResponse, RefreshResponse } from "@appraisal/types";
 import { deleteAuth, setAccessToken } from "@/features/auth/authSlice";
+import { shouldInvalidateAuditLogs } from "./requestMethod";
 
 interface AuthStateLike {
   auth?: { accessToken?: string };
@@ -56,9 +57,11 @@ const baseQueryWithReauth: BaseQueryFn<
   unknown,
   FetchBaseQueryError
 > = async (args, api, extraOptions) => {
+  const isRefresh = isRefreshRequest(args);
   let result = await baseQuery(args, api, extraOptions);
+  let authCleared = false;
 
-  if (!isRefreshRequest(args) && result.error && result.error.status === 401) {
+  if (!isRefresh && result.error && result.error.status === 401) {
     refreshPromise =
       refreshPromise ??
       refreshAccessToken(api, extraOptions).finally(() => {
@@ -70,8 +73,18 @@ const baseQueryWithReauth: BaseQueryFn<
     if (accessToken) {
       result = await baseQuery(args, api, extraOptions);
     } else {
+      authCleared = true;
       api.dispatch(deleteAuth());
     }
+  }
+
+  // Any write may add an audit entry, including a failed login. Network errors
+  // cannot have produced one, and refresh writes none.
+  if (
+    !authCleared &&
+    shouldInvalidateAuditLogs(args, result.error?.status)
+  ) {
+    invalidateAuditLogs(api.dispatch);
   }
 
   return result;
@@ -94,3 +107,12 @@ export const apiSlice = createApi({
   ],
   endpoints: () => ({}),
 });
+
+type InvalidateTagsAction = ReturnType<typeof apiSlice.util.invalidateTags>;
+
+/** One place to say "the audit list changed" for RTK and raw-fetch writers. */
+export const invalidateAuditLogs = (
+  dispatch: (action: InvalidateTagsAction) => unknown,
+): void => {
+  dispatch(apiSlice.util.invalidateTags(["AuditLogs"]));
+};

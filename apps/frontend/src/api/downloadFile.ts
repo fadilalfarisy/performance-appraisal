@@ -1,4 +1,5 @@
 import { store } from "@/app/store";
+import { invalidateAuditLogs } from "./apiSlice";
 
 const baseUrl = import.meta.env.VITE_HOST_API;
 
@@ -38,4 +39,7 @@ export async function downloadFile(
   link.click();
   link.remove();
   URL.revokeObjectURL(objectUrl);
+
+  // Every export/template download writes an audit entry.
+  invalidateAuditLogs(store.dispatch);
 }
