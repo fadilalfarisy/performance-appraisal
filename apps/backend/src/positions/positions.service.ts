@@ -5,7 +5,8 @@ import {
 } from '@nestjs/common';
 import { ApiResponse, ok } from '../common/utils/response.util';
 import { DbService } from '../db/db.service';
-import { AuditService, type AuditEntry } from '../audit/audit.service';
+import { AuditService } from '../audit/audit.service';
+import { auditActor } from '../common/utils/audit-actor.util';
 import { RequestContextService } from '../common/context/request-context.service';
 import { PositionsRepository, type PositionRow } from './positions.repository';
 import { CreatePositionDto } from './dto/create-position.dto';
@@ -42,7 +43,7 @@ export class PositionsService {
         entity: 'position',
         entityId: row.id,
         after: this.toPayload(row),
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
       return row;
     });
@@ -66,7 +67,7 @@ export class PositionsService {
         entityId: id,
         before: this.toPayload(existing),
         after: this.toPayload(row),
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
       return row;
     });
@@ -89,7 +90,7 @@ export class PositionsService {
         entity: 'position',
         entityId: id,
         before: this.toPayload(existing),
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
     });
   }
@@ -102,20 +103,6 @@ export class PositionsService {
       throw new NotFoundException(`Position with ID ${id} not found`);
     }
     return position;
-  }
-
-  private actor(): Pick<
-    AuditEntry,
-    'userId' | 'username' | 'role' | 'ipAddress' | 'requestId'
-  > {
-    const user = this.requestContext.getUser();
-    return {
-      userId: user?.userId ?? null,
-      username: user?.username ?? null,
-      role: user?.roles?.[0] ?? null,
-      ipAddress: this.requestContext.getIp() ?? null,
-      requestId: this.requestContext.getRequestId() ?? null,
-    };
   }
 
   private toPayload(position: PositionRow): PositionPayload {

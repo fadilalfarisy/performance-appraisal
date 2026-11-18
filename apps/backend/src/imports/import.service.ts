@@ -4,6 +4,7 @@ import * as ExcelJS from 'exceljs';
 import type { ImportResult } from '@appraisal/types';
 import { DbService } from '../db/db.service';
 import { AuditService } from '../audit/audit.service';
+import { auditActor } from '../common/utils/audit-actor.util';
 import { RequestContextService } from '../common/context/request-context.service';
 import { importError, type ImportRow, type ImportStrategy, type UploadedFileLike } from './import.types';
 
@@ -100,7 +101,7 @@ export class ImportService {
         action: `${entity.toUpperCase()}_IMPORTED`,
         entity,
         metadata: { file: file.originalname, ...result },
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
       return result;
     });
@@ -134,16 +135,5 @@ export class ImportService {
         HttpStatus.BAD_REQUEST,
       );
     }
-  }
-
-  private actor() {
-    const user = this.requestContext.getUser();
-    return {
-      userId: user?.userId ?? null,
-      username: user?.username ?? null,
-      role: user?.roles?.[0] ?? null,
-      ipAddress: this.requestContext.getIp() ?? null,
-      requestId: this.requestContext.getRequestId() ?? null,
-    };
   }
 }

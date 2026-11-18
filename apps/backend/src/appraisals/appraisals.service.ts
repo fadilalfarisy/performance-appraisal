@@ -16,7 +16,8 @@ import { BusinessLogicException } from '../common/exceptions/custom.exceptions';
 import { addMonths, currentPeriod, periodEnd, periodStart } from '../common/utils/period.util';
 import { DbService } from '../db/db.service';
 import type { DbExecutor } from '../db/db.type';
-import { AuditService, type AuditEntry } from '../audit/audit.service';
+import { AuditService } from '../audit/audit.service';
+import { auditActor } from '../common/utils/audit-actor.util';
 import { RequestContextService } from '../common/context/request-context.service';
 import { ScopeService } from '../common/scope/scope.service';
 import { CriteriaService } from '../criteria/criteria.service';
@@ -126,7 +127,7 @@ export class AppraisalsService {
         entity: 'appraisal',
         entityId: appraisal.id,
         after: { departmentId: dto.departmentId, period: start, employees: chosen.length },
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
       return appraisal;
     });
@@ -323,7 +324,7 @@ export class AppraisalsService {
           added: dto.addEmployeeIds?.length ?? 0,
           removed: dto.removeEmployeeIds?.length ?? 0,
         },
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
     });
 
@@ -396,7 +397,7 @@ export class AppraisalsService {
         entity: 'appraisal',
         entityId: id,
         metadata: { ratings: dto.ratings.length },
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
     });
 
@@ -464,7 +465,7 @@ export class AppraisalsService {
         entityId: id,
         before: { status: appraisal.status },
         after: { status: dto.to },
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
     });
 
@@ -485,7 +486,7 @@ export class AppraisalsService {
         action: 'APPRAISAL_DELETED',
         entity: 'appraisal',
         entityId: appraisal.id,
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
     });
   }
@@ -796,20 +797,6 @@ export class AppraisalsService {
       createdAt: new Date(appraisal.createdAt).toISOString(),
       criteria,
       employees: mappedEmployees,
-    };
-  }
-
-  private actor(): Pick<
-    AuditEntry,
-    'userId' | 'username' | 'role' | 'ipAddress' | 'requestId'
-  > {
-    const user = this.requestContext.getUser();
-    return {
-      userId: user?.userId ?? null,
-      username: user?.username ?? null,
-      role: user?.roles?.[0] ?? null,
-      ipAddress: this.requestContext.getIp() ?? null,
-      requestId: this.requestContext.getRequestId() ?? null,
     };
   }
 }

@@ -7,7 +7,8 @@ import {
 import { ApiResponse, ok, paginated } from '../common/utils/response.util';
 import { DbService } from '../db/db.service';
 import type { DbExecutor } from '../db/db.type';
-import { AuditService, type AuditEntry } from '../audit/audit.service';
+import { AuditService } from '../audit/audit.service';
+import { auditActor } from '../common/utils/audit-actor.util';
 import { RequestContextService } from '../common/context/request-context.service';
 import { ImportService } from '../imports/import.service';
 import type { UploadedFileLike } from '../imports/import.types';
@@ -67,7 +68,7 @@ export class ContractsService {
         entity: 'contract',
         entityId: row.id,
         after: this.toPayload(row),
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
       return row;
     });
@@ -98,7 +99,7 @@ export class ContractsService {
         entityId: id,
         before: this.toPayload(existing),
         after: this.toPayload(row),
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
       return row;
     });
@@ -116,7 +117,7 @@ export class ContractsService {
         entity: 'contract',
         entityId: id,
         before: this.toPayload(existing),
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
     });
   }
@@ -173,20 +174,6 @@ export class ContractsService {
       throw new NotFoundException(`Contract with ID ${id} not found`);
     }
     return contract;
-  }
-
-  private actor(): Pick<
-    AuditEntry,
-    'userId' | 'username' | 'role' | 'ipAddress' | 'requestId'
-  > {
-    const user = this.requestContext.getUser();
-    return {
-      userId: user?.userId ?? null,
-      username: user?.username ?? null,
-      role: user?.roles?.[0] ?? null,
-      ipAddress: this.requestContext.getIp() ?? null,
-      requestId: this.requestContext.getRequestId() ?? null,
-    };
   }
 
   private toPayload(contract: any): ContractPayload {

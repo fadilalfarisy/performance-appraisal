@@ -187,7 +187,7 @@ it('leaves primitives and null untouched', ...);  // null, 42, 'plain'
 Skenario: **UsersService membuat user baru.**
 
 1. `UsersService.create` memulai `dbService.transaction(async (tx) => { ... })`.
-2. Di dalam transaksi yang sama: insert user → set departemen → `this.audit.record(tx, { action: 'USER_CREATED', entity: 'user', entityId, after: { username, role }, ...this.actor() })`.
+2. Di dalam transaksi yang sama: insert user → set departemen → `this.audit.record(tx, { action: 'USER_CREATED', entity: 'user', entityId, after: { username, role }, ...auditActor(this.requestContext) })`.
 3. `AuditService.record` mengisi default, menyamarkan `after` (bila ada kunci sensitif), lalu `AuditRepository.insert(tx, row)`.
 4. Karena memakai `tx` yang sama, entri audit ikut ter-commit hanya bila seluruh transaksi sukses; bila gagal, semuanya rollback.
 5. Entri tersimpan di `audit_logs` (partisi bulanan). Aplikasi tidak pernah mengubah/menghapusnya.
@@ -212,7 +212,7 @@ Skenario sistem: **Scheduler appraisal.** `runScheduler` memanggil `audit.record
 ## 6. Kesalahan Umum & Tips Pemula
 
 1. **Memanggil `audit.record(this.db, ...)` alih-alih `record(tx, ...)`.** Audit jadi tidak atomik dengan perubahannya.
-2. **Lupa mengoper aktor** (`...this.actor()`) → audit tanpa pelaku/IP.
+2. **Lupa mengoper aktor** (`...auditActor(this.requestContext)`) → audit tanpa pelaku/IP.
 3. **Menambah kunci sensitif baru tanpa memperbarui `DENY_LIST`.** Rahasia bisa tersimpan.
 4. **Mencoba "memperbaiki" entri audit lewat kode.** Tidak ada method-nya (dan DB pun menolak update/delete untuk peran aplikasi).
 5. **Mengandalkan audit untuk data yang tak pernah dipanggil `record`.** Contoh: modul yang tidak memanggil audit tidak tercatat.

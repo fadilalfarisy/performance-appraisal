@@ -6,7 +6,8 @@ import {
 import { sql, type SQL } from 'drizzle-orm';
 import { ApiResponse, ok, paginated } from '../common/utils/response.util';
 import { DbService } from '../db/db.service';
-import { AuditService, type AuditEntry } from '../audit/audit.service';
+import { AuditService } from '../audit/audit.service';
+import { auditActor } from '../common/utils/audit-actor.util';
 import { RequestContextService } from '../common/context/request-context.service';
 import { ScopeService } from '../common/scope/scope.service';
 import { EmployeesRepository } from './employees.repository';
@@ -169,7 +170,7 @@ export class EmployeesService {
             startDate: savedContract.startDate,
             endDate: savedContract.endDate ?? null,
           },
-          ...this.actor(),
+          ...auditActor(this.requestContext),
         });
       }
 
@@ -182,7 +183,7 @@ export class EmployeesService {
         entity: 'employee',
         entityId: employee.id,
         after: full,
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
       return full;
     });
@@ -208,7 +209,7 @@ export class EmployeesService {
         entityId: id,
         before: existing,
         after: full,
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
       return full;
     });
@@ -231,7 +232,7 @@ export class EmployeesService {
         entity: 'employee',
         entityId: id,
         before: existing,
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
     });
   }
@@ -280,20 +281,6 @@ export class EmployeesService {
     }
 
     return employee;
-  }
-
-  private actor(): Pick<
-    AuditEntry,
-    'userId' | 'username' | 'role' | 'ipAddress' | 'requestId'
-  > {
-    const user = this.requestContext.getUser();
-    return {
-      userId: user?.userId ?? null,
-      username: user?.username ?? null,
-      role: user?.roles?.[0] ?? null,
-      ipAddress: this.requestContext.getIp() ?? null,
-      requestId: this.requestContext.getRequestId() ?? null,
-    };
   }
 
   private toResponseEmployee(employee: any): EmployeePayload {

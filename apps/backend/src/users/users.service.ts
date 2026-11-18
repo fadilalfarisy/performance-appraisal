@@ -6,7 +6,8 @@ import {
 import * as bcrypt from 'bcrypt';
 import { ApiResponse, ok } from '../common/utils/response.util';
 import { DbService } from '../db/db.service';
-import { AuditService, type AuditEntry } from '../audit/audit.service';
+import { AuditService } from '../audit/audit.service';
+import { auditActor } from '../common/utils/audit-actor.util';
 import { RequestContextService } from '../common/context/request-context.service';
 import { UsersRepository, type UserUpdate } from './users.repository';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -69,7 +70,7 @@ export class UsersService {
         entity: 'user',
         entityId: user.id,
         after: { username: dto.username, role: dto.role },
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
       return user.id;
     });
@@ -100,7 +101,7 @@ export class UsersService {
         entity: 'user',
         entityId: id,
         after: values,
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
     });
 
@@ -117,7 +118,7 @@ export class UsersService {
         entity: 'user',
         entityId: id,
         after: { isActive },
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
     });
 
@@ -137,7 +138,7 @@ export class UsersService {
         action: 'USER_PASSWORD_RESET',
         entity: 'user',
         entityId: id,
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
     });
 
@@ -153,7 +154,7 @@ export class UsersService {
         action: 'USER_DELETED',
         entity: 'user',
         entityId: id,
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
     });
   }
@@ -166,20 +167,6 @@ export class UsersService {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
     return row;
-  }
-
-  private actor(): Pick<
-    AuditEntry,
-    'userId' | 'username' | 'role' | 'ipAddress' | 'requestId'
-  > {
-    const user = this.requestContext.getUser();
-    return {
-      userId: user?.userId ?? null,
-      username: user?.username ?? null,
-      role: user?.roles?.[0] ?? null,
-      ipAddress: this.requestContext.getIp() ?? null,
-      requestId: this.requestContext.getRequestId() ?? null,
-    };
   }
 
   private toPayload(

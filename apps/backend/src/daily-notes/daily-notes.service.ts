@@ -8,7 +8,8 @@ import { UserRole, type AuthenticatedUser } from '@appraisal/types';
 import { ApiResponse, ok, paginated } from '../common/utils/response.util';
 import { BusinessLogicException } from '../common/exceptions/custom.exceptions';
 import { DbService } from '../db/db.service';
-import { AuditService, type AuditEntry } from '../audit/audit.service';
+import { AuditService } from '../audit/audit.service';
+import { auditActor } from '../common/utils/audit-actor.util';
 import { RequestContextService } from '../common/context/request-context.service';
 import { ScopeService } from '../common/scope/scope.service';
 import { CriteriaService } from '../criteria/criteria.service';
@@ -175,7 +176,7 @@ export class DailyNotesService {
           departmentId: employee.departmentId,
           recordDate,
         },
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
 
       return note;
@@ -212,7 +213,7 @@ export class DailyNotesService {
         entity: 'daily_note',
         entityId: note.id,
         after: { employeeId: note.employeeId, recordDate: note.recordDate },
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
     });
 
@@ -233,7 +234,7 @@ export class DailyNotesService {
         entity: 'daily_note',
         entityId: note.id,
         before: { employeeId: note.employeeId, recordDate: note.recordDate },
-        ...this.actor(),
+        ...auditActor(this.requestContext),
       });
     });
   }
@@ -296,20 +297,6 @@ export class DailyNotesService {
       throw new NotFoundException(`Daily note ${id} not found`);
     }
     return note;
-  }
-
-  private actor(): Pick<
-    AuditEntry,
-    'userId' | 'username' | 'role' | 'ipAddress' | 'requestId'
-  > {
-    const user = this.requestContext.getUser();
-    return {
-      userId: user?.userId ?? null,
-      username: user?.username ?? null,
-      role: user?.roles?.[0] ?? null,
-      ipAddress: this.requestContext.getIp() ?? null,
-      requestId: this.requestContext.getRequestId() ?? null,
-    };
   }
 
   private toResponse(
