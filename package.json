@@ -9,9 +9,7 @@
     "test": "pnpm -r test",
     "dev": "pnpm --parallel --filter frontend --filter backend dev",
     "dev:fe": "pnpm --filter frontend dev",
-    "dev:be": "pnpm --filter backend dev",
-    "db:up": "docker compose up -d postgres",
-    "db:down": "docker compose down"
+    "dev:be": "pnpm --filter backend dev"
   },
   "keywords": [],
   "author": "",

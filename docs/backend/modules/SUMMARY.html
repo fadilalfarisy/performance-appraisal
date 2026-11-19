@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Ringkasan Audit Backend &mdash; Konsolidasi &amp; Rencana Perbaikan</title>
+            <style>
+/* From extension vscode.github */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.vscode-dark img[src$=\#gh-light-mode-only],
+.vscode-light img[src$=\#gh-dark-mode-only],
+.vscode-high-contrast:not(.vscode-high-contrast-light) img[src$=\#gh-light-mode-only],
+.vscode-high-contrast-light img[src$=\#gh-dark-mode-only] {
+	display: none;
+}
+
+</style>
+            
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: 'JetBrains Mono', Consolas, 'Courier New', monospace;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item {
+    list-style-type: none;
+}
+
+.task-list-item-checkbox {
+    margin-left: -20px;
+    vertical-align: middle;
+    pointer-events: none;
+}
+</style>
+<style>
+:root {
+  --color-note: #0969da;
+  --color-tip: #1a7f37;
+  --color-warning: #9a6700;
+  --color-severe: #bc4c00;
+  --color-caution: #d1242f;
+  --color-important: #8250df;
+}
+
+</style>
+<style>
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-note: #2f81f7;
+    --color-tip: #3fb950;
+    --color-warning: #d29922;
+    --color-severe: #db6d28;
+    --color-caution: #f85149;
+    --color-important: #a371f7;
+  }
+}
+
+</style>
+<style>
+.markdown-alert {
+  padding: 0.5rem 1rem;
+  margin-bottom: 16px;
+  color: inherit;
+  border-left: .25em solid #888;
+}
+
+.markdown-alert>:first-child {
+  margin-top: 0
+}
+
+.markdown-alert>:last-child {
+  margin-bottom: 0
+}
+
+.markdown-alert .markdown-alert-title {
+  display: flex;
+  font-weight: 500;
+  align-items: center;
+  line-height: 1
+}
+
+.markdown-alert .markdown-alert-title .octicon {
+  margin-right: 0.5rem;
+  display: inline-block;
+  overflow: visible !important;
+  vertical-align: text-bottom;
+  fill: currentColor;
+}
+
+.markdown-alert.markdown-alert-note {
+  border-left-color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-note .markdown-alert-title {
+  color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-important {
+  border-left-color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-important .markdown-alert-title {
+  color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-warning {
+  border-left-color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-warning .markdown-alert-title {
+  color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-tip {
+  border-left-color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-tip .markdown-alert-title {
+  color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-caution {
+  border-left-color: var(--color-caution);
+}
+
+.markdown-alert.markdown-alert-caution .markdown-alert-title {
+  color: var(--color-caution);
+}
+
+</style>
+        
+        </head>
+        <body class="vscode-body vscode-light">
+            <span id="markdown-mermaid" aria-hidden="true" data-config="{&quot;darkModeTheme&quot;:&quot;vscode&quot;,&quot;lightModeTheme&quot;:&quot;vscode&quot;,&quot;maxTextSize&quot;:50000,&quot;clickDrag&quot;:&quot;alt&quot;,&quot;showControls&quot;:&quot;onHoverOrFocus&quot;,&quot;resizable&quot;:true,&quot;maxHeight&quot;:&quot;&quot;}"></span>
+				<h1 id="ringkasan-audit-backend--konsolidasi--rencana-perbaikan">Ringkasan Audit Backend — Konsolidasi &amp; Rencana Perbaikan</h1>
+<p><strong>Tanggal:</strong> 2026-11-18
+<strong>Cakupan:</strong> 17 module di <code>apps/backend/src</code> (208 butir temuan: 22 High, 112 Medium, 74 Low)
+<strong>Sumber:</strong> <code>docs/backend/modules/&lt;module&gt;.md</code>
+<strong>Acuan:</strong> skill <code>nestjs-best-practices</code></p>
+<p>Dokumen ini <strong>tidak mengulang</strong> setiap temuan. Fokusnya: mengelompokkan temuan yang berakar sama, menyusun urutan perbaikan, dan menandai keputusan yang harus diambil sebelum coding.</p>
+<hr>
+<h2 id="1-temuan-yang-berulang-lintas-module-akar-masalah">1. Temuan yang Berulang Lintas Module (akar masalah)</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Akar masalah</th>
+<th>Muncul di</th>
+<th>Dampak</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A</td>
+<td><strong>Otorisasi/scope tidak konsisten</strong> — sebagian endpoint tidak memakai <code>ScopeService</code>, sebagian memakai <code>roles[0]</code></td>
+<td><code>contracts</code> CTR-01, <code>criteria</code> CRT-03/04, <code>appraisals</code> APR-02/04, <code>daily-notes</code> DN-03, <code>common</code> CMM-01/02, <code>departments</code>/<code>positions</code>/<code>employees</code> (role literal), <code>dashboard</code> DSH-04</td>
+<td>Data lintas departemen dapat dibaca/diubah; user multi-role kehilangan hak</td>
+</tr>
+<tr>
+<td>B</td>
+<td><strong>Sesi tidak dicabut saat akun berubah</strong></td>
+<td><code>users</code> USR-02, <code>auth</code> AUTH-01</td>
+<td>Refresh token penyerang tetap hidup setelah reset password/nonaktif/hapus</td>
+</tr>
+<tr>
+<td>C</td>
+<td><strong>Soft delete punya dua sumber kebenaran + unique index tidak parsial</strong></td>
+<td><code>db</code> DB-03/06, <code>daily-notes</code> DN-01, <code>appraisals</code> APR-03</td>
+<td>Update catatan &amp; re-add peserta gagal; data terhapus bisa bocor</td>
+</tr>
+<tr>
+<td>D</td>
+<td><strong>Secret &amp; default config lemah</strong></td>
+<td><code>config</code> CFG-01/02/05/06/07, <code>auth</code> AUTH-03/04, <code>imports</code> IMP-05</td>
+<td>Pemisahan access/refresh hilang di produksi; impor bisa lumpuh</td>
+</tr>
+<tr>
+<td>E</td>
+<td><strong>API response/envelope tidak konsisten</strong></td>
+<td><code>app</code> APP-04, <code>common</code> CMM-03/04, <code>health</code> HLT-01</td>
+<td>Payload hilang (<code>data: null</code>); dua bentuk error bagi frontend</td>
+</tr>
+<tr>
+<td>F</td>
+<td><strong>Resource limit diperiksa terlambat / batas tak seragam</strong></td>
+<td><code>imports</code> IMP-01, <code>employees</code> EMP-08, <code>contracts</code> CTR-11</td>
+<td>Zip bomb / memori; upload 20 MB ditolak setelah dibaca</td>
+</tr>
+<tr>
+<td>G</td>
+<td><strong>Audit tidak lengkap / merusak data</strong></td>
+<td><code>audit</code> AUD-01/02/04, <code>daily-notes</code> DN-02, <code>appraisals</code> APR-10, <code>criteria</code> CRT-05, <code>users</code> USR-10</td>
+<td>Jejak audit tidak bisa diandalkan untuk investigasi</td>
+</tr>
+<tr>
+<td>H</td>
+<td><strong>Query builder/raw SQL melewati filter soft delete</strong></td>
+<td><code>employees</code> EMP-04, <code>users</code> USR-08, <code>daily-notes</code> DN-07, <code>criteria</code> CRT-09</td>
+<td>Entitas terhapus tetap tampil</td>
+</tr>
+<tr>
+<td>I</td>
+<td><strong>N+1 / query per baris di dalam transaksi</strong></td>
+<td><code>employees</code> EMP-01, <code>contracts</code> CTR-04, <code>appraisals</code> APR-01, seed <code>DB-02</code></td>
+<td>Transaksi panjang, lock, risiko timeout</td>
+</tr>
+<tr>
+<td>J</td>
+<td><strong>Duplikasi util <code>sanitizeCell</code> (4 salinan)</strong></td>
+<td><code>common</code> CMM-07, <code>employees</code> EMP-07, <code>contracts</code> CTR-08, <code>appraisals</code> APR-14</td>
+<td>Hardening harus diubah di 4 tempat; semua mewarisi kelemahan yang sama</td>
+</tr>
+<tr>
+<td>K</td>
+<td><strong>Pagination/urutan/tipe query tidak deterministik atau longgar</strong></td>
+<td><code>departments</code> DEP-05, <code>positions</code> POS-01, <code>appraisals</code> APR-08, <code>query.dto</code> (search tanpa <code>@MaxLength</code>)</td>
+<td>Baris terlewat/berulang; input invalid → 500</td>
+</tr>
+<tr>
+<td>L</td>
+<td><strong>Test gap pada alur kritikal</strong></td>
+<td><code>health</code>, <code>positions</code>, <code>imports</code>, <code>appraisals</code> (transitions/saveRatings/scheduler), <code>users</code>, <code>criteria</code>, <code>dashboard</code></td>
+<td>Regresi keamanan/alur tidak tertangkap</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="2-gelombang-perbaikan-disarankan">2. Gelombang Perbaikan (disarankan)</h2>
+<h3 id="p0--keamanan--integritas-data-kerjakan-lebih-dulu">P0 — Keamanan &amp; integritas data (kerjakan lebih dulu)</h3>
+<table>
+<thead>
+<tr>
+<th>Urutan</th>
+<th>Temuan</th>
+<th>Ringkas</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>contracts</code> CTR-01</td>
+<td>Terapkan scope departemen pada list/detail/export kontrak</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>appraisals</code> APR-02</td>
+<td>Validasi kepemilikan <code>comments</code> + filter <code>appraisal_id</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>users</code> USR-01</td>
+<td>Cegah hapus/nonaktifkan admin terakhir</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>users</code> USR-02 + <code>auth</code> AUTH-01</td>
+<td>Revokasi refresh token saat reset password/nonaktif/hapus; tolak refresh untuk user nonaktif/terhapus</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>common</code> CMM-02 + <code>auth</code> AUTH-04 + variannya</td>
+<td>Satu helper role/scope berbasis <code>includes</code>, bukan <code>roles[0]</code></td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>db</code> DB-06 + <code>daily-notes</code> DN-01 + <code>appraisals</code> APR-03</td>
+<td>Partial unique index <code>WHERE deleted_at IS NULL</code> (atau upsert)</td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>db</code> DB-01/DB-02</td>
+<td>Seed produksi tidak menulis criteria ACTIVE placeholder; seed transaksional</td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>config</code> CFG-01/02</td>
+<td>Wajibkan <code>JWT_REFRESH_SECRET</code> &amp; panjang minimum <code>JWT_SECRET</code></td>
+</tr>
+<tr>
+<td>9</td>
+<td><code>imports</code> IMP-01</td>
+<td>Cek baris selama iterasi + magic bytes/MIME + limit Multer sinkron</td>
+</tr>
+<tr>
+<td>10</td>
+<td><code>audit</code> AUD-01/02</td>
+<td>Perbaiki masking <code>Date</code> dan nilai sensitif</td>
+</tr>
+<tr>
+<td>11</td>
+<td><code>criteria</code> CRT-01</td>
+<td>Kunci <code>scaleMin/scaleMax</code> (dan <code>code</code>) pada set ACTIVE — <strong>konfirmasi</strong></td>
+</tr>
+<tr>
+<td>12</td>
+<td><code>app</code> APP-04 + <code>common</code> CMM-04 + <code>health</code> HLT-01</td>
+<td>Perbaiki envelope response agar payload tidak hilang</td>
+</tr>
+</tbody>
+</table>
+<h3 id="p1--keandalan--correct-behavior">P1 — Keandalan &amp; correct behavior</h3>
+<table>
+<thead>
+<tr>
+<th>Temuan</th>
+<th>Ringkas</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>appraisals</code> APR-01</td>
+<td>Transaksi per departemen / SAVEPOINT pada scheduler</td>
+</tr>
+<tr>
+<td><code>appraisals</code> APR-05/09, <code>daily-notes</code> DN-04, <code>criteria</code> CRT-02</td>
+<td>Hanya set ACTIVE untuk transaksi baru; validasi create draft; konfirmasi eligibility PERMANENT</td>
+</tr>
+<tr>
+<td><code>app</code> APP-02/03/06, <code>health</code> HLT-02/03/04/05</td>
+<td>Shutdown hooks, bootstrap error, trust proxy, 503/timeout, <code>@SkipThrottle</code></td>
+</tr>
+<tr>
+<td><code>config</code> CFG-05/06/07, <code>db</code> DB-05/09</td>
+<td>Env wajib/range, pool config, resolusi folder migrasi</td>
+</tr>
+<tr>
+<td><code>departments</code> DEP-01/02, <code>positions</code> POS-02, <code>employees</code> EMP-02/03</td>
+<td>Aturan hapus lengkap &amp; di dalam transaksi; validasi supervisor/siklus</td>
+</tr>
+<tr>
+<td><code>criteria</code> CRT-06, <code>users</code> USR-04/07</td>
+<td>Petakan <code>23505</code> ke error domain; dedupe input</td>
+</tr>
+<tr>
+<td><code>audit</code> AUD-03/04/06/07, <code>db</code> DB-07</td>
+<td>Partisi bulanan, index action/actor, batasi ekspor</td>
+</tr>
+<tr>
+<td><code>employees</code> EMP-01, <code>contracts</code> CTR-04</td>
+<td>Batch insert/update importer</td>
+</tr>
+<tr>
+<td><code>departments</code> DEP-05, <code>appraisals</code> APR-17</td>
+<td><code>ORDER BY</code> deterministik</td>
+</tr>
+</tbody>
+</table>
+<h3 id="p2--kualitas-konsistensi-kebersihan">P2 — Kualitas, konsistensi, kebersihan</h3>
+<ul>
+<li>Satukan <code>sanitizeCell</code> (hapus 3 salinan) dan perketat regex (<code>CMM-07</code>).</li>
+<li>Hapus kode/kolom mati: <code>DatabaseException</code>, <code>ValidationException</code>, <code>capitalizeString</code>, <code>DepartmentResponseDto</code>, <code>criterion.interface.ts</code>, <code>refresh_tokens.replaced_by</code>, file enum re-export.</li>
+<li>Tambah test: health, positions, imports, transitions/saveRatings/scheduler, scope users/criteria/dashboard.</li>
+<li>Selaraskan <code>QueryDto</code> (limit default, <code>@MaxLength</code>, <code>@ArrayUnique</code>), <code>implements</code> tipe bersama pada DTO query.</li>
+<li>Konsistenkan <code>@HttpCode(204)</code> untuk delete; <code>imports: [DbModule]</code> eksplisit.</li>
+<li>Perbaiki typo <code>succesfully</code> → <code>successfully</code>.</li>
+</ul>
+<hr>
+<h2 id="3-keputusan-yang-perlu-dikonfirmasi-sebelum-coding">3. Keputusan yang Perlu Dikonfirmasi Sebelum Coding</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Pertanyaan</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>config</code> CFG-10</td>
+<td>Apakah <code>TZ</code> memang harus mengatur zona waktu proses?</td>
+</tr>
+<tr>
+<td><code>common</code> CMM-01</td>
+<td>Matriks <code>PERMISSIONS</code> dijadikan sumber utama (<code>@RequirePermission</code>) atau dihapus?</td>
+</tr>
+<tr>
+<td><code>common</code> CMM-03</td>
+<td>Envelope error diseragamkan (breaking untuk frontend)?</td>
+</tr>
+<tr>
+<td><code>config</code> CFG-05</td>
+<td><code>NODE_ENV</code> wajib diisi (tanpa default) atau cukup warning?</td>
+</tr>
+<tr>
+<td><code>db</code> DB-03</td>
+<td>Pertahankan dua kolom soft delete + CHECK, atau migrasi ke <code>deleted_at</code> saja?</td>
+</tr>
+<tr>
+<td><code>db</code> DB-01</td>
+<td>Seed produksi: criteria set <code>DRAFT</code>, skip, atau flag eksplisit?</td>
+</tr>
+<tr>
+<td><code>users</code> USR-05</td>
+<td>Username akun terhapus boleh dipakai ulang?</td>
+</tr>
+<tr>
+<td><code>departments</code> DEP-01</td>
+<td>Departemen dengan riwayat appraisal boleh dihapus?</td>
+</tr>
+<tr>
+<td><code>employees</code> EMP-02</td>
+<td>Karyawan dengan kontrak/appraisal/notes boleh dihapus?</td>
+</tr>
+<tr>
+<td><code>employees</code> EMP-06</td>
+<td>Format tanggal response: kunci <code>YYYY-MM-DD</code>?</td>
+</tr>
+<tr>
+<td><code>contracts</code> CTR-06</td>
+<td>Kontrak PERMANENT ikut filter <code>endDate</code>?</td>
+</tr>
+<tr>
+<td><code>daily-notes</code> DN-04 / <code>appraisals</code> APR-05</td>
+<td>Set <code>ARCHIVED</code> ditolak untuk transaksi baru?</td>
+</tr>
+<tr>
+<td><code>appraisals</code> APR-09</td>
+<td>Karyawan kontrak PERMANENT eligible untuk appraisal?</td>
+</tr>
+<tr>
+<td><code>dashboard</code> DSH-02/03/04</td>
+<td>Periode default, definisi &quot;total karyawan&quot;, dan scope SUPERVISOR?</td>
+</tr>
+<tr>
+<td><code>imports</code> IMP-07</td>
+<td>Perlu mengumpulkan banyak error validasi sekaligus?</td>
+</tr>
+<tr>
+<td><code>criteria</code> CRT-01</td>
+<td>Perubahan <code>scaleMin/scaleMax</code> pada ACTIVE diizinkan?</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="4-saran-alur-eksekusi">4. Saran Alur Eksekusi</h2>
+<ol>
+<li><strong>P0 gelombang 1</strong> — otorisasi &amp; sesi (CTR-01, APR-02, USR-01/02, AUTH-01, scope helper). Ini yang paling berisiko.</li>
+<li><strong>P0 gelombang 2</strong> — data integrity (partial unique index, seed, config secret, audit masking, response envelope).</li>
+<li><strong>P1</strong> — satu tiket per akar masalah (A–L), dengan test baru di tiket yang sama.</li>
+<li><strong>P2</strong> — cleanup, dijadwalkan bersamaan saat menyentuh file terkait.</li>
+<li>Setiap tiket mengikuti alur <code>AGENTS.md</code>: test dulu (TDD) → implement → <code>code-review</code>, dan perbarui dokumen module terkait pada perubahan yang sama.</li>
+<li>Setelah P0/P1 selesai, jalankan <code>/sync-agent-custom</code> bila struktur/aturan berubah dan perbarui <code>docs/backend/modules/README.md</code> (status temuan per module).</li>
+</ol>
+<hr>
+<h2 id="5-catatan-metodologi">5. Catatan Metodologi</h2>
+<ul>
+<li>Hanya kode di <code>apps/backend/src</code> (plus migrasi <code>apps/backend/drizzle</code> dan tipe bersama saat relevan) yang diaudit.</li>
+<li>Temuan bersifat rekomendasi; belum ada perubahan kode yang diterapkan.</li>
+<li>Butir bertanda <strong>Perlu konfirmasi</strong> adalah dugaan berbasis kode/test, bukan bug yang terbukti — verifikasi dengan PRD/pemilik produk.</li>
+<li>Duplikasi temuan antar module sengaja dipertahankan di masing-masing file agar setiap catatan module bisa dibaca mandiri; dokumen ini yang menghapus duplikasinya.</li>
+</ul>
+
+            
+            
+        </body>
+        </html>
